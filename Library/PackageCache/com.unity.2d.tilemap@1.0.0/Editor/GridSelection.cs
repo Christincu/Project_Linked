@@ -9,7 +9,7 @@ namespace UnityEditor.Tilemaps
 {
     /// <summary>Stores the selection made on a GridLayout.</summary>
     [MovedFrom(true, "UnityEditor", "UnityEditor")]
-    [HelpURL("https://docs.unity3d.com/Manual/TilemapPainting-SelectionTool.html#GridSelect")]
+    [HelpURL("TilemapPainting-SelectionTool")]
     [Serializable]
     public class GridSelection : ScriptableObject
     {
@@ -17,8 +17,10 @@ namespace UnityEditor.Tilemaps
 
         /// <summary>Callback for when the active GridSelection has changed.</summary>
         public static event Action gridSelectionChanged;
+
         [SerializeField]
         private BoundsInt m_Position;
+        [SerializeField]
         private GameObject m_Target;
         [SerializeField]
         private Object m_PreviousSelection;
@@ -60,13 +62,17 @@ namespace UnityEditor.Tilemaps
         /// <param name="bounds">The cell coordinates of selection made.</param>
         public static void Select(Object target, BoundsInt bounds)
         {
-            GridSelection newSelection = CreateInstance<GridSelection>();
+            var newSelection = CreateInstance<GridSelection>();
             newSelection.m_PreviousSelection = Selection.activeObject;
             newSelection.m_Target = target as GameObject;
             newSelection.m_Position = bounds;
             newSelection.m_OriginalPalette = null;
+            Undo.RegisterCreatedObjectUndo(newSelection, kUpdateGridSelection);
 
+            var currentGroup = Undo.GetCurrentGroup();
             Selection.activeObject = newSelection;
+            Undo.CollapseUndoOperations(currentGroup);
+
             if (gridSelectionChanged != null)
                 gridSelectionChanged();
         }

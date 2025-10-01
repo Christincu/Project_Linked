@@ -77,7 +77,7 @@ namespace UnityEditor.Tilemaps
 
         private void OnDetachFromPanel(DetachFromPanelEvent evt)
         {
-            GridPaintingState.palettesChanged += UpdateTargets;
+            GridPaintingState.palettesChanged -= UpdateTargets;
             GridPaintingState.paletteChanged -= OnPaletteChanged;
         }
 
@@ -110,6 +110,7 @@ namespace UnityEditor.Tilemaps
             {
                 choices.Add(target);
             }
+            formatSelectedValueCallback = FormatSelectedValueCallback;
         }
 
         private void UpdateActivePalette()
