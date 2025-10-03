@@ -462,8 +462,6 @@ MonoBehaviour:
   roomNameInput: {fileID: 2104042289}
   createRoomButton: {fileID: 2711996084986553380}
   joinRoomButton: {fileID: 2711996084986553379}
-  _playerDataPrefab:
-    RawGuidValue: 64e3310b5994bae4bb0c0b9b305b5df0
 --- !u!1 &1263223295
 GameObject:
   m_ObjectHideFlags: 0
@@ -776,7 +774,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7235463148802514521, guid: 927c00d94f314614199b4348283716c4, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
