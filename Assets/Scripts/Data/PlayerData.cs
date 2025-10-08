@@ -17,6 +17,10 @@ public class PlayerData : NetworkBehaviour
     [Networked]
     public bool IsReady { get; set; }
     
+    // Player's selected character index (0, 1, 2)
+    [Networked]
+    public int CharacterIndex { get; set; }
+    
     // Event when player data is spawned
     public static System.Action<PlayerRef, NetworkRunner> OnPlayerDataSpawned;
     
@@ -37,6 +41,17 @@ public class PlayerData : NetworkBehaviour
     {
         IsReady = ready;
         Debug.Log($"Player ready state: {ready}");
+    }
+    
+    // RPC: Set character index
+    [Rpc(sources: RpcSources.InputAuthority, targets: RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+    public void RPC_SetCharacterIndex(int characterIndex)
+    {
+        CharacterIndex = characterIndex;
+        Debug.Log($"Player character index set: {characterIndex}");
+        
+        // Trigger FusionManager event
+        FusionManager.OnPlayerChangeCharacterEvent?.Invoke(Object.InputAuthority, Runner, characterIndex);
     }
     
     // Called when network object is created
@@ -91,6 +106,10 @@ public class PlayerData : NetworkBehaviour
                     // Trigger event when ready state changes
                     OnPlayerDataSpawned?.Invoke(Object.InputAuthority, Runner);
                     break;
+                case nameof(CharacterIndex):
+                    // Trigger event when character index changes
+                    OnPlayerDataSpawned?.Invoke(Object.InputAuthority, Runner);
+                    break;
             }
         }
     }
@@ -112,6 +131,15 @@ public class PlayerData : NetworkBehaviour
             RPC_SetNick(nickname);
             // Save locally
             PlayerPrefs.SetString("PlayerNick", nickname);
+        }
+    }
+    
+    // Set character index
+    public void SetCharacterIndex(int characterIndex)
+    {
+        if (Object.HasInputAuthority)
+        {
+            RPC_SetCharacterIndex(characterIndex);
         }
     }
 }

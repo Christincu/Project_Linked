@@ -10,14 +10,6 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
     
-    // 게임 상태 정의
-    public enum GameState
-    {
-        Lobby,      // 로비 상태
-        Playing,    // 게임 중
-        Loading     // 로딩 중
-    }
-    
     // 현재 게임 상태
     public GameState State { get; private set; } = GameState.Lobby;
     

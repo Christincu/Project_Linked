@@ -24,6 +24,9 @@ public class TitleCanvas : MonoBehaviour
     [SerializeField] private Button createRoomButton;          // Create room button
     [SerializeField] private Button joinRoomButton;            // Join room button
     
+    [Header("Character Selection UI")]
+    [SerializeField] private TextMeshProUGUI characterNameText;     // Character name text
+    [SerializeField] private TextMeshProUGUI characterDescriptionText;     // Character description text
     
     private string _playerNickname = "Player";
     private string _roomName = "TestRoom";
@@ -96,6 +99,7 @@ public class TitleCanvas : MonoBehaviour
     {
         FusionManager.OnPlayerJoinedEvent += OnPlayerJoined;
         FusionManager.OnPlayerLeftEvent += OnPlayerLeft;
+        FusionManager.OnPlayerChangeCharacterEvent += OnPlayerChangeCharacter;
         FusionManager.OnShutdownEvent += OnShutdown;
         PlayerData.OnPlayerDataSpawned += OnPlayerDataSpawned;
     }
@@ -105,6 +109,7 @@ public class TitleCanvas : MonoBehaviour
     {
         FusionManager.OnPlayerJoinedEvent -= OnPlayerJoined;
         FusionManager.OnPlayerLeftEvent -= OnPlayerLeft;
+        FusionManager.OnPlayerChangeCharacterEvent -= OnPlayerChangeCharacter;
         FusionManager.OnShutdownEvent -= OnShutdown;
         PlayerData.OnPlayerDataSpawned -= OnPlayerDataSpawned;
     }
@@ -187,6 +192,84 @@ public class TitleCanvas : MonoBehaviour
     public void OnExitGameButton()
     {
         GameManager.Instance?.ExitGame();
+    }
+    
+    // ========== Character Selection Functions ==========
+    
+    // Select character 0
+    public void OnSelectCharacter0()
+    {
+        SelectCharacter(0);
+    }
+    
+    // Select character 1
+    public void OnSelectCharacter1()
+    {
+        SelectCharacter(1);
+    }
+    
+    // Select character 2
+    public void OnSelectCharacter2()
+    {
+        SelectCharacter(2);
+    }
+    
+    // Common character selection logic
+    private void SelectCharacter(int characterIndex)
+    {
+        // Get character data from GameDataManager
+        if (GameDataManager.Instance == null)
+        {
+            Debug.LogWarning("GameDataManager instance not found");
+            return;
+        }
+        
+        CharacterData characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
+        if (characterData == null)
+        {
+            Debug.LogWarning($"Character data not found for index: {characterIndex}");
+            return;
+        }
+        
+        // Update UI with character data
+        UpdateCharacterUI(characterData);
+        
+        // Set character index in network if connected
+        if (FusionManager.LocalRunner != null)
+        {
+            var playerData = GameManager.Instance?.GetPlayerData(FusionManager.LocalRunner.LocalPlayer, FusionManager.LocalRunner);
+            if (playerData != null)
+            {
+                playerData.SetCharacterIndex(characterIndex);
+                Debug.Log($"Character '{characterData.characterName}' (index: {characterIndex}) selected");
+            }
+            else
+            {
+                Debug.LogWarning("PlayerData not found for local player");
+            }
+        }
+        else
+        {
+            Debug.Log($"Character '{characterData.characterName}' (index: {characterIndex}) selected (not connected yet)");
+        }
+    }
+    
+    // Update character UI elements
+    private void UpdateCharacterUI(CharacterData characterData)
+    {
+        if (characterData == null) return;
+        
+        // Update character name text
+        if (characterNameText != null)
+        {
+            characterNameText.text = characterData.characterName;
+        }
+        
+        // Update character description text
+        if (characterDescriptionText != null)
+        {
+            characterDescriptionText.text = characterData.description;
+        }
     }
     
     // ========== Network Functions ==========
@@ -308,6 +391,23 @@ public class TitleCanvas : MonoBehaviour
         UpdateLobbyUI();
     }
     
+    private void OnPlayerChangeCharacter(PlayerRef player, NetworkRunner runner, int characterIndex)
+    {
+        // Get character name for better logging
+        string characterName = "Unknown";
+        if (GameDataManager.Instance != null)
+        {
+            var characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
+            if (characterData != null)
+            {
+                characterName = characterData.characterName;
+            }
+        }
+        
+        Debug.Log($"Player {player} changed character to '{characterName}' (index: {characterIndex})");
+        UpdateLobbyUI();
+    }
+    
     private void OnShutdown(NetworkRunner runner)
     {
         Debug.Log("Network session ended");
@@ -340,9 +440,21 @@ public class TitleCanvas : MonoBehaviour
             {
                 var playerData = GameManager.Instance?.GetPlayerData(player, FusionManager.LocalRunner);
                 string nick = playerData?.Nick.ToString() ?? $"Player_{player.AsIndex}";
+                
+                // Get character name
+                string characterName = "No Character";
+                if (playerData != null && GameDataManager.Instance != null)
+                {
+                    var characterData = GameDataManager.Instance.CharacterService.GetCharacter(playerData.CharacterIndex);
+                    if (characterData != null)
+                    {
+                        characterName = characterData.characterName;
+                    }
+                }
+                
                 string isLocal = (player == FusionManager.LocalRunner.LocalPlayer) ? " (You)" : "";
                 string isHost = (player == FusionManager.LocalRunner.LocalPlayer && FusionManager.LocalRunner.IsServer) ? " [Host]" : "";
-                playerList += $"{nick}{isLocal}{isHost}\n";
+                playerList += $"{nick} - {characterName}{isLocal}{isHost}\n";
             }
             playerListText.text = playerList;
             

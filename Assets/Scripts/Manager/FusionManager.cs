@@ -19,6 +19,7 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     // 이벤트들 - C# Action 사용 (간단한 방식)
     public static Action<PlayerRef, NetworkRunner> OnPlayerJoinedEvent;
     public static Action<PlayerRef, NetworkRunner> OnPlayerLeftEvent;
+    public static Action<PlayerRef, NetworkRunner, int> OnPlayerChangeCharacterEvent;
     public static Action<NetworkRunner> OnShutdownEvent;
     public static Action<NetworkRunner> OnDisconnectedEvent;
     
@@ -45,7 +46,7 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     // 네트워크 콜백들 - Photon Fusion이 자동으로 호출해줌
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"플레이어 {player}가 접속했습니다!");
+        Debug.Log($"Player {player} has joined!");
         
         // 로컬 플레이어인 경우 저장
         if (runner.LocalPlayer == player)
@@ -75,19 +76,25 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"플레이어 {player}가 나갔습니다!");
+        Debug.Log($"Player {player} has left!");
         OnPlayerLeftEvent?.Invoke(player, runner);
     }
-    
+
+    public void OnPlayerChangeCharacter(NetworkRunner runner, PlayerRef player, int characterIndex)
+    {
+        Debug.Log($"Player {player} changed character to {characterIndex}!");
+        OnPlayerChangeCharacterEvent?.Invoke(player, runner, characterIndex);
+    }
+
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
-        Debug.Log("네트워크 세션이 종료되었습니다!");
+        Debug.Log("Network session has been shut down!");
         OnShutdownEvent?.Invoke(runner);
     }
     
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
     {
-        Debug.Log("서버와 연결이 끊어졌습니다!");
+        Debug.Log("Disconnected from server!");
         OnDisconnectedEvent?.Invoke(runner);
     }
     
