@@ -60,20 +60,20 @@ public class GameManager : MonoBehaviour
     public void SetGameState(GameState newState)
     {
         State = newState;
-        Debug.Log($"게임 상태 변경: {State}");
+        Debug.Log($"Game state changed: {State}");
     }
     
     // 플레이어 접속 시 호출
     private void OnPlayerJoined(PlayerRef player, NetworkRunner runner)
     {
-        Debug.Log($"GameManager: 플레이어 {player} 접속 처리");
+        Debug.Log($"GameManager: Player {player} joined");
         // 여기서 플레이어 데이터 초기화 등 처리
     }
     
     // 플레이어 나감 시 호출
     private void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
     {
-        Debug.Log($"GameManager: 플레이어 {player} 나감 처리");
+        Debug.Log($"GameManager: Player {player} left");
         // 플레이어 데이터 제거
         if (_playerData.ContainsKey(player))
         {
@@ -84,7 +84,7 @@ public class GameManager : MonoBehaviour
     // 네트워크 종료 시 호출
     private void OnShutdown(NetworkRunner runner)
     {
-        Debug.Log("GameManager: 네트워크 세션 종료");
+        Debug.Log("GameManager: Network session shutdown");
         SetGameState(GameState.Lobby);
         _playerData.Clear();
     }
@@ -92,7 +92,7 @@ public class GameManager : MonoBehaviour
     // 연결 끊김 시 호출
     private void OnDisconnected(NetworkRunner runner)
     {
-        Debug.Log("GameManager: 서버 연결 끊김");
+        Debug.Log("GameManager: Disconnected from server");
         SetGameState(GameState.Lobby);
         _playerData.Clear();
     }
@@ -100,10 +100,28 @@ public class GameManager : MonoBehaviour
     // 플레이어 데이터 가져오기
     public PlayerData GetPlayerData(PlayerRef player, NetworkRunner runner)
     {
+        // First try to get from dictionary
         if (_playerData.ContainsKey(player))
         {
             return _playerData[player];
         }
+        
+        // Fallback: get from NetworkRunner's player object
+        if (runner != null)
+        {
+            NetworkObject playerObject = runner.GetPlayerObject(player);
+            if (playerObject != null)
+            {
+                PlayerData playerData = playerObject.GetComponent<PlayerData>();
+                if (playerData != null)
+                {
+                    // Cache it for next time
+                    _playerData[player] = playerData;
+                    return playerData;
+                }
+            }
+        }
+        
         return null;
     }
     

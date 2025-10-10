@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 using Fusion;
 using System.Threading.Tasks;
+using UnityEngine.SceneManagement;
 
 public class TitleCanvas : MonoBehaviour
 {
@@ -127,6 +128,9 @@ public class TitleCanvas : MonoBehaviour
         titlePanel.SetActive(false);
         lobbyPanel.SetActive(true);
         
+        // Initialize character UI for local player
+        InitializeLocalPlayerCharacterUI();
+        
         // Immediate UI update (show room name before connection)
         UpdateLobbyUI();
     }
@@ -175,9 +179,9 @@ public class TitleCanvas : MonoBehaviour
     {
         if (FusionManager.LocalRunner != null && FusionManager.LocalRunner.IsServer)
         {
-            Debug.Log("Starting game!");
-            // Load game scene here
-            // SceneManager.LoadScene("GameScene");
+            Debug.Log("Starting game! Loading Main scene for all players...");
+            // Use Fusion's network scene loading - all clients will follow automatically
+            FusionManager.LocalRunner.LoadScene("Main");
         }
     }
     
@@ -269,6 +273,24 @@ public class TitleCanvas : MonoBehaviour
         if (characterDescriptionText != null)
         {
             characterDescriptionText.text = characterData.description;
+        }
+    }
+    
+    // Initialize local player's character UI when entering lobby
+    private void InitializeLocalPlayerCharacterUI()
+    {
+        if (FusionManager.LocalRunner != null && GameManager.Instance != null && GameDataManager.Instance != null)
+        {
+            var playerData = GameManager.Instance.GetPlayerData(FusionManager.LocalRunner.LocalPlayer, FusionManager.LocalRunner);
+            if (playerData != null)
+            {
+                var characterData = GameDataManager.Instance.CharacterService.GetCharacter(playerData.CharacterIndex);
+                if (characterData != null)
+                {
+                    UpdateCharacterUI(characterData);
+                    Debug.Log($"Initialized character UI with '{characterData.characterName}'");
+                }
+            }
         }
     }
     
@@ -395,9 +417,10 @@ public class TitleCanvas : MonoBehaviour
     {
         // Get character name for better logging
         string characterName = "Unknown";
+        CharacterData characterData = null;
         if (GameDataManager.Instance != null)
         {
-            var characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
+            characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
             if (characterData != null)
             {
                 characterName = characterData.characterName;
@@ -405,6 +428,13 @@ public class TitleCanvas : MonoBehaviour
         }
         
         Debug.Log($"Player {player} changed character to '{characterName}' (index: {characterIndex})");
+        
+        // Update UI if it's the local player
+        if (runner.LocalPlayer == player && characterData != null)
+        {
+            UpdateCharacterUI(characterData);
+        }
+        
         UpdateLobbyUI();
     }
     
@@ -417,6 +447,21 @@ public class TitleCanvas : MonoBehaviour
     private void OnPlayerDataSpawned(PlayerRef player, NetworkRunner runner)
     {
         Debug.Log($"Player data spawned: {player}");
+        
+        // Update local player's character UI if it's the local player
+        if (runner.LocalPlayer == player)
+        {
+            var playerData = GameManager.Instance?.GetPlayerData(player, runner);
+            if (playerData != null && GameDataManager.Instance != null)
+            {
+                var characterData = GameDataManager.Instance.CharacterService.GetCharacter(playerData.CharacterIndex);
+                if (characterData != null)
+                {
+                    UpdateCharacterUI(characterData);
+                }
+            }
+        }
+        
         UpdateLobbyUI();
     }
     
