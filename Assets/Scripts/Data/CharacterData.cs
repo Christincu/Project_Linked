@@ -15,7 +15,11 @@ public class CharacterData : ScriptableObject
     
     [Tooltip("Character sprite (for game)")]
     public Sprite characterSprite;
-    
+
+    // Ãß°¡ÇÔ
+    [Header("Stats")]
+    public CharacterStatsSO stats;
+
     [Header("Optional Info")]
     [TextArea(3, 5)]
     [Tooltip("Character description")]
