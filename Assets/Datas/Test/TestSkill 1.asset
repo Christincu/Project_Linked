@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4996cb40604743244ba579c7911a11ee, type: 3}
+  m_Name: TestSkill 1
+  m_EditorClassIdentifier: 
+  projectilePrefab: {fileID: 2383163730450465592, guid: 5826cca45ca8c984c850f47e12329804, type: 3}
+  modules:
+  - {fileID: 11400000, guid: 5d53bb5175ce5ba41846aba2e86d682a, type: 2}
+  - {fileID: 11400000, guid: 1c4ff7cd59cdfe44d9f8368fe0dfa8fb, type: 2}
+  - {fileID: 11400000, guid: 7e8aec34e333dd14eaa7b6d9ae229af9, type: 2}
+  - {fileID: 11400000, guid: 659c3a58ee9f2c344a5cc713d30fe4f1, type: 2}
+  projectileTag: Player_Skill
+  projectileLayerName: 
