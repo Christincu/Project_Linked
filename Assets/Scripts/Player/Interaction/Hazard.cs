@@ -3,7 +3,7 @@ using UnityEngine;
 public class Hazard : MonoBehaviour
 {
     public int Damage = 1;
-    public bool DestroyAfterHit = true; // Fireball: true, Spike: false
+    public bool DestroyAfterHit = true; 
 
     void OnTriggerEnter2D(Collider2D other)
     {

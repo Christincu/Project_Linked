@@ -24,15 +24,16 @@ public interface IInteractable
     void Interact(GameObject actor);
 }
 
+// 버튼 입력
 public interface IInputSource
 {
-    Vector2 Move { get; }
-    bool LMBHold { get; }
-    bool RMBHold { get; }
-    bool LMBDown { get; }
-    bool RMBDown { get; }
-    bool LMBUp { get; }
-    bool RMBUp { get; }
-
-    bool InteractPressed { get; }
+    Vector2 Move { get; }         
+    bool LMBHold { get; }        
+    bool RMBHold { get; }         
+    bool LMBDown { get; }         
+    bool RMBDown { get; }         
+    bool LMBUp { get; }           
+    bool RMBUp { get; }            
+    bool InteractPressed { get; } 
 }
+
