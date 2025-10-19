@@ -5,7 +5,7 @@ public class HurtZone2D : MonoBehaviour
 {
     public int damagePerTick = 1;
     public float tickInterval = 0.5f;
-    public string targetTag = "Player";   // ÇÃ·¹ÀÌ¾î¿¡°Ô¸¸
+    public string targetTag = "Player";   // ï¿½Ã·ï¿½ï¿½Ì¾î¿¡ï¿½Ô¸ï¿½
 
     Collider2D _col; float _timer = 0.0f;
 
@@ -22,11 +22,10 @@ public class HurtZone2D : MonoBehaviour
         _timer -= Time.deltaTime;
         if (_timer > 0.0f) return;
 
-        var hp = other.GetComponent<IHealth>();
-        var inv = other.GetComponent<IInvulnerable>();
-        if (hp != null && (inv == null || !inv.IsInvincible))
+        var behaviour = other.GetComponent<PlayerBehaviour>();
+        if (behaviour != null && !behaviour.IsInvincible)
         {
-            hp.Damage(damagePerTick);
+            behaviour.Damage(damagePerTick);
             _timer = tickInterval;
         }
     }

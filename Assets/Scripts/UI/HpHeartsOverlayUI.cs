@@ -4,9 +4,6 @@ using UnityEngine.UI;
 
 public class HpHeartsOverlayUI : MonoBehaviour
 {
-    [Header("Bind")]
-    [SerializeField] private HealthComponent target;
-
     [Header("Rows")]
     [SerializeField] private Transform emptyRow;
     [SerializeField] private Transform fullRow;  
@@ -19,28 +16,28 @@ public class HpHeartsOverlayUI : MonoBehaviour
     [Header("Options")]
     [SerializeField, Range(2, 24)] private int maxVisualClamp = 20;
 
+    private PlayerBehaviour _target;
     private readonly List<Image> _emptyPool = new();
     private readonly List<Image> _fullPool = new();
 
     private void OnEnable()
     {
-        if (target) target.OnHPChanged += Refresh;
+        if (_target) _target.OnHPChanged += Refresh;
     }
 
     private void OnDisable()
     {
-        if (target) target.OnHPChanged -= Refresh;
+        if (_target) _target.OnHPChanged -= Refresh;
     }
 
-    public void Bind(HealthComponent hp)
+    public void Bind(PlayerBehaviour behaviour)
     {
-        if (target) target.OnHPChanged -= Refresh;
-        target = hp;
-        if (target)
+        if (_target) _target.OnHPChanged -= Refresh;
+        _target = behaviour;
+        if (_target)
         {
-            target.OnHPChanged += Refresh;
-
-            Refresh(target.Current, target.Max);
+            _target.OnHPChanged += Refresh;
+            Refresh(_target.CurrentHP, _target.MaxHP);
         }
     }
 

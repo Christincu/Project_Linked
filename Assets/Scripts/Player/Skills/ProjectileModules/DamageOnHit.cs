@@ -33,13 +33,12 @@ public class DamageOnHit : ProjectileModule
             if (targetRule == DamageTargetRule.ExcludeTags && inList) return;
         }
 
-        var hp = other.GetComponent<IHealth>();
-        if (hp != null)
+        var behaviour = other.GetComponent<PlayerBehaviour>();
+        if (behaviour != null)
         {
-            var inv = other.GetComponent<IInvulnerable>();
-            if (inv == null || !inv.IsInvincible)
+            if (!behaviour.IsInvincible)
             {
-                hp.Damage(damage);
+                behaviour.Damage(damage);
                 if (destroyOnHit) Object.Destroy(c.gameObject);
             }
         }
