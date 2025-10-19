@@ -1,445 +1,129 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
-using Fusion;
+using Fusion; 
 
-public enum HoldMode { None, Left, Right, Combined }
-public enum SkillButton { Left, Right }
-
-[RequireComponent(typeof(Rigidbody2D), typeof(PlayerBehaviour))]
 public class PlayerController : MonoBehaviour
 {
-    [Header("Movement")]
-    public float acceleration = 20f;
-    public float maxSpeed = 5f;
-    public float deceleration = 15f;
-    [Range(0.1f, 1.0f)] public float holdMoveSpeedMultiplier = 0.5f;
+    [Header("Movement Settings")]
+    [SerializeField] private float moveSpeed = 5f;
 
-    [Header("Skill")]
-    public SkillSO skillAsset;
+    [Header("References")]
+    // 캐릭터 프리팹 인덱스
+    private int _characterIndex = 0; 
+    // 캐릭터 뷰 오브젝트 (스프라이트/애니메이터 포함)
+    private GameObject _viewObj; 
+    private Animator _animator;
+    private Rigidbody2D _rigidbody;
+    
+    // 현재 입력 방향 (normalized)
+    private Vector2 _inputDirection; 
+    // 정지 시 캐릭터가 바라볼 방향 유지를 위한 변수
+    private Vector2 _lastMoveDirection; 
+    // 실제 이동 여부 판별을 위해 이전 FixedUpdate의 위치를 저장
+    private Vector2 _previousPosition; 
 
-    [Header("Rendering")]
-    public Animator animator;
-    public SpriteRenderer spriteRenderer;
-
-    [Header("Facing")]
-    public bool spriteDefaultFacingLeft = false;
-    public bool flipColliderWithScale = true;
-
-    [Header("Hold Visual")]
-    public GameObject holdVfxPrefab;
-    public Transform holdVfxAnchor;
-
-    [HideInInspector] public Rigidbody2D rb;
-    [HideInInspector] public PolygonCollider2D col;
-
-    private PlayerBehaviour _behaviour;
-    private string _currentState = "Idle";
-    private int _currentAnimHash = 0;
-    private Vector3 _baseScale;
-    private GameObject _holdVfxInstance;
-
-    // Hold/Fire state
-    public bool IsHolding { get; private set; }
-    public HoldMode CurrentHoldMode { get; private set; } = HoldMode.None;
-    private SkillButton _primaryBtn = SkillButton.Left;
-    private SkillButton _secondaryBtn = SkillButton.Right;
-
-    // Input cache
-    private Vector2 _moveInput;
-    private bool _lmbDown, _rmbDown, _lmbUp, _rmbUp;
-    private bool _interactPressed;
-
-    void Awake()
+    private void Start()
     {
-        rb = GetComponent<Rigidbody2D>();
-        rb.gravityScale = 0f;
-        rb.drag = 0f;
-        rb.angularDrag = 0f;
-        
-        col = GetComponent<PolygonCollider2D>();
-        _behaviour = GetComponent<PlayerBehaviour>();
-        if (!spriteRenderer) spriteRenderer = GetComponent<SpriteRenderer>();
-        if (!animator) animator = GetComponent<Animator>();
-        _baseScale = transform.localScale;
-    }
-
-    void OnEnable() => FusionManager.OnPlayerChangeCharacterEvent += OnAnyPlayerChangeCharacter;
-    void OnDisable() => FusionManager.OnPlayerChangeCharacterEvent -= OnAnyPlayerChangeCharacter;
-
-    void Start()
-    {
-        ApplyCharacterFromNetwork();
-    }
-
-    void Update()
-    {
-        CacheInput();
-        UpdateState();
-    }
-
-    void FixedUpdate()
-    {
-        FixedUpdateState();
-    }
-
-    void CacheInput()
-    {
-        // 이동 입력: Unity Input Manager의 Horizontal/Vertical 축 사용
-        // (기본: WASD, 화살표 키)
-        float h = Input.GetAxisRaw("Horizontal");
-        float v = Input.GetAxisRaw("Vertical");
-        _moveInput = new Vector2(h, v);
-        if (_moveInput.sqrMagnitude > 1f) _moveInput.Normalize();
-
-        // 스킬 입력: 마우스 좌/우 버튼
-        _lmbDown = Input.GetMouseButtonDown(0);
-        _rmbDown = Input.GetMouseButtonDown(1);
-        _lmbUp = Input.GetMouseButtonUp(0);
-        _rmbUp = Input.GetMouseButtonUp(1);
-        
-        // 상호작용 입력: F 또는 E 키
-        _interactPressed = Input.GetKeyDown(KeyCode.F) || Input.GetKeyDown(KeyCode.E);
-    }
-
-    void UpdateState()
-    {
-        switch (_currentState)
+        _rigidbody = GetComponent<Rigidbody2D>();
+        if (_rigidbody == null)
         {
-            case "Idle": UpdateIdle(); break;
-            case "Move": UpdateMove(); break;
-            case "Hold": UpdateHold(); break;
-            case "Faint": break; // No update in faint
+            _rigidbody = gameObject.AddComponent<Rigidbody2D>();
+        }
+
+        // Rigidbody 설정: 2D 탑다운 게임 이동에 필수
+        _rigidbody.freezeRotation = true;
+        _rigidbody.gravityScale = 0f;
+
+        // 캐릭터 뷰(외형) 오브젝트 생성 및 Animator 참조
+        GameObject instance = Instantiate(GameDataManager.Instance.CharacterService.GetCharacter(_characterIndex).viewObj, transform);
+        _viewObj = instance.gameObject;
+        _animator = _viewObj.GetComponent<Animator>();
+
+        // 실제 이동 판별 로직을 위한 초기 위치 설정
+        _previousPosition = transform.position; 
+    }
+
+    private void Update()
+    {
+        // 입력 처리 (FixedUpdate에서 물리 연산에 사용)
+        float horizontal = Input.GetAxisRaw("Horizontal");
+        float vertical = Input.GetAxisRaw("Vertical"); 
+        
+        _inputDirection = new Vector2(horizontal, vertical).normalized;
+    }
+
+    private void FixedUpdate()
+    {
+        Move();
+        UpdateAnimation();
+        
+        // FixedUpdate 끝에서 현재 위치를 저장하여 다음 프레임에서 실제 이동 여부(벽 충돌 여부)를 판별
+        _previousPosition = transform.position;
+    }
+
+    private void Move()
+    {
+        // Rigidbody.velocity 직접 설정으로 즉발적인 이동 구현
+        // 충돌해도 velocity 값은 설정한 대로 유지됨
+        _rigidbody.velocity = _inputDirection * moveSpeed;
+        
+        // 이동 입력이 있을 경우, 마지막 이동 방향 업데이트
+        if (_inputDirection.magnitude > 0)
+        {
+            _lastMoveDirection = _inputDirection;
         }
     }
 
-    void FixedUpdateState()
+    private void UpdateAnimation()
     {
-        switch (_currentState)
-        {
-            case "Move": 
-                ApplyMovement(maxSpeed);
-                break;
-            case "Hold": 
-                ApplyMovement(maxSpeed * holdMoveSpeedMultiplier);
-                break;
-            case "Idle":
-                ApplyDeceleration();
-                break;
-            case "Faint":
-                ApplyDeceleration();
-                break;
-        }
-    }
+        if (_animator == null) return;
 
-    // ===== STATES =====
-    void UpdateIdle()
-    {
-        if (_moveInput.sqrMagnitude > 0f) { GotoState("Move"); return; }
-        if (_lmbDown) { OnButtonDown(SkillButton.Left); GotoState("Hold"); return; }
-        if (_rmbDown) { OnButtonDown(SkillButton.Right); GotoState("Hold"); return; }
-        if (_interactPressed) TryInteract();
-    }
-
-    void UpdateMove()
-    {
-        if (_moveInput == Vector2.zero && rb.velocity.sqrMagnitude < 0.1f) 
-        { 
-            GotoState("Idle"); 
-            return; 
-        }
+        //이전 위치와 현재 위치를 비교하여 물리적으로 이동했는지 확인 (벽 충돌 체크)
+        Vector2 currentPosition = transform.position;
+        float distanceMoved = Vector2.Distance(_previousPosition, currentPosition);
         
-        UpdateMoveAnimation();
-        if (_lmbDown) { OnButtonDown(SkillButton.Left); GotoState("Hold"); return; }
-        if (_rmbDown) { OnButtonDown(SkillButton.Right); GotoState("Hold"); return; }
-    }
+        // 임계값(0.001f) 이상 움직였는지 확인하여 실제 움직임 여부 판단
+        bool isActuallyMoving = distanceMoved > 0.001f;
 
-    void UpdateHold()
-    {
-        if (_moveInput == Vector2.zero)
-            PlayAnim("1P_Idle");
-        else
-            UpdateMoveAnimation();
-
-        if (_lmbDown) OnButtonDown(SkillButton.Left);
-        if (_rmbDown) OnButtonDown(SkillButton.Right);
-        if (_lmbUp) { OnButtonUp(SkillButton.Left); return; }
-        if (_rmbUp) { OnButtonUp(SkillButton.Right); return; }
-    }
-
-    void ApplyMovement(float targetMaxSpeed)
-    {
-        if (_moveInput != Vector2.zero)
+        if (!isActuallyMoving)
         {
-            // 가속
-            Vector2 targetVelocity = _moveInput * targetMaxSpeed;
-            Vector2 velocityChange = targetVelocity - rb.velocity;
-            velocityChange = Vector2.ClampMagnitude(velocityChange, acceleration * Time.fixedDeltaTime);
-            rb.velocity += velocityChange;
+            // 입력이 있었더라도 벽에 막혔거나 입력이 없을 경우: idle 애니메이션 재생
+            _animator.Play("idle");
         }
         else
         {
-            ApplyDeceleration();
-        }
-    }
+            // 이동 중: 애니메이션 방향 결정을 위해 Rigidbody.velocity 사용
+            Vector2 actualVelocity = _rigidbody.velocity; 
 
-    void ApplyDeceleration()
-    {
-        if (rb.velocity.sqrMagnitude > 0.01f)
-        {
-            // 감속
-            float decelerationAmount = deceleration * Time.fixedDeltaTime;
-            Vector2 decelerationForce = -rb.velocity.normalized * decelerationAmount;
-            
-            if (decelerationForce.sqrMagnitude >= rb.velocity.sqrMagnitude)
-                rb.velocity = Vector2.zero;
+            // 수직 움직임 우선 판별
+            if (Mathf.Abs(actualVelocity.y) > Mathf.Abs(actualVelocity.x))
+            {
+                // 상/하 애니메이션
+                if (actualVelocity.y > 0)
+                {
+                    _animator.Play("up");
+                }
+                else
+                {
+                    _animator.Play("down");
+                }
+            }
             else
-                rb.velocity += decelerationForce;
-        }
-        else
-        {
-            rb.velocity = Vector2.zero;
-        }
-    }
-
-    void UpdateMoveAnimation()
-    {
-        // 입력 방향 기준으로 애니메이션 (부드러운 가속 중에도 즉각 반응)
-        Vector2 direction = _moveInput.sqrMagnitude > 0.01f ? _moveInput : rb.velocity;
-        
-        if (direction.sqrMagnitude < 0.01f)
-        {
-            PlayAnim("1P_Idle");
-            return;
-        }
-
-        if (Mathf.Abs(direction.x) >= Mathf.Abs(direction.y))
-        {
-            PlayAnim("1P_leftrightMove");
-            SetFacingByX(direction.x);
-        }
-        else
-        {
-            if (direction.y >= 0f) PlayAnim("1P_upMove");
-            else PlayAnim("1P_downMove");
-            if (Mathf.Abs(direction.x) > 0.01f) SetFacingByX(direction.x);
-        }
-    }
-
-    void TryInteract()
-    {
-        var hit = Physics2D.OverlapCircle(transform.position, 0.6f, LayerMask.GetMask("Interactable"));
-        if (!hit) return;
-        var it = hit.GetComponent<IInteractable>();
-        it?.Interact(gameObject);
-        if (it != null)
-        {
-            switch (it.CallState)
             {
-                case InteractState.Click: PlayAnim("Click"); break;
-                case InteractState.Grib: PlayAnim("Grib"); break;
-                case InteractState.Push: PlayAnim("Push"); break;
-            }
-            Invoke(nameof(ReturnToIdle), 0.3f);
-        }
-    }
-
-    void ReturnToIdle() => GotoState("Idle");
-
-    // ===== STATE MACHINE =====
-    public void GotoState(string state)
-    {
-        // Exit
-        switch (_currentState)
-        {
-            case "Hold":
-                HideHoldVfx();
-                IsHolding = false;
-                CurrentHoldMode = HoldMode.None;
-                break;
-            case "Faint":
-                break;
-        }
-
-        _currentState = state;
-
-        // Enter
-        switch (_currentState)
-        {
-            case "Idle": PlayAnim("1P_Idle"); break;
-            case "Move": break;
-            case "Hold": PlayAnim("1P_Idle"); break;
-            case "Fire":
-                PlayAnim("Fire");
-                Invoke(nameof(ReturnToIdle), 0.3f);
-                break;
-            case "Faint":
-                rb.velocity = Vector2.zero;
-                PlayAnim("Faint");
-                HideHoldVfx();
-                break;
-        }
-    }
-
-    // ===== ANIMATION =====
-    public void PlayAnim(string stateName, bool restart = false)
-    {
-        if (!animator || animator.runtimeAnimatorController == null) return;
-
-        int hash = Animator.StringToHash(stateName);
-        var info = animator.GetCurrentAnimatorStateInfo(0);
-
-        if (!restart && (info.shortNameHash == hash || _currentAnimHash == hash))
-            return;
-
-        if (restart)
-            animator.Play(hash, 0, 0.0f);
-        else
-            animator.CrossFade(hash, 0.05f, 0, 0.0f);
-
-        _currentAnimHash = hash;
-        if (animator.speed <= 0f) animator.speed = 1.0f;
-    }
-
-    // ===== SKILL SYSTEM =====
-    public void OnButtonDown(SkillButton btn)
-    {
-        if (skillAsset == null) return;
-
-        if (CurrentHoldMode == HoldMode.None)
-        {
-            ShowHoldVfx();
-            skillAsset.OnHoldBegin(gameObject, btn);
-            IsHolding = true;
-            CurrentHoldMode = (btn == SkillButton.Left) ? HoldMode.Left : HoldMode.Right;
-            _primaryBtn = btn;
-        }
-        else if (CurrentHoldMode == HoldMode.Left && btn == SkillButton.Right)
-        {
-            skillAsset.OnHoldBegin(gameObject, SkillButton.Right);
-            CurrentHoldMode = HoldMode.Combined;
-            _secondaryBtn = SkillButton.Right;
-        }
-        else if (CurrentHoldMode == HoldMode.Right && btn == SkillButton.Left)
-        {
-            skillAsset.OnHoldBegin(gameObject, SkillButton.Left);
-            CurrentHoldMode = HoldMode.Combined;
-            _secondaryBtn = SkillButton.Left;
-        }
-        else if (CurrentHoldMode == HoldMode.Combined)
-        {
-            FireAndReturn();
-        }
-    }
-
-    public void OnButtonUp(SkillButton btn)
-    {
-        if (!IsHolding) return;
-
-        if (CurrentHoldMode == HoldMode.Combined)
-        {
-            FireAndReturn();
-            return;
-        }
-
-        if ((CurrentHoldMode == HoldMode.Left && btn == SkillButton.Left) ||
-            (CurrentHoldMode == HoldMode.Right && btn == SkillButton.Right))
-        {
-            FireAndReturn();
-        }
-    }
-
-    private void FireAndReturn()
-    {
-        skillAsset?.OnFire(gameObject);
-        GameEvents.SkillFired?.Invoke();
-
-        HideHoldVfx();
-        IsHolding = false;
-        CurrentHoldMode = HoldMode.None;
-
-        Invoke(nameof(ReturnToIdle), 0.3f);
-    }
-
-    void ShowHoldVfx()
-    {
-        if (!holdVfxPrefab || _holdVfxInstance) return;
-        var parent = holdVfxAnchor ? holdVfxAnchor : transform;
-        _holdVfxInstance = Instantiate(holdVfxPrefab, parent);
-        _holdVfxInstance.transform.localPosition = Vector3.zero;
-        _holdVfxInstance.transform.localRotation = Quaternion.identity;
-        _holdVfxInstance.transform.localScale = Vector3.one;
-    }
-
-    public void HideHoldVfx()
-    {
-        if (_holdVfxInstance)
-        {
-            Destroy(_holdVfxInstance);
-            _holdVfxInstance = null;
-        }
-    }
-
-    // ===== FACING =====
-    public void SetFacingByX(float xDir)
-    {
-        bool wantLeft = xDir < 0f;
-        float defaultSign = spriteDefaultFacingLeft ? -1.0f : 1.0f;
-
-        if (flipColliderWithScale)
-        {
-            if (spriteRenderer) spriteRenderer.flipX = false;
-            float dirSign = wantLeft ? -1.0f : 1.0f;
-            float finalSign = dirSign * defaultSign;
-
-            var s = transform.localScale;
-            s.x = Mathf.Abs(_baseScale.x) * finalSign;
-            s.y = _baseScale.y;
-            s.z = _baseScale.z;
-            transform.localScale = s;
-        }
-        else
-        {
-            if (!spriteRenderer) return;
-            bool faceLeft = wantLeft;
-            spriteRenderer.flipX = spriteDefaultFacingLeft ? !faceLeft : faceLeft;
-        }
-    }
-
-    // ===== NETWORK CHARACTER SYNC =====
-    void ApplyCharacterFromNetwork()
-    {
-        var runner = FusionManager.LocalRunner;
-        if (runner == null || GameManager.Instance == null || GameDataManager.Instance == null) return;
-
-        var pData = GameManager.Instance.GetPlayerData(runner.LocalPlayer, runner);
-        if (pData == null) return;
-
-        var cData = GameDataManager.Instance.CharacterService?.GetCharacter(pData.CharacterIndex);
-        if (cData != null)
-        {
-            if (spriteRenderer && cData.characterSprite)
-                spriteRenderer.sprite = cData.characterSprite;
-
-            if (cData.stats)
-            {
-                maxSpeed = cData.stats.moveSpeed;
-                _behaviour?.SetMaxHP(cData.stats.maxHP, true);
-                _behaviour?.SetInvulnDuration(cData.stats.invulnOnHitSeconds);
-                spriteDefaultFacingLeft = cData.stats.spriteDefaultFacingLeft;
-                flipColliderWithScale = cData.stats.flipColliderWithScale;
+                // 좌/우 애니메이션
+                _animator.Play("horizontal");
+                
+                // 뷰 오브젝트의 localScale을 조정하여 스프라이트 좌우 반전
+                if (actualVelocity.x < 0)
+                {
+                    transform.localScale = new Vector3(1, 1, 1); // 오른쪽
+                }
+                else if (actualVelocity.x > 0)
+                {
+                    transform.localScale = new Vector3(-1, 1, 1); // 왼쪽
+                }
             }
         }
-    }
-
-    void OnAnyPlayerChangeCharacter(PlayerRef who, NetworkRunner runner, int idx)
-    {
-        if (runner != FusionManager.LocalRunner) return;
-        if (who == runner.LocalPlayer) ApplyCharacterFromNetwork();
-    }
-
-    public Vector2 GetMagicSpawnPoint()
-    {
-        var b = col.bounds;
-        return new Vector2(b.max.x, b.max.y);
     }
 }
-

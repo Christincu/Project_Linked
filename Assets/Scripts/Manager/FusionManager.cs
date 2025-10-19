@@ -9,14 +9,10 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
 {
     // Singleton pattern
     public static FusionManager Instance { get; private set; }
-    
-    // 다른 클래스에서 쉽게 접근할 수 있도록 static으로 만듦
     public static NetworkRunner LocalRunner;
-    
-    // 플레이어 데이터 프리팹 참조 (나중에 만들 예정)
+
     public NetworkPrefabRef PlayerDataPrefab;
     
-    // 이벤트들 - C# Action 사용 (간단한 방식)
     public static Action<PlayerRef, NetworkRunner> OnPlayerJoinedEvent;
     public static Action<PlayerRef, NetworkRunner> OnPlayerLeftEvent;
     public static Action<PlayerRef, NetworkRunner, int> OnPlayerChangeCharacterEvent;
