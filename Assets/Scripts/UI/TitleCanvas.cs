@@ -317,6 +317,9 @@ public class TitleCanvas : MonoBehaviour
             // Register FusionManager as callback handler for NetworkRunner
             runner.AddCallbacks(FusionManager.Instance);
             
+            // 로컬 입력 제공 보장
+            runner.ProvideInput = true;
+
             var result = await runner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.Host,
@@ -364,6 +367,9 @@ public class TitleCanvas : MonoBehaviour
             // Register FusionManager as callback handler for NetworkRunner
             runner.AddCallbacks(FusionManager.Instance);
             
+            // 로컬 입력 제공 보장
+            runner.ProvideInput = true;
+
             var result = await runner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.Client,

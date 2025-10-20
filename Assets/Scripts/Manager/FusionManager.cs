@@ -48,6 +48,8 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
         if (runner.LocalPlayer == player)
         {
             LocalRunner = runner;
+            // 실제 멀티 환경에서도 로컬 입력을 러너에 제공
+            runner.ProvideInput = true;
             Debug.Log($"LocalRunner set to: {LocalRunner}");
         }
         
@@ -73,6 +75,13 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
         Debug.Log($"Player {player} has left!");
+        
+        // MainGameManager에 플레이어 퇴장 알림 (Main 씬에서만)
+        if (MainGameManager.Instance != null)
+        {
+            MainGameManager.Instance.OnPlayerLeft(player, runner);
+        }
+        
         OnPlayerLeftEvent?.Invoke(player, runner);
     }
 
@@ -101,12 +110,15 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
         request.Accept();
     }
     
+    public void OnInput(NetworkRunner runner, NetworkInput input) {
+
+    }
+
     // 사용하지 않는 콜백들 (빈 구현)
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
-    public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
