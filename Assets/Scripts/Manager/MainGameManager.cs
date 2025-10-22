@@ -149,6 +149,13 @@ public class MainGameManager : MonoBehaviour
                 {
                     Debug.LogError($"PlayerController not found on spawned player object!");
                 }
+                
+                // PlayerData에 실제 플레이어 오브젝트 연결 (중요!)
+                if (runner.IsServer)
+                {
+                    playerData.PlayerInstance = playerObject;
+                    Debug.Log($"PlayerData.PlayerInstance set for player {player}");
+                }
             }
             else
             {
@@ -166,6 +173,18 @@ public class MainGameManager : MonoBehaviour
     {
         if (_spawnedPlayers.TryGetValue(player, out NetworkObject playerObject))
         {
+            // PlayerData 정리
+            if (runner.IsServer)
+            {
+                PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
+                if (playerData != null)
+                {
+                    playerData.PlayerInstance = null;
+                    Debug.Log($"PlayerData.PlayerInstance cleared for player {player}");
+                }
+            }
+            
+            // 플레이어 오브젝트 제거
             if (playerObject != null && runner.IsServer)
             {
                 runner.Despawn(playerObject);
@@ -174,5 +193,4 @@ public class MainGameManager : MonoBehaviour
             Debug.Log($"Player {player} despawned");
         }
     }
-    
 }

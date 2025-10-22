@@ -1,18 +1,21 @@
 using Fusion;
 using UnityEngine;
 
+// NetworkButtons는 비트 플래그로 동작하므로 비트 시프트 사용
+[System.Flags]
 public enum InputButton
 {
-    LEFT = 0,
-    RIGHT = 1,
-    UP = 2,
-    DOWN = 3,
+    LEFT = 1 << 0,
+    RIGHT = 1 << 1,
+    UP = 1 << 2,
+    DOWN = 1 << 3,
 }
 
+[System.Flags]
 public enum InputMouseButton
 {
-    LEFT = 0,
-    RIGHT = 1,
+    LEFT = 1 << 0,
+    RIGHT = 1 << 1,
 }
 
 public struct InputData : INetworkInput
@@ -26,7 +29,7 @@ public struct InputData : INetworkInput
 
     public bool GetButton(InputButton button)
     {
-        return Buttons.IsSet((int)button);
+        return Buttons.IsSet(button);
     }
 
     public NetworkButtons GetButtonPressed(NetworkButtons prev)
@@ -41,7 +44,7 @@ public struct InputData : INetworkInput
 
     public bool GetMouseButton(InputMouseButton button)
     {
-        return MouseButtons.IsSet((int)button);
+        return MouseButtons.IsSet(button);
     }
 
     public NetworkButtons GetMouseButtonPressed(NetworkButtons prev)

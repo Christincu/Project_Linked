@@ -4,10 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Fusion;
-using System.Threading.Tasks;
-using UnityEngine.SceneManagement;
 
-public class TitleCanvas : MonoBehaviour
+public class TitleCanvas : MonoBehaviour, ICanvas
 {
     [Header("UI Panels")]
     [SerializeField] private GameObject titlePanel;      // Title screen
@@ -28,29 +26,41 @@ public class TitleCanvas : MonoBehaviour
     [Header("Character Selection UI")]
     [SerializeField] private TextMeshProUGUI characterNameText;     // Character name text
     [SerializeField] private TextMeshProUGUI characterDescriptionText;     // Character description text
-    
-    private string _playerNickname = "Player";
-    private string _roomName = "TestRoom";
+
+    public Transform CanvasTransform => transform;
     
     void Start()
+    {
+        // Create TitleGameManager if it doesn't exist
+        if (TitleGameManager.Instance == null)
+        {
+            GameObject titleGameManagerObj = new GameObject("TitleGameManager");
+            titleGameManagerObj.AddComponent<TitleGameManager>();
+        }
+    }
+
+    public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
         // Initial UI setup
         ShowTitlePanel();
         
-        // Setup network events
-        SetupNetworkEvents();
+        // Initialize TitleGameManager
+        TitleGameManager.Instance?.Initialize(this);
         
         // Auto assign button events
         SetupButtonEvents();
         
         // Load saved nickname
-        _playerNickname = PlayerPrefs.GetString("PlayerNick", "Player");
-        nicknameInput.text = _playerNickname;
+        string savedNickname = PlayerPrefs.GetString("PlayerNick", "Player");
+        nicknameInput.text = savedNickname;
     }
     
     // Auto assign button events
     private void SetupButtonEvents()
     {
+        // 중복 등록 방지를 위해 먼저 제거
+        RemoveButtonEvents();
+        
         // Create room button
         if (createRoomButton != null)
             createRoomButton.onClick.AddListener(OnCreateRoomButton);
@@ -70,49 +80,24 @@ public class TitleCanvas : MonoBehaviour
     
     void OnDestroy()
     {
-        // Remove event connections
-        RemoveNetworkEvents();
+        // Remove button event connections
         RemoveButtonEvents();
     }
     
     // Remove button event connections
     private void RemoveButtonEvents()
     {
-        // Create room button
         if (createRoomButton != null)
             createRoomButton.onClick.RemoveListener(OnCreateRoomButton);
         
-        // Join room button
         if (joinRoomButton != null)
             joinRoomButton.onClick.RemoveListener(OnJoinRoomButton);
         
-        // Start game button
         if (startGameButton != null)
             startGameButton.onClick.RemoveListener(OnStartGameButton);
         
-        // Leave room button
         if (leaveRoomButton != null)
             leaveRoomButton.onClick.RemoveListener(OnLeaveRoomButton);
-    }
-    
-    // Setup network events
-    private void SetupNetworkEvents()
-    {
-        FusionManager.OnPlayerJoinedEvent += OnPlayerJoined;
-        FusionManager.OnPlayerLeftEvent += OnPlayerLeft;
-        FusionManager.OnPlayerChangeCharacterEvent += OnPlayerChangeCharacter;
-        FusionManager.OnShutdownEvent += OnShutdown;
-        PlayerData.OnPlayerDataSpawned += OnPlayerDataSpawned;
-    }
-    
-    // Remove network event connections
-    private void RemoveNetworkEvents()
-    {
-        FusionManager.OnPlayerJoinedEvent -= OnPlayerJoined;
-        FusionManager.OnPlayerLeftEvent -= OnPlayerLeft;
-        FusionManager.OnPlayerChangeCharacterEvent -= OnPlayerChangeCharacter;
-        FusionManager.OnShutdownEvent -= OnShutdown;
-        PlayerData.OnPlayerDataSpawned -= OnPlayerDataSpawned;
     }
     
     // ========== UI Panel Switching ==========
@@ -140,56 +125,39 @@ public class TitleCanvas : MonoBehaviour
     // Create room button
     public void OnCreateRoomButton()
     {
-        _roomName = roomNameInput.text;
-        _playerNickname = nicknameInput.text;
+        // 버튼 즉시 비활성화 (중복 클릭 방지)
+        if (createRoomButton != null)
+            createRoomButton.interactable = false;
         
-        if (string.IsNullOrEmpty(_roomName))
-        {
-            _roomName = "Room_" + Random.Range(1000, 9999);
-        }
+        string roomName = roomNameInput.text;
+        string playerNickname = nicknameInput.text;
         
-        // Save nickname
-        PlayerPrefs.SetString("PlayerNick", _playerNickname);
-        
-        Debug.Log($"Creating room: {_roomName}");
-        StartHost();
+        TitleGameManager.Instance?.CreateRoom(roomName, playerNickname);
     }
     
     // Join room button
     public void OnJoinRoomButton()
     {
-        _roomName = roomNameInput.text;
-        _playerNickname = nicknameInput.text;
+        // 버튼 즉시 비활성화 (중복 클릭 방지)
+        if (joinRoomButton != null)
+            joinRoomButton.interactable = false;
         
-        if (string.IsNullOrEmpty(_roomName))
-        {
-            Debug.LogWarning("Please enter room name!");
-            return;
-        }
+        string roomName = roomNameInput.text;
+        string playerNickname = nicknameInput.text;
         
-        // Save nickname
-        PlayerPrefs.SetString("PlayerNick", _playerNickname);
-        
-        Debug.Log($"Joining room: {_roomName}");
-        StartClient();
+        TitleGameManager.Instance?.JoinRoom(roomName, playerNickname);
     }
     
     // Start game button (host only)
     public void OnStartGameButton()
     {
-        if (FusionManager.LocalRunner != null && FusionManager.LocalRunner.IsServer)
-        {
-            Debug.Log("Starting game! Loading Main scene for all players...");
-            // Use Fusion's network scene loading - all clients will follow automatically
-            FusionManager.LocalRunner.LoadScene("Main");
-        }
+        TitleGameManager.Instance?.StartGame();
     }
     
     // Leave room button
     public void OnLeaveRoomButton()
     {
-        Debug.Log("Leaving room");
-        LeaveRoom();
+        TitleGameManager.Instance?.LeaveRoom();
     }
     
     // Exit game button
@@ -258,8 +226,8 @@ public class TitleCanvas : MonoBehaviour
         }
     }
     
-    // Update character UI elements
-    private void UpdateCharacterUI(CharacterData characterData)
+    // Update character UI elements (public for TitleGameManager access)
+    public void UpdateCharacterUI(CharacterData characterData)
     {
         if (characterData == null) return;
         
@@ -294,186 +262,9 @@ public class TitleCanvas : MonoBehaviour
         }
     }
     
-    // ========== Network Functions ==========
+    // ========== UI Update (public for TitleGameManager access) ==========
     
-    // Start host (create room)
-    private async void StartHost()
-    {
-        try
-        {
-            // Create NetworkRunner on separate object (prevent TitleCanvas duplication)
-            GameObject networkObject = new GameObject("NetworkRunner");
-            DontDestroyOnLoad(networkObject);
-            
-            var runner = networkObject.AddComponent<NetworkRunner>();
-            
-            // Use singleton FusionManager as callback handler
-            if (FusionManager.Instance == null)
-            {
-                var fusionManagerObj = new GameObject("FusionManager");
-                fusionManagerObj.AddComponent<FusionManager>();
-            }
-            
-            // Register FusionManager as callback handler for NetworkRunner
-            runner.AddCallbacks(FusionManager.Instance);
-            
-            // 로컬 입력 제공 보장
-            runner.ProvideInput = true;
-
-            var result = await runner.StartGame(new StartGameArgs()
-            {
-                GameMode = GameMode.Host,
-                SessionName = _roomName,
-                PlayerCount = 4, // Max 4 players
-                SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>()
-            });
-            
-            if (result.Ok)
-            {
-                Debug.Log("Host started successfully!");
-                ShowLobbyPanel();
-            }
-            else
-            {
-                Debug.LogError($"Host start failed: {result.ShutdownReason}");
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Host start error: {e.Message}");
-        }
-
-        UpdateLobbyUI();
-    }
-    
-    // Start client (join room)
-    private async void StartClient()
-    {
-        try
-        {
-            // Create NetworkRunner on separate object (prevent TitleCanvas duplication)
-            GameObject networkObject = new GameObject("NetworkRunner");
-            DontDestroyOnLoad(networkObject);
-            
-            var runner = networkObject.AddComponent<NetworkRunner>();
-            
-            // Use singleton FusionManager as callback handler
-            if (FusionManager.Instance == null)
-            {
-                var fusionManagerObj = new GameObject("FusionManager");
-                fusionManagerObj.AddComponent<FusionManager>();
-            }
-            
-            // Register FusionManager as callback handler for NetworkRunner
-            runner.AddCallbacks(FusionManager.Instance);
-            
-            // 로컬 입력 제공 보장
-            runner.ProvideInput = true;
-
-            var result = await runner.StartGame(new StartGameArgs()
-            {
-                GameMode = GameMode.Client,
-                SessionName = _roomName,
-                SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>()
-            });
-            
-            if (result.Ok)
-            {
-                Debug.Log("Client connected successfully!");
-                ShowLobbyPanel();
-            }
-            else
-            {
-                Debug.LogError($"Client connection failed: {result.ShutdownReason}");
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Client connection error: {e.Message}");
-        }
-
-        UpdateLobbyUI();
-    }
-    
-    // Leave room
-    private async void LeaveRoom()
-    {
-        if (FusionManager.LocalRunner != null)
-        {
-            await FusionManager.LocalRunner.Shutdown();
-        }
-        ShowTitlePanel();
-    }
-    
-    // ========== Network Event Handling ==========
-    
-    private void OnPlayerJoined(PlayerRef player, NetworkRunner runner)
-    {
-        Debug.Log($"Player joined: {player}");
-        UpdateLobbyUI();
-    }
-    
-    private void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
-    {
-        Debug.Log($"Player left: {player}");
-        UpdateLobbyUI();
-    }
-    
-    private void OnPlayerChangeCharacter(PlayerRef player, NetworkRunner runner, int characterIndex)
-    {
-        // Get character name for better logging
-        string characterName = "Unknown";
-        CharacterData characterData = null;
-        if (GameDataManager.Instance != null)
-        {
-            characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
-            if (characterData != null)
-            {
-                characterName = characterData.characterName;
-            }
-        }
-        
-        Debug.Log($"Player {player} changed character to '{characterName}' (index: {characterIndex})");
-        
-        // Update UI if it's the local player
-        if (runner.LocalPlayer == player && characterData != null)
-        {
-            UpdateCharacterUI(characterData);
-        }
-        
-        UpdateLobbyUI();
-    }
-    
-    private void OnShutdown(NetworkRunner runner)
-    {
-        Debug.Log("Network session ended");
-        ShowTitlePanel();
-    }
-    
-    private void OnPlayerDataSpawned(PlayerRef player, NetworkRunner runner)
-    {
-        Debug.Log($"Player data spawned: {player}");
-        
-        // Update local player's character UI if it's the local player
-        if (runner.LocalPlayer == player)
-        {
-            var playerData = GameManager.Instance?.GetPlayerData(player, runner);
-            if (playerData != null && GameDataManager.Instance != null)
-            {
-                var characterData = GameDataManager.Instance.CharacterService.GetCharacter(playerData.CharacterIndex);
-                if (characterData != null)
-                {
-                    UpdateCharacterUI(characterData);
-                }
-            }
-        }
-        
-        UpdateLobbyUI();
-    }
-    
-    // ========== UI Update ==========
-    
-    private void UpdateLobbyUI()
+    public void UpdateLobbyUI()
     {
         Debug.Log($"UpdateLobbyUI - FusionManager.LocalRunner: {FusionManager.LocalRunner}");
         
@@ -508,17 +299,25 @@ public class TitleCanvas : MonoBehaviour
                 playerList += $"{nick} - {characterName}{isLocal}{isHost}\n";
             }
             playerListText.text = playerList;
-            
-            // Start game button (host only)
-            startGameButton.gameObject.SetActive(FusionManager.LocalRunner.IsServer);
         }
         else
         {
             Debug.Log("LocalRunner is null - showing connecting...");
             // Before connection: use local variable
-            roomNameText.text = $"Room: {_roomName}";
+            string roomName = TitleGameManager.Instance?.RoomName ?? "Unknown";
+            roomNameText.text = $"Room: {roomName}";
             playerListText.text = "Connecting...";
-            startGameButton.gameObject.SetActive(false);
         }
+    }
+    
+    // ========== Helper Functions ==========
+    
+    // 버튼 활성화/비활성화 설정 (public for TitleGameManager access)
+    public void SetButtonsInteractable(bool interactable)
+    {
+        if (createRoomButton != null)
+            createRoomButton.interactable = interactable;
+        if (joinRoomButton != null)
+            joinRoomButton.interactable = interactable;
     }
 }
