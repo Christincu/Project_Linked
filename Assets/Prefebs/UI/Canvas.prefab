@@ -87,7 +87,7 @@ GameObject:
   - component: {fileID: 6923575815757807183}
   - component: {fileID: 6552627805348721436}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: PlayerNameText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -420,7 +420,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 500, y: 65}
+  m_AnchoredPosition: {x: 493, y: 65}
   m_SizeDelta: {x: 125, y: 125}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7289315211394134203
@@ -680,7 +680,7 @@ MonoBehaviour:
   _hpImgObjPrefab: {fileID: 7626897409025638824, guid: 5ddad93269d160f48b6e58f5436fe9cb, type: 3}
   _hpContent: {fileID: 7987624592858650092}
   _playerNameText: {fileID: 6552627805348721436}
-  _isTestMode: 0
+  _isTestMode: 1
 --- !u!223 &6560199976377949969
 Canvas:
   m_ObjectHideFlags: 0
@@ -1154,7 +1154,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 643, y: 65}
+  m_AnchoredPosition: {x: 645, y: 65}
   m_SizeDelta: {x: 125, y: 125}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &195821724909458566

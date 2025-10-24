@@ -30,10 +30,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public float MaxHealth { get; set; }
     [Networked] public NetworkBool IsDead { get; set; }
     [Networked] public TickTimer InvincibilityTimer { get; set; }
-    
-    // Mana
-    [Networked] public float CurrentMana { get; set; }
-    [Networked] public float MaxMana { get; set; }
 
     // Magic
     [Networked] public bool MagicActive { get; set; }
@@ -41,6 +37,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     #endregion
 
     #region Private Fields - Components
+    [SerializeField] private GameObject _magicViewObj;
     [SerializeField] private GameObject _magicAnchor;
     [SerializeField] private GameObject _magicIdleFirstFloor;
     [SerializeField] private GameObject _magicIdleSecondFloor;
@@ -74,9 +71,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     // Health Properties
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
     public bool IsInvincible => !InvincibilityTimer.ExpiredOrNotRunning(Runner);
-    
-    // Mana Properties
-    public float ManaPercentage => MaxMana > 0 ? CurrentMana / MaxMana : 0;
     #endregion
 
     #region Fusion Callbacks
@@ -131,11 +125,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             CurrentHealth = initialData.StartingHealth;
             IsDead = false;
             
-            // Mana 초기화
-            MaxMana = 100f;
-            CurrentMana = MaxMana;
-            
-            Debug.Log($"[PlayerController] Network state initialized - HP: {CurrentHealth}/{MaxHealth}, Mana: {CurrentMana}/{MaxMana}");
+            Debug.Log($"[PlayerController] Network state initialized - HP: {CurrentHealth}/{MaxHealth}");
         }
         
         // 2. PlayerState 초기화
@@ -160,7 +150,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         if (_magicController != null)
         {
             _magicController.Initialize(this);
-            _magicController.SetMagicUIReferences(_magicAnchor, _magicIdleFirstFloor, _magicIdleSecondFloor, _magicActiveFloor);
+            _magicController.SetMagicUIReferences(_magicViewObj, _magicAnchor, _magicIdleFirstFloor, _magicIdleSecondFloor, _magicActiveFloor);
         }
 
         Debug.Log($"[PlayerController] All components initialized");
@@ -189,7 +179,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             yield return null;
         }
         
-        Debug.Log($"[PlayerController] Network sync complete - HP: {CurrentHealth}/{MaxHealth}, Mana: {CurrentMana}/{MaxMana}");
+        Debug.Log($"[PlayerController] Network sync complete - HP: {CurrentHealth}/{MaxHealth}");
         
         // MainCanvas에 플레이어 등록
         RegisterToCanvas();
@@ -393,14 +383,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         {
             _behavior.Interact();
         }
-    }
-
-    /// <summary>
-    /// 마나 정보를 가져옵니다.
-    /// </summary>
-    public (float current, float max) GetMana()
-    {
-        return (CurrentMana, MaxMana);
     }
 
     /// <summary>

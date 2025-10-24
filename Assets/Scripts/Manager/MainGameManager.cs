@@ -41,7 +41,7 @@ public class MainGameManager : MonoBehaviour
     void Start()
     {
         // Main 씬 진입 시 플레이어 스폰
-        StartCoroutine(SpawnPlayersAfterDelay());
+        SpawnAllPlayers(FusionManager.LocalRunner);
         
         // 플레이어 참여 이벤트 구독 (게임 중 참여하는 플레이어 처리)
         FusionManager.OnPlayerJoinedEvent += OnPlayerJoinedDuringGame;
@@ -70,22 +70,6 @@ public class MainGameManager : MonoBehaviour
                 Debug.Log($"Player {player} joined during game, spawning...");
                 SpawnPlayer(runner, player, spawnIndex);
             }
-        }
-    }
-    
-    // 약간의 딜레이 후 플레이어 스폰 (네트워크 안정화 대기)
-    private IEnumerator SpawnPlayersAfterDelay()
-    {
-        yield return new WaitForSeconds(0.5f);
-        
-        if (FusionManager.LocalRunner != null)
-        {
-            _runner = FusionManager.LocalRunner;
-            SpawnAllPlayers(_runner);
-        }
-        else
-        {
-            Debug.LogError("LocalRunner is null in MainGameManager!");
         }
     }
     
@@ -145,13 +129,6 @@ public class MainGameManager : MonoBehaviour
             PlayerController playerController = playerObject.GetComponent<PlayerController>();
             if (playerController != null)
             {
-                // Initialize는 선택적 (Spawned에서 자동으로 GameDataManager 사용)
-                // 개별 설정이 필요하면 호출 가능
-                // if (initialData != null)
-                // {
-                //     playerController.Initialize(initialData);
-                // }
-                
                 // PlayerState 이벤트 구독 (선택적)
                 var state = playerController.State;
                 if (state != null)

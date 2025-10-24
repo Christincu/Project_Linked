@@ -7,7 +7,6 @@ public class MagicData : ScriptableObject
     public int magicName;
     public Sprite magicIdleSprite;
     public Sprite magicActiveSprite;
-    public int castOrder;
     
     [Header("Magic Settings")]
     [Tooltip("마법 쿨다운 시간 (초)")]

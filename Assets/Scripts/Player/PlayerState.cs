@@ -13,7 +13,6 @@ public class PlayerState : MonoBehaviour
     #region Private Fields
     private PlayerController _controller;
     private InitialPlayerData _initialData;
-    private float _manaRegenTimer = 0f;
     #endregion
 
     #region Properties (PlayerController의 네트워크 변수 참조)
@@ -54,32 +53,9 @@ public class PlayerState : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 마나 (PlayerController에서 참조)
-    /// </summary>
-    public float CurrentMana
-    {
-        get => _controller != null ? _controller.CurrentMana : 0;
-        set { if (_controller != null) _controller.CurrentMana = value; }
-    }
-
-    /// <summary>
-    /// 최대 마나 (PlayerController에서 참조)
-    /// </summary>
-    public float MaxMana
-    {
-        get => _controller != null ? _controller.MaxMana : 0;
-        set { if (_controller != null) _controller.MaxMana = value; }
-    }
-
-    /// <summary>
     /// 체력 비율 (0 ~ 1)
     /// </summary>
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
-
-    /// <summary>
-    /// 마나 비율 (0 ~ 1)
-    /// </summary>
-    public float ManaPercentage => MaxMana > 0 ? CurrentMana / MaxMana : 0;
 
     /// <summary>
     /// 무적 상태 확인
@@ -89,7 +65,6 @@ public class PlayerState : MonoBehaviour
 
     #region Events
     public System.Action<float, float> OnHealthChanged; // (current, max)
-    public System.Action<float, float> OnManaChanged; // (current, max)
     public System.Action<PlayerRef> OnDeath; // (killer)
     public System.Action OnRespawned;
     public System.Action<float> OnDamageTaken; // (damage)
@@ -110,11 +85,7 @@ public class PlayerState : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (_controller != null && _controller.Object != null && _controller.Object.HasStateAuthority)
-        {
-            // 마나 자동 회복
-            RegenerateMana();
-        }
+        // 필요시 다른 주기적 처리 추가
     }
     #endregion
 
@@ -236,14 +207,12 @@ public class PlayerState : MonoBehaviour
         // 상태 초기화
         IsDead = false;
         CurrentHealth = _initialData != null ? _initialData.StartingHealth : MaxHealth;
-        CurrentMana = MaxMana;
 
         Debug.Log($"[PlayerState] {_controller.Object.InputAuthority} respawned. HP: {CurrentHealth}/{MaxHealth}");
 
         // 이벤트 발생
         OnRespawned?.Invoke();
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
 
         // PlayerController에 알림
         if (_controller != null)
@@ -271,80 +240,4 @@ public class PlayerState : MonoBehaviour
     }
     #endregion
 
-    #region Mana Management
-    /// <summary>
-    /// 마나를 자동으로 회복합니다.
-    /// </summary>
-    private void RegenerateMana()
-    {
-        if (IsDead) return;
-        if (_controller == null || _controller.Runner == null) return;
-        
-        if (CurrentMana < MaxMana)
-        {
-            float regenRate = 10f; // 초당 10 마나 회복
-            CurrentMana = Mathf.Min(MaxMana, CurrentMana + regenRate * _controller.Runner.DeltaTime);
-            
-            // 변경 감지용 타이머
-            _manaRegenTimer += _controller.Runner.DeltaTime;
-            if (_manaRegenTimer >= 0.5f) // 0.5초마다 이벤트 발생
-            {
-                _manaRegenTimer = 0f;
-                OnManaChanged?.Invoke(CurrentMana, MaxMana);
-            }
-        }
-    }
-
-    /// <summary>
-    /// 마나를 소모합니다 (서버에서만 실행).
-    /// </summary>
-    public bool ConsumeMana(float amount)
-    {
-        if (_controller == null || _controller.Object == null) return false;
-        if (!_controller.Object.HasStateAuthority) return false;
-        if (IsDead) return false;
-        if (CurrentMana < amount) return false;
-
-        CurrentMana = Mathf.Max(0, CurrentMana - amount);
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-        return true;
-    }
-
-    /// <summary>
-    /// 마나를 회복합니다 (서버에서만 실행).
-    /// </summary>
-    public void RestoreMana(float amount)
-    {
-        if (_controller == null || _controller.Object == null) return;
-        if (!_controller.Object.HasStateAuthority) return;
-
-        CurrentMana = Mathf.Min(MaxMana, CurrentMana + amount);
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
-
-    /// <summary>
-    /// 마나를 완전히 회복합니다 (서버에서만 실행).
-    /// </summary>
-    public void FullRestoreMana()
-    {
-        if (_controller == null || _controller.Object == null) return;
-        if (!_controller.Object.HasStateAuthority) return;
-
-        CurrentMana = MaxMana;
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
-
-    /// <summary>
-    /// 최대 마나를 변경합니다 (서버에서만 실행).
-    /// </summary>
-    public void SetMaxMana(float newMaxMana)
-    {
-        if (_controller == null || _controller.Object == null) return;
-        if (!_controller.Object.HasStateAuthority) return;
-
-        MaxMana = newMaxMana;
-        CurrentMana = Mathf.Min(CurrentMana, MaxMana);
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
-    #endregion
 }
