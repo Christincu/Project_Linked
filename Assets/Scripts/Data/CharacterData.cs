@@ -15,8 +15,7 @@ public class CharacterData : ScriptableObject
     
     [Tooltip("Character sprite (for game)")]
     public Sprite characterSprite;
-
-    public GameObject viewObj;
+    public RuntimeAnimatorController characterAnimator;
 
     [Header("Optional Info")]
     [TextArea(3, 5)]

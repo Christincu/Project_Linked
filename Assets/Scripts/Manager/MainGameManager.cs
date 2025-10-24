@@ -23,6 +23,7 @@ public class MainGameManager : MonoBehaviour
     
     // 생성된 플레이어 오브젝트 추적
     private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
+    private NetworkRunner _runner;
     
     void Awake()
     {
@@ -79,7 +80,8 @@ public class MainGameManager : MonoBehaviour
         
         if (FusionManager.LocalRunner != null)
         {
-            SpawnAllPlayers(FusionManager.LocalRunner);
+            _runner = FusionManager.LocalRunner;
+            SpawnAllPlayers(_runner);
         }
         else
         {
@@ -120,6 +122,13 @@ public class MainGameManager : MonoBehaviour
         // 스폰 위치 결정
         Vector2 spawnPosition = spawnPositions[spawnIndex % spawnPositions.Length];
         
+        // InitialPlayerData 가져오기
+        InitialPlayerData initialData = null;
+        if (GameDataManager.Instance != null)
+        {
+            initialData = GameDataManager.Instance.InitialPlayerData;
+        }
+        
         // 플레이어 오브젝트 생성
         NetworkObject playerObject = runner.Spawn(
             PlayerPrefab, 
@@ -132,34 +141,50 @@ public class MainGameManager : MonoBehaviour
         {
             _spawnedPlayers[player] = playerObject;
             
-            // PlayerData에서 캐릭터 인덱스 가져오기
-            PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
-            if (playerData != null)
+            // PlayerController 설정
+            PlayerController playerController = playerObject.GetComponent<PlayerController>();
+            if (playerController != null)
             {
-                int characterIndex = playerData.CharacterIndex;
+                // Initialize는 선택적 (Spawned에서 자동으로 GameDataManager 사용)
+                // 개별 설정이 필요하면 호출 가능
+                // if (initialData != null)
+                // {
+                //     playerController.Initialize(initialData);
+                // }
                 
-                // PlayerController에 캐릭터 인덱스 설정
-                PlayerController playerController = playerObject.GetComponent<PlayerController>();
-                if (playerController != null)
+                // PlayerState 이벤트 구독 (선택적)
+                var state = playerController.State;
+                if (state != null)
                 {
+                    state.OnHealthChanged += (current, max) => OnPlayerHealthChanged(player, current, max);
+                    state.OnDeath += (killer) => OnPlayerDied(player, killer);
+                    state.OnRespawned += () => OnPlayerRespawned(player);
+                }
+                
+                // PlayerData에서 캐릭터 인덱스 가져오기
+                PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
+                if (playerData != null)
+                {
+                    int characterIndex = playerData.CharacterIndex;
                     playerController.SetCharacterIndex(characterIndex);
+                    
+                    // PlayerData에 실제 플레이어 오브젝트 연결 (중요!)
+                    if (runner.IsServer)
+                    {
+                        playerData.PlayerInstance = playerObject;
+                        Debug.Log($"PlayerData.PlayerInstance set for player {player}");
+                    }
+                    
                     Debug.Log($"Player {player} spawned with character index {characterIndex} at position {spawnPosition}");
                 }
                 else
                 {
-                    Debug.LogError($"PlayerController not found on spawned player object!");
-                }
-                
-                // PlayerData에 실제 플레이어 오브젝트 연결 (중요!)
-                if (runner.IsServer)
-                {
-                    playerData.PlayerInstance = playerObject;
-                    Debug.Log($"PlayerData.PlayerInstance set for player {player}");
+                    Debug.LogWarning($"PlayerData not found for player {player}, using default settings");
                 }
             }
             else
             {
-                Debug.LogWarning($"PlayerData not found for player {player}");
+                Debug.LogError($"PlayerController not found on spawned player object!");
             }
         }
         else
@@ -193,4 +218,72 @@ public class MainGameManager : MonoBehaviour
             Debug.Log($"Player {player} despawned");
         }
     }
+
+    #region Public Methods
+    /// <summary>
+    /// 로컬 플레이어의 PlayerController를 가져옵니다.
+    /// </summary>
+    public PlayerController GetLocalPlayer()
+    {
+        if (_runner == null) return null;
+
+        var localPlayerRef = _runner.LocalPlayer;
+        if (_spawnedPlayers.TryGetValue(localPlayerRef, out var playerObj))
+        {
+            return playerObj.GetComponent<PlayerController>();
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 특정 PlayerRef의 PlayerController를 가져옵니다.
+    /// </summary>
+    public PlayerController GetPlayer(PlayerRef playerRef)
+    {
+        if (_spawnedPlayers.TryGetValue(playerRef, out var playerObj))
+        {
+            return playerObj.GetComponent<PlayerController>();
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 모든 플레이어의 PlayerController를 가져옵니다.
+    /// </summary>
+    public List<PlayerController> GetAllPlayers()
+    {
+        var players = new List<PlayerController>();
+        foreach (var kvp in _spawnedPlayers)
+        {
+            var controller = kvp.Value.GetComponent<PlayerController>();
+            if (controller != null)
+            {
+                players.Add(controller);
+            }
+        }
+        return players;
+    }
+    #endregion
+
+    #region Event Handlers
+    private void OnPlayerHealthChanged(PlayerRef player, float current, float max)
+    {
+        Debug.Log($"[MainGameManager] Player {player} HP changed: {current}/{max}");
+        // UI 업데이트 등 추가 로직
+    }
+
+    private void OnPlayerDied(PlayerRef player, PlayerRef killer)
+    {
+        Debug.Log($"[MainGameManager] Player {player} died. Killer: {killer}");
+        // 추가 게임 로직 (점수, 통계 등)
+    }
+
+    private void OnPlayerRespawned(PlayerRef player)
+    {
+        Debug.Log($"[MainGameManager] Player {player} respawned");
+        // 추가 리스폰 로직
+    }
+    #endregion
 }
