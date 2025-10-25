@@ -13,7 +13,9 @@ TagManager:
   - 
   - Water
   - UI
+  - Base/ObjectTilemap
   - Player
+  - OutlineTilemap
   - Magic
   - Hazard
   - Pushable
@@ -37,14 +39,18 @@ TagManager:
   - 
   - 
   - 
-  - 
-  - 
   m_SortingLayers:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: BaseObjectTilemap
+    uniqueID: 2377639471
+    locked: 0
   - name: Characters
     uniqueID: 3147604621
+    locked: 0
+  - name: OutlineTilemap
+    uniqueID: 2187758869
     locked: 0
   - name: Magic
     uniqueID: 836987307

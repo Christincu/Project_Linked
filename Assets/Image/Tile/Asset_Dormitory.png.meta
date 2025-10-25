@@ -1,0 +1,1164 @@
+fileFormatVersion: 2
+guid: d4036495181916348a6e06bbbe06be9a
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 95
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 3
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Asset_Dormitory_0
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 648
+        width: 192
+        height: 330
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape:
+      - - {x: -96, y: -19}
+        - {x: -95, y: 164}
+        - {x: 94, y: 164}
+        - {x: 96, y: -19}
+      tessellationDetail: 0
+      bones: []
+      spriteID: d3a06eb450defaa43a094be3204c3d1b
+      internalID: 1794553985
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_1
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 648
+        width: 177
+        height: 336
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape:
+      - - {x: -88.5, y: -22}
+        - {x: -88.5, y: 168}
+        - {x: 88.5, y: 168}
+        - {x: 88.5, y: -22}
+      tessellationDetail: 0
+      bones: []
+      spriteID: d1a949966204b2f44a6fcc21fba96295
+      internalID: -314034380
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_2
+      rect:
+        serializedVersion: 2
+        x: 1248
+        y: 888
+        width: 123
+        height: 153
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 899838faeff3c7a47a3034c1f4e434d7
+      internalID: 1701873114
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_3
+      rect:
+        serializedVersion: 2
+        x: 1392
+        y: 888
+        width: 201
+        height: 117
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: af38f72752f2cd54ea0e0afd82bf71d5
+      internalID: 2024695401
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_4
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 648
+        width: 288
+        height: 222
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6d49afa48779f354d8e668fc4d01ebaa
+      internalID: 243342291
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_5
+      rect:
+        serializedVersion: 2
+        x: 1248
+        y: 648
+        width: 69
+        height: 141
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 50faf41e0bbafed46ba3b2c170da9d5e
+      internalID: -942716792
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_6
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 648
+        width: 69
+        height: 141
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ad7002537792c4d459f7051144d95c9c
+      internalID: -33018144
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_7
+      rect:
+        serializedVersion: 2
+        x: 1440
+        y: 648
+        width: 63
+        height: 141
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 73b09e7bb054e1b4b84c7a7fcb3cfa76
+      internalID: 1741733235
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_8
+      rect:
+        serializedVersion: 2
+        x: 1536
+        y: 648
+        width: 63
+        height: 141
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fd2616fdfb6ae4547ace232a32bcef8b
+      internalID: 405667004
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_9
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 504
+        width: 96
+        height: 36
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1edc9d082711c5240b4454b893aa86e9
+      internalID: -1841219970
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_10
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 504
+        width: 36
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a596d189e251eed4aa15a908c7d9a83f
+      internalID: -49731950
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_11
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 504
+        width: 48
+        height: 48
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 80b4d4e2212d1c2429c9b50c251f7ec2
+      internalID: 545734514
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_12
+      rect:
+        serializedVersion: 2
+        x: 672
+        y: 504
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ece32abf5f24d1247b5725df08419209
+      internalID: -1954684208
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_13
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 504
+        width: 60
+        height: 90
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c820e32343619dc4e8e27ecefb821048
+      internalID: 1939154033
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_14
+      rect:
+        serializedVersion: 2
+        x: 1008
+        y: 504
+        width: 75
+        height: 54
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e7f8a6b8ff0d8064ebc62827d2b42d2a
+      internalID: 271076114
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_15
+      rect:
+        serializedVersion: 2
+        x: 1104
+        y: 504
+        width: 51
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f66e7aae9cfdc544096901959c1fa5fe
+      internalID: 1584707587
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_16
+      rect:
+        serializedVersion: 2
+        x: 1200
+        y: 504
+        width: 57
+        height: 87
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ca6728598162a584aa0d4e93d2e0e7c9
+      internalID: -378784821
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_17
+      rect:
+        serializedVersion: 2
+        x: 1296
+        y: 504
+        width: 33
+        height: 69
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4a85eb2fadd98d44182af3ed994f3e04
+      internalID: -765033390
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_18
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 504
+        width: 39
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4294e2fc51c184d4db1e7726430e74e4
+      internalID: -420575740
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_19
+      rect:
+        serializedVersion: 2
+        x: 1488
+        y: 408
+        width: 135
+        height: 177
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b1fad17259f3bda489d99e36d583cbf4
+      internalID: 1954953167
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_20
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 360
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 44ff20ba7a9532a43b3336ce95e9b7b5
+      internalID: -1955375635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_21
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 360
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f0480db7fc68beb45a12e448e2766934
+      internalID: 643154635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_22
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 360
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d34d744c003202745b3ed24c95a039c5
+      internalID: -274812055
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_23
+      rect:
+        serializedVersion: 2
+        x: 720
+        y: 360
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c67a7269bcd43934db3430cbd3435733
+      internalID: 596196291
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_24
+      rect:
+        serializedVersion: 2
+        x: 915
+        y: 408
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c890663b3a3a6a247bb93478c0d7113e
+      internalID: 1487541176
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_25
+      rect:
+        serializedVersion: 2
+        x: 933
+        y: 408
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9c644c59f71677145a8b88e38d072423
+      internalID: -769202205
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_26
+      rect:
+        serializedVersion: 2
+        x: 948
+        y: 408
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 25d1f3d9fab720f4ab5117403ee96237
+      internalID: 1986722780
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_27
+      rect:
+        serializedVersion: 2
+        x: 1011
+        y: 408
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dff3f0ab4389af445999eb4c1ebfbb94
+      internalID: -122766067
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_28
+      rect:
+        serializedVersion: 2
+        x: 1029
+        y: 408
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 31a139467f2f6d749a9083182007d5fe
+      internalID: 745377175
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_29
+      rect:
+        serializedVersion: 2
+        x: 1044
+        y: 408
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b4fb145e7805140409479ba65d7762b1
+      internalID: 308951437
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_30
+      rect:
+        serializedVersion: 2
+        x: 1107
+        y: 408
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5bc5b38bc1622f5479f5cfff38d1ca04
+      internalID: -2146385723
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_31
+      rect:
+        serializedVersion: 2
+        x: 1125
+        y: 408
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2880edd2672bfb64ca1389610bf863e7
+      internalID: 1311167136
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_32
+      rect:
+        serializedVersion: 2
+        x: 1140
+        y: 408
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 47fbd3be72ee24845af75b2a2ebbfd69
+      internalID: -559400392
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_33
+      rect:
+        serializedVersion: 2
+        x: 1203
+        y: 408
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b5f5adbe584984c458e4d21a104dc39b
+      internalID: -922835222
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_34
+      rect:
+        serializedVersion: 2
+        x: 1221
+        y: 408
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: abfbb21fc4e54e84ab4510cb7d1ad823
+      internalID: 722012987
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_35
+      rect:
+        serializedVersion: 2
+        x: 1236
+        y: 408
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fa183720a2c6ce0458e8a9126a9d07d8
+      internalID: -166679978
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_36
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 216
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 86fdf6a5bd9623247ae4e444b8b43db9
+      internalID: -1373917797
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_37
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 216
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d748d5c317b3e6e44aed347c10536ca5
+      internalID: -2045498051
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_38
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 216
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6a50f2586252c434ea69029ef606a19c
+      internalID: 19952929
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_39
+      rect:
+        serializedVersion: 2
+        x: 720
+        y: 216
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d3795012ed1ce0349aff0dcbadd450af
+      internalID: -646830896
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_40
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 72
+        width: 186
+        height: 192
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8886f99219198214fbb034b15d9a8dfe
+      internalID: -468296569
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_41
+      rect:
+        serializedVersion: 2
+        x: 1188
+        y: 72
+        width: 216
+        height: 288
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape:
+      - - {x: -108, y: -28}
+        - {x: -108, y: 144}
+        - {x: 108, y: 144}
+        - {x: 108, y: -28}
+      tessellationDetail: 0
+      bones: []
+      spriteID: 91c634e6d96ae984089b88a2787b29eb
+      internalID: 1667102239
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_42
+      rect:
+        serializedVersion: 2
+        x: 1488
+        y: 72
+        width: 216
+        height: 288
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape:
+      - - {x: -108, y: -28}
+        - {x: -108, y: 144}
+        - {x: 108, y: 144}
+        - {x: 108, y: -28}
+      tessellationDetail: 0
+      bones: []
+      spriteID: ff02e539758eafe4088282c852f2161f
+      internalID: -317526175
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_43
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 72
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8e0fc29b22ab152468a58af41b6b5ef4
+      internalID: 1543751333
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_44
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 72
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f88f197698f414f4c8ae2666ff127262
+      internalID: -2110222583
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_45
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 72
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3608cb6ec3d95cb4ebc9f36312009025
+      internalID: -390293012
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Asset_Dormitory_46
+      rect:
+        serializedVersion: 2
+        x: 720
+        y: 72
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 57e4c8336ed3fd74784617b6c620420e
+      internalID: -995818288
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    nameFileIdTable:
+      Asset_Dormitory_0: 1794553985
+      Asset_Dormitory_1: -314034380
+      Asset_Dormitory_10: -49731950
+      Asset_Dormitory_11: 545734514
+      Asset_Dormitory_12: -1954684208
+      Asset_Dormitory_13: 1939154033
+      Asset_Dormitory_14: 271076114
+      Asset_Dormitory_15: 1584707587
+      Asset_Dormitory_16: -378784821
+      Asset_Dormitory_17: -765033390
+      Asset_Dormitory_18: -420575740
+      Asset_Dormitory_19: 1954953167
+      Asset_Dormitory_2: 1701873114
+      Asset_Dormitory_20: -1955375635
+      Asset_Dormitory_21: 643154635
+      Asset_Dormitory_22: -274812055
+      Asset_Dormitory_23: 596196291
+      Asset_Dormitory_24: 1487541176
+      Asset_Dormitory_25: -769202205
+      Asset_Dormitory_26: 1986722780
+      Asset_Dormitory_27: -122766067
+      Asset_Dormitory_28: 745377175
+      Asset_Dormitory_29: 308951437
+      Asset_Dormitory_3: 2024695401
+      Asset_Dormitory_30: -2146385723
+      Asset_Dormitory_31: 1311167136
+      Asset_Dormitory_32: -559400392
+      Asset_Dormitory_33: -922835222
+      Asset_Dormitory_34: 722012987
+      Asset_Dormitory_35: -166679978
+      Asset_Dormitory_36: -1373917797
+      Asset_Dormitory_37: -2045498051
+      Asset_Dormitory_38: 19952929
+      Asset_Dormitory_39: -646830896
+      Asset_Dormitory_4: 243342291
+      Asset_Dormitory_40: -468296569
+      Asset_Dormitory_41: 1667102239
+      Asset_Dormitory_42: -317526175
+      Asset_Dormitory_43: 1543751333
+      Asset_Dormitory_44: -2110222583
+      Asset_Dormitory_45: -390293012
+      Asset_Dormitory_46: -995818288
+      Asset_Dormitory_5: -942716792
+      Asset_Dormitory_6: -33018144
+      Asset_Dormitory_7: 1741733235
+      Asset_Dormitory_8: 405667004
+      Asset_Dormitory_9: -1841219970
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
