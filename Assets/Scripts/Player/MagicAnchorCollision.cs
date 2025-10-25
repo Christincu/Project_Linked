@@ -21,6 +21,8 @@ public class MagicAnchorCollision : MonoBehaviour
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (_magicController == null) return;
+
+        Debug.Log($"[MagicAnchorCollision] OnTriggerEnter2D - Other: {other.name}");
         
         // 다른 _magicAnchor인지 확인
         MagicAnchorCollision otherAnchor = other.GetComponent<MagicAnchorCollision>();
