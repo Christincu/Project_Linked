@@ -21,5 +21,8 @@ public class CharacterData : ScriptableObject
     [TextArea(3, 5)]
     [Tooltip("Character description")]
     public string description;
+
+    public MagicData magicData1;
+    public MagicData magicData2;
 }
 

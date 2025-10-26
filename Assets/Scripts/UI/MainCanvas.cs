@@ -3,7 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Fusion;
 
+/// <summary>
+/// 메인 게임 씬의 UI 상태를 관리합니다. (HP, 이름 등)
+/// ICanvas 인터페이스를 구현하며, 로컬 플레이어의 상태를 구독합니다.
+/// </summary>
 public class MainCanvas : MonoBehaviour, ICanvas
 {
     [Header("UI References")]
@@ -13,132 +18,70 @@ public class MainCanvas : MonoBehaviour, ICanvas
     [SerializeField] private Transform _hpContent;
     [SerializeField] private TextMeshProUGUI _playerNameText;
 
-    [SerializeField] private bool _isTestMode = true;
-
     public Transform CanvasTransform => transform;
 
     private List<Image> _hpImages = new List<Image>();
     private GameManager _gameManager;
     private GameDataManager _gameDataManager;
     private PlayerController _localPlayer;
+    private bool _isInitialized = false;
 
     public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
+        if (_isInitialized) return;
+
         _gameManager = gameManager;
         _gameDataManager = gameDataManager;
 
-        // 테스트 모드 확인
-        _isTestMode = TestGameManager.Instance != null;
+        _isInitialized = true;
+        Debug.Log($"[MainCanvas] Initialized.");
+    }
 
-        Debug.Log($"[MainCanvas] Initialized - TestMode: {_isTestMode}");
-
-        // 테스트 모드에서는 플레이어 전환 감지
-        if (_isTestMode)
-        {
-            StartCoroutine(WatchPlayerSwitch());
-        }
+    void OnDestroy()
+    {
+        UnsubscribeFromPlayer();
     }
 
     /// <summary>
-    /// PlayerController가 스폰될 때 호출합니다.
+    /// PlayerController가 스폰될 때 호출합니다. 로컬 Input Authority가 있는 플레이어만 등록합니다.
     /// </summary>
     public void RegisterPlayer(PlayerController player)
     {
         if (player == null) return;
-
-        // 테스트 모드에서는 로컬 플레이어만 등록 (선택된 슬롯)
-        if (_isTestMode)
+        
+        // Input Authority가 있는 플레이어만 등록
+        if (!player.Object.HasInputAuthority)
         {
-            // TestGameManager의 선택된 슬롯과 일치하는 플레이어만 등록
-            if (TestGameManager.Instance != null)
-            {
-                var selectedPlayer = TestGameManager.Instance.GetSelectedPlayer();
-                if (selectedPlayer != player)
-                {
-                    Debug.Log($"[MainCanvas] Ignoring player - not selected slot");
-                    return;
-                }
-            }
-        }
-        else
-        {
-            // 일반 모드에서는 InputAuthority가 있는 플레이어만 등록
-            if (!player.Object.HasInputAuthority)
-            {
-                Debug.Log($"[MainCanvas] Ignoring player - no input authority");
-                return;
-            }
+            Debug.Log($"[MainCanvas] Ignoring player - no input authority: {player.name}");
+            return;
         }
 
-        Debug.Log($"[MainCanvas] Registering player: {player.name}");
+        Debug.Log($"[MainCanvas] Registering local player: {player.name}");
         SetupPlayer(player);
     }
 
     /// <summary>
-    /// 테스트 모드에서 플레이어 전환을 감지합니다.
-    /// </summary>
-    private IEnumerator WatchPlayerSwitch()
-    {
-        int lastSelectedSlot = TestGameManager.SelectedSlot;
-
-        while (_isTestMode && TestGameManager.Instance != null)
-        {
-            // 슬롯이 변경되었는지 확인
-            if (lastSelectedSlot != TestGameManager.SelectedSlot)
-            {
-                lastSelectedSlot = TestGameManager.SelectedSlot;
-                
-                // 새로운 플레이어로 전환
-                var newPlayer = TestGameManager.Instance.GetSelectedPlayer();
-                if (newPlayer != null && newPlayer != _localPlayer)
-                {
-                    SwitchPlayer(newPlayer);
-                }
-            }
-
-            yield return new WaitForSeconds(0.1f);
-        }
-    }
-
-    /// <summary>
-    /// 플레이어를 설정합니다.
+    /// 플레이어를 설정하고 이벤트에 구독합니다.
     /// </summary>
     private void SetupPlayer(PlayerController player)
     {
-        if (player == null) return;
+        if (player == null || player.State == null) return;
 
-        // 이전 플레이어가 있으면 이벤트 구독 해제
+        // 기존 플레이어가 있으면 이벤트 구독 해제
         UnsubscribeFromPlayer();
 
         _localPlayer = player;
-
-        if (_localPlayer.State == null)
-        {
-            Debug.LogError("[MainCanvas] PlayerState is null!");
-            return;
-        }
 
         // 이벤트 구독
         _localPlayer.State.OnHealthChanged += OnHealthChanged;
         _localPlayer.State.OnDeath += OnPlayerDeath;
         _localPlayer.State.OnRespawned += OnPlayerRespawned;
 
-        // 초기 HP UI 생성
+        // 초기 HP UI 생성 및 플레이어 이름 설정
         InitializeHealthUI();
-
-        // 플레이어 이름 설정
-        if (_playerNameText != null)
-        {
-            if (_isTestMode)
-            {
-                _playerNameText.text = $"Player {TestGameManager.SelectedSlot + 1}";
-            }
-            else
-            {
-                _playerNameText.text = $"Player {player.Object.InputAuthority}";
-            }
-            _playerNameText.color = Color.white;
-        }
+        
+        // 플레이어 이름 설정 (PlayerData에서 닉네임 가져오기)
+        UpdatePlayerName();
     }
 
     /// <summary>
@@ -151,16 +94,8 @@ public class MainCanvas : MonoBehaviour, ICanvas
             _localPlayer.State.OnHealthChanged -= OnHealthChanged;
             _localPlayer.State.OnDeath -= OnPlayerDeath;
             _localPlayer.State.OnRespawned -= OnPlayerRespawned;
+            _localPlayer = null;
         }
-    }
-
-    /// <summary>
-    /// 다른 플레이어로 전환합니다 (테스트 모드).
-    /// </summary>
-    private void SwitchPlayer(PlayerController newPlayer)
-    {
-        Debug.Log($"[MainCanvas] Switching to Player {TestGameManager.SelectedSlot + 1}");
-        SetupPlayer(newPlayer);
     }
 
     /// <summary>
@@ -168,17 +103,13 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private void InitializeHealthUI()
     {
-        if (_localPlayer == null)
-        {
-            Debug.LogError("[MainCanvas] Cannot initialize health UI - PlayerController is null");
-            return;
-        }
+        if (_localPlayer == null) return;
 
         // 기존 하트 이미지 제거
         ClearHealthUI();
 
-        // 최대 체력에 맞춰 하트 이미지 생성
-        int maxHearts = Mathf.CeilToInt(_localPlayer.MaxHealth); // 1HP당 하트 1개
+        // 최대 체력에 맞춰 하트 이미지 생성 (1HP당 하트 1개로 가정)
+        int maxHearts = Mathf.CeilToInt(_localPlayer.MaxHealth);
         
         if (maxHearts <= 0)
         {
@@ -189,14 +120,9 @@ public class MainCanvas : MonoBehaviour, ICanvas
         for (int i = 0; i < maxHearts; i++)
         {
             GameObject hpObj = Instantiate(_hpImgObjPrefab, _hpContent);
-            Image hpImage = hpObj.GetComponent<Image>();
+            Image hpImage = hpObj.GetComponent<Image>() ?? hpObj.AddComponent<Image>();
             
-            if (hpImage == null)
-            {
-                hpImage = hpObj.AddComponent<Image>();
-            }
-            
-            // Filled 타입으로 설정 (fillAmount 사용을 위해)
+            // Filled 타입 설정
             hpImage.type = Image.Type.Filled;
             hpImage.fillMethod = Image.FillMethod.Horizontal;
             hpImage.sprite = _filledHeart;
@@ -224,6 +150,8 @@ public class MainCanvas : MonoBehaviour, ICanvas
         _hpImages.Clear();
     }
 
+    // ========== Event Handlers ==========
+
     /// <summary>
     /// HP 변경 이벤트 핸들러
     /// </summary>
@@ -233,38 +161,37 @@ public class MainCanvas : MonoBehaviour, ICanvas
     }
 
     /// <summary>
-    /// HP UI를 업데이트합니다.
+    /// HP UI를 업데이트합니다. (하트 시스템)
     /// </summary>
     private void UpdateHealthUI(float currentHealth, float maxHealth)
     {
-        if (_hpImages.Count == 0) return;
+        if (_hpImages.Count == 0 || maxHealth <= 0) return;
 
-        // 하트당 HP 계산 (1HP = 1하트)
-        float healthPerHeart = 1f;
-        float totalHearts = maxHealth / healthPerHeart;
+        float healthPerHeart = 1f; // 하트 1개당 체력 1로 가정
 
         for (int i = 0; i < _hpImages.Count; i++)
         {
-            float heartThreshold = (i + 1) * healthPerHeart;
+            float heartStartHealth = i * healthPerHeart;
+            float heartEndHealth = (i + 1) * healthPerHeart;
             
-            if (currentHealth >= heartThreshold)
+            if (currentHealth >= heartEndHealth)
             {
                 // 완전히 채워진 하트
                 _hpImages[i].sprite = _filledHeart;
                 _hpImages[i].fillAmount = 1f;
             }
-            else if (currentHealth > i * healthPerHeart)
+            else if (currentHealth > heartStartHealth)
             {
-                // 부분적으로 채워진 하트 (소수점 체력인 경우)
+                // 부분적으로 채워진 하트
                 _hpImages[i].sprite = _filledHeart;
-                float fillAmount = (currentHealth - (i * healthPerHeart)) / healthPerHeart;
+                float fillAmount = (currentHealth - heartStartHealth) / healthPerHeart;
                 _hpImages[i].fillAmount = fillAmount;
             }
             else
             {
                 // 빈 하트
                 _hpImages[i].sprite = _emptyHeart;
-                _hpImages[i].fillAmount = 1f;
+                _hpImages[i].fillAmount = 1f; // 스프라이트 자체가 빈 모양이므로 fillAmount는 1
             }
         }
     }
@@ -274,9 +201,6 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private void OnPlayerDeath(Fusion.PlayerRef killer)
     {
-        Debug.Log($"[MainCanvas] Player died! Killer: {killer}");
-        
-        // 사망 UI 표시 (추가 구현 가능)
         if (_playerNameText != null)
         {
             _playerNameText.text = "DEAD";
@@ -289,35 +213,32 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private void OnPlayerRespawned()
     {
-        Debug.Log($"[MainCanvas] Player respawned!");
+        UpdatePlayerName();
         
-        // UI 초기화
+        // 이름 색상 복구 및 HP UI 강제 업데이트
         if (_playerNameText != null)
         {
-            if (_isTestMode)
-            {
-                _playerNameText.text = $"Player {TestGameManager.SelectedSlot + 1}";
-            }
-            else
-            {
-                _playerNameText.text = $"Player {_localPlayer.Object.InputAuthority}";
-            }
             _playerNameText.color = Color.white;
         }
-
+        
         UpdateHealthUI(_localPlayer.CurrentHealth, _localPlayer.MaxHealth);
     }
 
-    void OnDestroy()
+    // ========== Additional UI Methods ==========
+    
+    /// <summary>
+    /// 로컬 플레이어의 닉네임을 가져와 화면에 표시합니다.
+    /// </summary>
+    public void UpdatePlayerName()
     {
-        // 이벤트 구독 해제
-        UnsubscribeFromPlayer();
+        if (_playerNameText == null || _localPlayer == null || _gameManager == null || _localPlayer.Runner == null) return;
+
+        var playerData = _gameManager.GetPlayerData(_localPlayer.Object.InputAuthority, _localPlayer.Runner);
+        string nickName = playerData?.Nick.ToString() ?? $"Player {_localPlayer.Object.InputAuthority.AsIndex}";
+
+        _playerNameText.text = nickName;
     }
 
-    #region Additional UI Methods
-    /// <summary>
-    /// 플레이어 이름을 설정합니다.
-    /// </summary>
     public void SetPlayerName(string playerName)
     {
         if (_playerNameText != null)
@@ -336,5 +257,4 @@ public class MainCanvas : MonoBehaviour, ICanvas
             _playerNameText.text = $"HP: {current:F0}/{max:F0}";
         }
     }
-    #endregion
 }

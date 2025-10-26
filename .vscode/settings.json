@@ -56,5 +56,6 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Project_Linked.sln"
+    "dotnet.defaultSolution": "Project_Linked.sln",
+    "dotnet.preferCSharpExtension": true
 }

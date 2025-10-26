@@ -17,3 +17,5 @@ MonoBehaviour:
   characterSprite: {fileID: 21300000, guid: e61ee879fe09e0f4daf8acd59cbcf0e5, type: 3}
   characterAnimator: {fileID: 9100000, guid: 49c5e8618a96b1d409cd6c8128a263ad, type: 2}
   description: 0
+  magicData1: {fileID: 11400000, guid: 401804c38e5d8034cb966fe5b982e5d8, type: 2}
+  magicData2: {fileID: 11400000, guid: a55261af148396e46afef7a631a15315, type: 2}

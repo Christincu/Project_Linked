@@ -5,15 +5,10 @@ using Fusion;
 using Fusion.Addons.Physics;
 
 /// <summary>
-/// 플레이어의 물리 기반 이동을 처리합니다.
-/// MonoBehaviour로 작동하며 네트워크 기능은 PlayerController를 통해 접근합니다.
+/// 플레이어의 물리 기반 이동을 처리합니다. (NetworkRigidbody2D 필수)
 /// </summary>
 public class PlayerRigidBodyMovement : MonoBehaviour
 {
-    #region Constants
-    private const float POSITION_INTERPOLATION_SPEED = 15f;
-    #endregion
-
     #region Private Fields
     private NetworkRigidbody2D _networkRb;
     private Rigidbody2D _rigidbody;
@@ -46,7 +41,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
             _acceleration = data.Acceleration;
         }
 
-        // Rigidbody 컴포넌트 가져오기
+        // NetworkRigidbody2D 컴포넌트 가져오기 (필수)
         _networkRb = GetComponent<NetworkRigidbody2D>();
         
         if (_networkRb != null)
@@ -55,11 +50,9 @@ public class PlayerRigidBodyMovement : MonoBehaviour
         }
         else
         {
-            _rigidbody = GetComponent<Rigidbody2D>();
-            if (_rigidbody == null)
-            {
-                _rigidbody = gameObject.AddComponent<Rigidbody2D>();
-            }
+            // NetworkRigidbody2D가 없으면 경고 후 Rigidbody만 사용 (Fusion 동기화는 안 됨)
+            Debug.LogError("[PlayerRigidBodyMovement] NetworkRigidbody2D is missing! Movement will not be networked.");
+            _rigidbody = GetComponent<Rigidbody2D>() ?? gameObject.AddComponent<Rigidbody2D>();
         }
 
         ConfigureRigidbody();
@@ -72,11 +65,15 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     /// </summary>
     private void ConfigureRigidbody()
     {
+        if (_rigidbody == null) return;
+        
         _rigidbody.freezeRotation = true;
         _rigidbody.gravityScale = 0f;
         _rigidbody.drag = 0f;
         _rigidbody.angularDrag = 0f;
-        _rigidbody.interpolation = RigidbodyInterpolation2D.Interpolate;
+        
+        // NetworkRigidbody2D 사용 시 Interpolation은 None으로 두는 것이 안전함
+        _rigidbody.interpolation = RigidbodyInterpolation2D.None; 
         _rigidbody.sleepMode = RigidbodySleepMode2D.NeverSleep;
     }
     #endregion
@@ -95,7 +92,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
 
         InputData inputData = data.Value;
 
-        // 테스트 모드에서는 선택된 슬롯만 입력 받기
+        // 테스트 모드 슬롯 확인
         if (isTestMode && inputData.ControlledSlot != playerSlot)
         {
             _inputDirection = Vector2.zero;
@@ -114,11 +111,10 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     }
 
     /// <summary>
-    /// 입력에 따라 플레이어를 이동시킵니다.
+    /// 입력에 따라 플레이어를 이동시킵니다. (FixedUpdateNetwork에서 호출)
     /// </summary>
     public void Move()
     {
-        // 초기화 전이면 실행 안 함
         if (_rigidbody == null) return;
 
         // 사망 상태면 이동 불가
@@ -127,22 +123,33 @@ public class PlayerRigidBodyMovement : MonoBehaviour
             _rigidbody.velocity = Vector2.zero;
             return;
         }
+        
+        // 틱 시간 가져오기 (이 코드는 PlayerController의 FixedUpdateNetwork 내부에서 호출되어야 함)
+        float deltaTime = _controller.Runner != null ? _controller.Runner.DeltaTime : Time.fixedDeltaTime;
 
         if (_inputDirection.magnitude > 0)
         {
+            // 목표 속도 계산
             Vector2 targetVelocity = _inputDirection * _moveSpeed;
             
+            // 가속도 적용 (Lerp 방식)
             if (_acceleration >= 1f)
             {
+                // 즉시 이동 (가속도 1.0 이상)
                 _rigidbody.velocity = targetVelocity;
             }
             else
             {
-                _rigidbody.velocity = Vector2.Lerp(_rigidbody.velocity, targetVelocity, _acceleration);
+                // 부드러운 이동 (가속도 적용)
+                // Lerp 비율에 deltaTime을 곱하여 프레임 의존성을 제거하고 틱 기반으로 만듦
+                float lerpRatio = _acceleration * deltaTime * 10f; // 10f는 Lerp 속도를 맞추기 위한 상수값
+                _rigidbody.velocity = Vector2.Lerp(_rigidbody.velocity, targetVelocity, lerpRatio);
             }
         }
         else
         {
+            // 입력이 없으면 감속 (감속 로직은 Drag=0이므로 수동으로 처리하거나 Force를 사용해야 함)
+            // 현재는 즉시 정지:
             _rigidbody.velocity = Vector2.zero;
         }
         
@@ -154,27 +161,11 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     /// </summary>
     private void LimitSpeed()
     {
-        if (_rigidbody == null) return;
+        if (_rigidbody == null || _maxVelocity <= 0) return;
         
         if (_rigidbody.velocity.magnitude > _maxVelocity)
         {
             _rigidbody.velocity = _rigidbody.velocity.normalized * _maxVelocity;
-        }
-    }
-
-    /// <summary>
-    /// NetworkRigidbody2D가 없을 때 위치를 보간합니다.
-    /// </summary>
-    public void InterpolatePosition(Vector3 networkedPosition, bool hasInputAuthority)
-    {
-        if (_networkRb == null && !hasInputAuthority)
-        {
-            float interpolationRatio = Time.deltaTime * POSITION_INTERPOLATION_SPEED;
-            transform.position = Vector3.Lerp(
-                transform.position,
-                networkedPosition,
-                interpolationRatio
-            );
         }
     }
 
@@ -196,4 +187,3 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     public bool HasNetworkRigidbody() => _networkRb != null;
     #endregion
 }
-

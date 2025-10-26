@@ -107,10 +107,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 5474855232778062175}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 157.86, y: 440.00003}
-  m_SizeDelta: {x: 935.73, y: 50}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 900, y: -100}
+  m_SizeDelta: {x: 400, y: 150}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6923575815757807183
 CanvasRenderer:
@@ -173,9 +173,9 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -680,7 +680,6 @@ MonoBehaviour:
   _hpImgObjPrefab: {fileID: 7626897409025638824, guid: 5ddad93269d160f48b6e58f5436fe9cb, type: 3}
   _hpContent: {fileID: 7987624592858650092}
   _playerNameText: {fileID: 6552627805348721436}
-  _isTestMode: 1
 --- !u!223 &6560199976377949969
 Canvas:
   m_ObjectHideFlags: 0
@@ -692,7 +691,7 @@ Canvas:
   serializedVersion: 3
   m_RenderMode: 1
   m_Camera: {fileID: 0}
-  m_PlaneDistance: 1
+  m_PlaneDistance: 10
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
   m_OverrideSorting: 0

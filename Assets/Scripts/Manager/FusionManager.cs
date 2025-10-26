@@ -18,6 +18,7 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     public static Action<PlayerRef, NetworkRunner, int> OnPlayerChangeCharacterEvent;
     public static Action<NetworkRunner> OnShutdownEvent;
     public static Action<NetworkRunner> OnDisconnectedEvent;
+    public static Action<NetworkRunner> OnSceneLoadDoneEvent;
 
     // Singleton initialization
     void Awake()
@@ -128,15 +129,14 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
         currentInput.MousePosition = Input.mousePosition;
         currentInput.MouseScroll = Input.mouseScrollDelta.y;
 
-        // 테스트 모드 슬롯 설정 (TestGameManager가 있을 경우)
-        var testManager = FindObjectOfType<TestGameManager>();
-        if (testManager != null)
+        // 테스트 모드 슬롯 설정 (MainGameManager의 IsTestMode 사용)
+        if (MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode)
         {
-            currentInput.ControlledSlot = TestGameManager.SelectedSlot;
+            currentInput.ControlledSlot = MainGameManager.SelectedSlot;
         }
         else
         {
-            currentInput.ControlledSlot = 0; // 기본값
+            currentInput.ControlledSlot = 0;
         }
 
         input.Set(currentInput);
@@ -154,6 +154,18 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-    public void OnSceneLoadDone(NetworkRunner runner) { }
-    public void OnSceneLoadStart(NetworkRunner runner) { }
+    public void OnSceneLoadDone(NetworkRunner runner) 
+    {
+        Debug.Log($"[FusionManager] Scene load done! Current scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+        
+        // 로딩 화면 종료는 MainGameManager에서 플레이어 스폰 완료 후 처리
+        
+        OnSceneLoadDoneEvent?.Invoke(runner);
+    }
+    public void OnSceneLoadStart(NetworkRunner runner) 
+    {
+        Debug.Log($"[FusionManager] Scene load start!");
+        
+        LoadingPanel.Show();
+    }
 }

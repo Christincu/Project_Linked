@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 public class TitleGameManager : MonoBehaviour
 {
+    // 싱글턴 인스턴스
     public static TitleGameManager Instance { get; private set; }
-    
+
     private TitleCanvas _titleCanvas;
     private string _playerNickname = "Player";
     private string _roomName = "TestRoom";
@@ -23,7 +24,6 @@ public class TitleGameManager : MonoBehaviour
         else
         {
             Destroy(gameObject);
-            return;
         }
     }
 
@@ -38,114 +38,105 @@ public class TitleGameManager : MonoBehaviour
     public void Initialize(TitleCanvas titleCanvas)
     {
         _titleCanvas = titleCanvas;
-        
+
         // 상태 초기화 (씬 재진입 시 대비)
         _isConnecting = false;
-        
-        // Setup network events
+
         SetupNetworkEvents();
-        
-        // Load saved nickname
+
+        // 저장된 닉네임 로드
         _playerNickname = PlayerPrefs.GetString("PlayerNick", "Player");
     }
 
     // ========== Network Events ==========
-    
+
     private bool _eventsSetup = false;
-    
+
     private void SetupNetworkEvents()
     {
         if (_eventsSetup) return;
-        
+
         FusionManager.OnPlayerJoinedEvent += OnPlayerJoined;
         FusionManager.OnPlayerLeftEvent += OnPlayerLeft;
         FusionManager.OnPlayerChangeCharacterEvent += OnPlayerChangeCharacter;
         FusionManager.OnShutdownEvent += OnShutdown;
         FusionManager.OnDisconnectedEvent += OnDisconnected;
         PlayerData.OnPlayerDataSpawned += OnPlayerDataSpawned;
-        
+
         _eventsSetup = true;
     }
-    
+
     private void RemoveNetworkEvents()
     {
         if (!_eventsSetup) return;
-        
+
         FusionManager.OnPlayerJoinedEvent -= OnPlayerJoined;
         FusionManager.OnPlayerLeftEvent -= OnPlayerLeft;
         FusionManager.OnPlayerChangeCharacterEvent -= OnPlayerChangeCharacter;
         FusionManager.OnShutdownEvent -= OnShutdown;
         FusionManager.OnDisconnectedEvent -= OnDisconnected;
         PlayerData.OnPlayerDataSpawned -= OnPlayerDataSpawned;
-        
+
         _eventsSetup = false;
     }
 
     // ========== Public Methods (Called by UI) ==========
-    
+
     public void CreateRoom(string roomName, string playerNickname)
     {
-        // 이미 연결 중이거나 연결되어 있으면 차단
-        if (_isConnecting)
-        {
-            _titleCanvas?.SetButtonsInteractable(true);
-            return;
-        }
-        
+        // 이미 연결 중이면 차단
+        if (_isConnecting) return;
+
+        // 이미 연결되어 있으면 경고
         if (FusionManager.LocalRunner != null)
         {
             GameManager.Instance?.ShowWarningPanel("이미 방에 연결되어 있습니다.");
             _titleCanvas?.SetButtonsInteractable(true);
             return;
         }
-        
-        // 즉시 연결 중 플래그 설정
+
         _isConnecting = true;
-        
+
         _roomName = string.IsNullOrEmpty(roomName) ? $"Room_{Random.Range(1000, 9999)}" : roomName;
         _playerNickname = playerNickname;
-        
-        // Save nickname
+
+        // 닉네임 저장
         PlayerPrefs.SetString("PlayerNick", _playerNickname);
-        
+
         StartHost();
     }
-    
+
     public void JoinRoom(string roomName, string playerNickname)
     {
-        // 이미 연결 중이거나 연결되어 있으면 차단
-        if (_isConnecting)
-        {
-            _titleCanvas?.SetButtonsInteractable(true);
-            return;
-        }
-        
+        // 이미 연결 중이면 차단
+        if (_isConnecting) return;
+
+        // 이미 연결되어 있으면 경고
         if (FusionManager.LocalRunner != null)
         {
             GameManager.Instance?.ShowWarningPanel("이미 방에 연결되어 있습니다.");
             _titleCanvas?.SetButtonsInteractable(true);
             return;
         }
-        
+
         if (string.IsNullOrEmpty(roomName))
         {
             GameManager.Instance?.ShowWarningPanel("방 이름을 입력해주세요.");
             _titleCanvas?.SetButtonsInteractable(true);
             return;
         }
-        
-        // 즉시 연결 중 플래그 설정
+
         _isConnecting = true;
-        
+
         _roomName = roomName;
         _playerNickname = playerNickname;
-        
-        // Save nickname
+
+        // 닉네임 저장
         PlayerPrefs.SetString("PlayerNick", _playerNickname);
-        
+
         StartClient();
     }
-    
+
     public void StartGame()
     {
         if (FusionManager.LocalRunner != null && FusionManager.LocalRunner.IsServer)
@@ -154,49 +145,57 @@ public class TitleGameManager : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// 챕터 씬을 로드합니다. (호스트만 실행 가능)
+    /// </summary>
+    public void LoadChapterScene(string sceneName)
+    {
+        if (FusionManager.LocalRunner != null && FusionManager.LocalRunner.IsServer)
+        {
+            Debug.Log($"[TitleGameManager] Loading chapter scene: {sceneName}");
+            FusionManager.LocalRunner.LoadScene(sceneName);
+        }
+        else
+        {
+            Debug.LogWarning("[TitleGameManager] Only host can load chapter scenes!");
+        }
+    }
+
     public void LeaveRoom()
     {
+        // 비동기 종료
         LeaveRoomAsync();
     }
-    
+
     public bool IsConnecting => _isConnecting;
     public string RoomName => _roomName;
 
     // ========== Network Connection Methods ==========
-    
+
     private async void StartHost()
     {
+        GameObject networkObject = null;
         try
         {
-            // 기존 NetworkRunner GameObject 찾아서 정리
-            GameObject existingRunner = GameObject.Find("NetworkRunner");
-            if (existingRunner != null)
-            {
-                Destroy(existingRunner);
-                await Task.Delay(100);
-            }
-            
-            // 기존 NetworkRunner가 있으면 먼저 정리
+            // 기존 LocalRunner가 있으면 종료
             if (FusionManager.LocalRunner != null)
             {
                 await FusionManager.LocalRunner.Shutdown();
                 FusionManager.LocalRunner = null;
-                await Task.Delay(500);
             }
-            
-            // Create NetworkRunner on separate object
-            GameObject networkObject = new GameObject("NetworkRunner");
+
+            // NetworkRunner 생성 및 설정
+            networkObject = new GameObject("NetworkRunner");
             DontDestroyOnLoad(networkObject);
-            
+
             var runner = networkObject.AddComponent<NetworkRunner>();
-            
-            // Use singleton FusionManager as callback handler
+
+            // FusionManager 싱글턴 보장
             if (FusionManager.Instance == null)
             {
-                var fusionManagerObj = new GameObject("FusionManager");
-                fusionManagerObj.AddComponent<FusionManager>();
+                new GameObject("FusionManager").AddComponent<FusionManager>();
             }
-            
+
             runner.AddCallbacks(FusionManager.Instance);
             runner.ProvideInput = true;
 
@@ -204,21 +203,22 @@ public class TitleGameManager : MonoBehaviour
             {
                 GameMode = GameMode.Host,
                 SessionName = _roomName,
-                PlayerCount = 4,
-                SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>()
+                PlayerCount = 2,
+                SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>(),
+                ObjectProvider = networkObject.AddComponent<NetworkObjectProviderDefault>()
             });
-            
+
             if (result.Ok)
             {
                 _titleCanvas?.ShowLobbyPanel();
             }
             else
             {
-                string errorMessage = $"방 생성 실패: {GetShutdownReasonMessage(result.ShutdownReason)}";
+                string errorMessage = $"방 생성 실패: {Messages.GetShutdownReasonMessage(result.ShutdownReason)}";
                 Debug.LogWarning($"[TitleGameManager] Host start failed: {result.ShutdownReason}");
                 GameManager.Instance?.ShowWarningPanel(errorMessage);
-                
-                // 실패 시 LocalRunner와 GameObject 정리
+
+                // 실패 시 정리
                 FusionManager.LocalRunner = null;
                 if (networkObject != null)
                     Destroy(networkObject);
@@ -229,52 +229,44 @@ public class TitleGameManager : MonoBehaviour
             string errorMessage = $"방 생성 오류: {e.Message}";
             Debug.LogError($"[TitleGameManager] Host start error: {e.Message}");
             GameManager.Instance?.ShowWarningPanel(errorMessage);
-            
-            // 예외 발생 시 LocalRunner 정리
+
+            // 예외 발생 시 정리
             FusionManager.LocalRunner = null;
+            if (networkObject != null)
+                Destroy(networkObject);
         }
         finally
         {
             _isConnecting = false;
             _titleCanvas?.SetButtonsInteractable(true);
+            _titleCanvas?.UpdateLobbyUI();
         }
-
-        _titleCanvas?.UpdateLobbyUI();
     }
-    
+
     private async void StartClient()
     {
+        GameObject networkObject = null;
         try
         {
-            // 기존 NetworkRunner GameObject 찾아서 정리
-            GameObject existingRunner = GameObject.Find("NetworkRunner");
-            if (existingRunner != null)
-            {
-                Destroy(existingRunner);
-                await Task.Delay(100);
-            }
-            
-            // 기존 NetworkRunner가 있으면 먼저 정리
+            // 기존 LocalRunner가 있으면 종료
             if (FusionManager.LocalRunner != null)
             {
                 await FusionManager.LocalRunner.Shutdown();
                 FusionManager.LocalRunner = null;
-                await Task.Delay(500);
             }
-            
-            // Create NetworkRunner on separate object
-            GameObject networkObject = new GameObject("NetworkRunner");
+
+            // NetworkRunner 생성 및 설정
+            networkObject = new GameObject("NetworkRunner");
             DontDestroyOnLoad(networkObject);
-            
+
             var runner = networkObject.AddComponent<NetworkRunner>();
-            
-            // Use singleton FusionManager as callback handler
+
+            // FusionManager 싱글턴 보장
             if (FusionManager.Instance == null)
             {
-                var fusionManagerObj = new GameObject("FusionManager");
-                fusionManagerObj.AddComponent<FusionManager>();
+                new GameObject("FusionManager").AddComponent<FusionManager>();
             }
-            
+
             runner.AddCallbacks(FusionManager.Instance);
             runner.ProvideInput = true;
 
@@ -282,20 +274,21 @@ public class TitleGameManager : MonoBehaviour
             {
                 GameMode = GameMode.Client,
                 SessionName = _roomName,
-                SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>()
+                SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>(),
+                ObjectProvider = networkObject.AddComponent<NetworkObjectProviderDefault>()
             });
-            
+
             if (result.Ok)
             {
                 _titleCanvas?.ShowLobbyPanel();
             }
             else
             {
-                string errorMessage = $"방 접속 실패: {GetShutdownReasonMessage(result.ShutdownReason)}";
+                string errorMessage = $"방 접속 실패: {Messages.GetShutdownReasonMessage(result.ShutdownReason)}";
                 Debug.LogWarning($"[TitleGameManager] Client connection failed: {result.ShutdownReason}");
                 GameManager.Instance?.ShowWarningPanel(errorMessage);
-                
-                // 실패 시 LocalRunner와 GameObject 정리
+
+                // 실패 시 정리
                 FusionManager.LocalRunner = null;
                 if (networkObject != null)
                     Destroy(networkObject);
@@ -306,55 +299,56 @@ public class TitleGameManager : MonoBehaviour
             string errorMessage = $"방 접속 오류: {e.Message}";
             Debug.LogError($"[TitleGameManager] Client connection error: {e.Message}");
             GameManager.Instance?.ShowWarningPanel(errorMessage);
-            
-            // 예외 발생 시 LocalRunner 정리
+
+            // 예외 발생 시 정리
             FusionManager.LocalRunner = null;
+            if (networkObject != null)
+                Destroy(networkObject);
         }
         finally
         {
             _isConnecting = false;
             _titleCanvas?.SetButtonsInteractable(true);
+            _titleCanvas?.UpdateLobbyUI();
         }
-
-        _titleCanvas?.UpdateLobbyUI();
     }
-    
+
     private async void LeaveRoomAsync()
     {
+        // LocalRunner 종료
         if (FusionManager.LocalRunner != null)
         {
             await FusionManager.LocalRunner.Shutdown();
             FusionManager.LocalRunner = null;
-            await Task.Delay(500);
         }
-        
-        // NetworkRunner GameObject 정리
+
+        // 혹시 남아있을 수 있는 NetworkRunner GameObject 정리
         GameObject networkRunnerObj = GameObject.Find("NetworkRunner");
         if (networkRunnerObj != null)
         {
             Destroy(networkRunnerObj);
         }
-        
+
         _isConnecting = false;
         _titleCanvas?.ShowTitlePanel();
         _titleCanvas?.SetButtonsInteractable(true);
     }
 
     // ========== Network Event Handlers ==========
-    
+
     private void OnPlayerJoined(PlayerRef player, NetworkRunner runner)
     {
         _titleCanvas?.UpdateLobbyUI();
     }
-    
+
     private void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
     {
         _titleCanvas?.UpdateLobbyUI();
     }
-    
+
     private void OnPlayerChangeCharacter(PlayerRef player, NetworkRunner runner, int characterIndex)
     {
-        // Update UI if it's the local player
+        // 로컬 플레이어일 경우 캐릭터 UI 업데이트
         if (runner.LocalPlayer == player && GameDataManager.Instance != null)
         {
             var characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
@@ -363,40 +357,41 @@ public class TitleGameManager : MonoBehaviour
                 _titleCanvas?.UpdateCharacterUI(characterData);
             }
         }
-        
+
         _titleCanvas?.UpdateLobbyUI();
     }
-    
+
     private void OnShutdown(NetworkRunner runner)
     {
-        // LocalRunner 정리
+        // 종료된 러너가 현재 LocalRunner였다면 초기화
         if (runner == FusionManager.LocalRunner)
         {
             FusionManager.LocalRunner = null;
         }
-        
+
+        // UI를 타이틀 화면으로 복구
         _isConnecting = false;
         _titleCanvas?.ShowTitlePanel();
         _titleCanvas?.SetButtonsInteractable(true);
     }
-    
+
     private void OnDisconnected(NetworkRunner runner)
     {
-        // LocalRunner 정리
+        // 연결 끊김 처리 (Shutdown과 유사)
         if (runner == FusionManager.LocalRunner)
         {
             FusionManager.LocalRunner = null;
         }
-        
+
         _isConnecting = false;
         GameManager.Instance?.ShowWarningPanel("네트워크 연결이 끊어졌습니다.");
         _titleCanvas?.ShowTitlePanel();
         _titleCanvas?.SetButtonsInteractable(true);
     }
-    
+
     private void OnPlayerDataSpawned(PlayerRef player, NetworkRunner runner)
     {
-        // Update local player's character UI if it's the local player
+        // 로컬 플레이어의 PlayerData가 스폰되면 캐릭터 UI 업데이트
         if (runner.LocalPlayer == player)
         {
             var playerData = GameManager.Instance?.GetPlayerData(player, runner);
@@ -409,46 +404,7 @@ public class TitleGameManager : MonoBehaviour
                 }
             }
         }
-        
-        _titleCanvas?.UpdateLobbyUI();
-    }
 
-    // ========== Helper Methods ==========
-    
-    private string GetShutdownReasonMessage(ShutdownReason reason)
-    {
-        switch (reason)
-        {
-            case ShutdownReason.Ok:
-                return "정상 종료";
-            case ShutdownReason.Error:
-                return "알 수 없는 오류";
-            case ShutdownReason.ServerInRoom:
-                return "서버가 이미 다른 방에 있습니다";
-            case ShutdownReason.DisconnectedByPluginLogic:
-                return "플러그인 로직에 의해 연결 해제";
-            case ShutdownReason.GameClosed:
-                return "게임이 종료되었습니다";
-            case ShutdownReason.GameNotFound:
-                return "방을 찾을 수 없습니다";
-            case ShutdownReason.MaxCcuReached:
-                return "최대 동시 접속자 수 도달";
-            case ShutdownReason.InvalidRegion:
-                return "잘못된 리전";
-            case ShutdownReason.GameIdAlreadyExists:
-                return "방 이름이 이미 존재합니다";
-            case ShutdownReason.GameIsFull:
-                return "방이 가득 찼습니다";
-            case ShutdownReason.InvalidAuthentication:
-                return "인증 실패";
-            case ShutdownReason.CustomAuthenticationFailed:
-                return "사용자 인증 실패";
-            case ShutdownReason.AuthenticationTicketExpired:
-                return "인증 티켓 만료";
-            case ShutdownReason.PhotonCloudTimeout:
-                return "클라우드 연결 시간 초과";
-            default:
-                return reason.ToString();
-        }
+        _titleCanvas?.UpdateLobbyUI();
     }
 }

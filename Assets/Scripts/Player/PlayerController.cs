@@ -5,8 +5,8 @@ using Fusion;
 using Fusion.Addons.Physics;
 
 /// <summary>
-/// 네트워크 동기화를 지원하는 플레이어 컨트롤러
-/// Photon Fusion을 사용하여 플레이어를 총괄 관리합니다.
+/// 네트워크 동기화를 지원하는 플레이어 컨트롤러 (Photon Fusion)
+/// NetworkRigidbody를 사용하여 위치 및 속도를 동기화합니다.
 /// </summary>
 public class PlayerController : NetworkBehaviour, IPlayerLeft
 {
@@ -15,25 +15,33 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     #endregion
 
     #region Networked Properties
-    // Position & Animation
-    [Networked] public Vector3 NetworkedPosition { get; set; }
-    [Networked] public Vector2 NetworkedVelocity { get; set; }
+    // Animation
     [Networked] public NetworkString<_16> AnimationState { get; set; }
     [Networked] public float ScaleX { get; set; }
-    
+
     // Player Info
-    [Networked] public int PlayerSlot { get; set; } // Test mode: which slot's input to receive
-    [Networked] public int CharacterIndex { get; set; } // Character index (network synced)
-    
+    [Networked] public int PlayerSlot { get; set; }
+    [Networked] public int CharacterIndex { get; set; }
+
     // Health
     [Networked] public float CurrentHealth { get; set; }
     [Networked] public float MaxHealth { get; set; }
     [Networked] public NetworkBool IsDead { get; set; }
     [Networked] public TickTimer InvincibilityTimer { get; set; }
 
+    [Networked] public TickTimer RespawnTimer { get; set; }
+
     // Magic
+    [Networked] public Vector3 MagicAnchorLocalPosition { get; set; } // 앵커의 로컬 위치 동기화
     [Networked] public bool MagicActive { get; set; }
     [Networked] public TickTimer MagicCooldownTimer { get; set; }
+    [Networked] public int MagicActivationTick { get; set; }
+
+    // Teleporter
+    [Networked] public TickTimer TeleportCooldownTimer { get; set; }
+
+    // ⭐ [추가됨] 순간이동 플래그 (보간 건너뛰기용)
+    [Networked] public NetworkBool DidTeleport { get; set; }
     #endregion
 
     #region Private Fields - Components
@@ -46,7 +54,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     private GameObject _viewObj;
     private Animator _animator;
     private ChangeDetector _changeDetector;
-    
+
     // Player Components
     private PlayerBehavior _behavior;
     private PlayerMagicController _magicController;
@@ -55,7 +63,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     #endregion
 
     #region Private Fields - State
-    private int _characterIndex = 0;
     private Vector2 _previousPosition;
     private string _lastAnimationState = "";
     private bool _isTestMode;
@@ -67,11 +74,16 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public PlayerState State => _state;
     public PlayerRigidBodyMovement Movement => _movement;
     public float MoveSpeed => _movement != null ? _movement.GetMoveSpeed() : 0f;
-    
+
     // Health Properties
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
     public bool IsInvincible => !InvincibilityTimer.ExpiredOrNotRunning(Runner);
+
+    // Test Mode Property
+    public bool IsTestMode => _isTestMode;
     #endregion
+
+    // ---
 
     #region Fusion Callbacks
     /// <summary>
@@ -79,133 +91,85 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     /// </summary>
     public override void Spawned()
     {
-        _isTestMode = FindObjectOfType<TestGameManager>() != null;
+        // MainGameManager의 테스트 모드 확인
+        _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
         _previousPosition = transform.position;
 
-        // 컴포넌트 초기화
         InitializeComponents();
-        
-        // 네트워크 상태 초기화
         InitializeNetworkState();
-        
-        // 뷰 생성
+
         TryCreateView();
 
-        // 모든 초기화를 1프레임 후에 처리
+        // 초기화 및 데이터 동기화 대기
         StartCoroutine(InitializeAllComponents());
 
-        Debug.Log($"[PlayerController] Spawned - InputAuth: {Object.HasInputAuthority}, StateAuth: {Object.HasStateAuthority}");
+        Debug.Log($"[PlayerController] Spawned - InputAuth: {Object.HasInputAuthority}, StateAuth: {Object.HasStateAuthority}, TestMode: {_isTestMode}");
     }
 
     /// <summary>
-    /// 모든 컴포넌트를 초기화합니다.
+    /// 모든 컴포넌트를 초기화하고 데이터 동기화를 처리합니다.
     /// </summary>
     private IEnumerator InitializeAllComponents()
     {
-        // 1프레임 대기 (모든 컴포넌트의 Spawned() 호출 보장)
         yield return null;
 
-        // GameDataManager에서 InitialPlayerData 가져오기
-        InitialPlayerData initialData = null;
-        if (GameDataManager.Instance != null)
+        InitialPlayerData initialData = GameDataManager.Instance?.InitialPlayerData;
+
+        if (initialData == null)
         {
-            initialData = GameDataManager.Instance.InitialPlayerData;
-        }
-        else
-        {
-            Debug.LogError("[PlayerController] GameDataManager.Instance is null!");
+            Debug.LogError("[PlayerController] GameDataManager or InitialPlayerData is null!");
             yield break;
         }
 
         // 1. 네트워크 변수 초기화 (서버만)
-        if (Object.HasStateAuthority && initialData != null)
+        if (Object.HasStateAuthority)
         {
-            // Health 초기화
             MaxHealth = initialData.MaxHealth;
             CurrentHealth = initialData.StartingHealth;
             IsDead = false;
-            
-            Debug.Log($"[PlayerController] Network state initialized - HP: {CurrentHealth}/{MaxHealth}");
-        }
-        
-        // 2. PlayerState 초기화
-        if (_state != null)
-        {
-            _state.Initialize(this, initialData);
         }
 
-        // 3. PlayerRigidBodyMovement 초기화
-        if (_movement != null)
-        {
-            _movement.Initialize(this, initialData);
-        }
+        // 2. 종속 컴포넌트 초기화
+        _state?.Initialize(this, initialData);
+        _movement?.Initialize(this, initialData);
+        _behavior?.Initialize(this);
 
-        // 4. PlayerBehavior 초기화
-        if (_behavior != null)
-        {
-            _behavior.Initialize(this);
-        }
-
-        // 5. PlayerMagicController 초기화
         if (_magicController != null)
         {
             _magicController.Initialize(this);
             _magicController.SetMagicUIReferences(_magicViewObj, _magicAnchor, _magicIdleFirstFloor, _magicIdleSecondFloor, _magicActiveFloor);
         }
 
-        Debug.Log($"[PlayerController] All components initialized");
-
-        // Canvas 등록 (클라이언트는 네트워크 동기화 대기)
+        // Canvas 등록
         if (Object.HasStateAuthority)
         {
-            // 서버는 즉시 등록
             RegisterToCanvas();
         }
         else
         {
-            // 클라이언트는 MaxHealth 동기화 대기 후 등록
             StartCoroutine(WaitForNetworkSyncAndRegister());
         }
     }
 
-    /// <summary>
-    /// 클라이언트에서 네트워크 동기화를 대기하고 Canvas에 등록합니다.
-    /// </summary>
     private IEnumerator WaitForNetworkSyncAndRegister()
     {
-        // MaxHealth가 동기화될 때까지 대기
         while (MaxHealth <= 0)
         {
             yield return null;
         }
-        
-        Debug.Log($"[PlayerController] Network sync complete - HP: {CurrentHealth}/{MaxHealth}");
-        
-        // MainCanvas에 플레이어 등록
+
         RegisterToCanvas();
     }
 
-    /// <summary>
-    /// GameManager를 통해 MainCanvas에 자신을 등록합니다.
-    /// </summary>
     private void RegisterToCanvas()
     {
-        if (GameManager.Instance != null && GameManager.Instance.Canvas != null)
+        if (GameManager.Instance?.Canvas is MainCanvas canvas)
         {
-            var canvas = GameManager.Instance.Canvas as MainCanvas;
-            if (canvas != null)
-            {
-                canvas.RegisterPlayer(this);
-                Debug.Log($"[PlayerController] Registered to MainCanvas");
-            }
-            else
-            {
-                Debug.LogWarning($"[PlayerController] Canvas is not MainCanvas type");
-            }
+            canvas.RegisterPlayer(this);
         }
         else
         {
-            Debug.LogWarning($"[PlayerController] GameManager or Canvas not found");
+            Debug.LogWarning($"[PlayerController] GameManager, Canvas, or MainCanvas type not found");
         }
     }
 
@@ -214,56 +178,49 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     /// </summary>
     public override void FixedUpdateNetwork()
     {
-        // 초기화 전이면 실행 안 함
-        if (_movement == null) return;
+        if (_movement == null || _state == null) return;
 
-        // 입력 처리
         InputData? inputData = null;
         if (GetInput<InputData>(out var data))
         {
             inputData = data;
         }
-        
-        _movement.ProcessInput(inputData, _isTestMode, PlayerSlot);
 
-        // 마법 컨트롤러 입력 처리
-        if (_magicController != null && inputData.HasValue)
+        if (!_state.IsDead)
         {
-            _magicController.ProcessInput(inputData.Value, this, _isTestMode);
+            _movement.ProcessInput(inputData, _isTestMode, PlayerSlot);
+            _magicController?.ProcessInput(inputData, this, _isTestMode);
+            _movement.Move();
         }
 
-        // 이동
-        _movement.Move();
-        
-        // StateAuthority(서버)에서만 네트워크 상태 업데이트
+        if (Object.HasStateAuthority && _state.IsDead)
+        {
+            if (_state.RespawnTimer.Expired(Runner))
+            {
+                _state.Respawn();
+            }
+        }
+
         if (Object.HasStateAuthority)
         {
             UpdateAnimation();
-            NetworkedVelocity = _movement.GetVelocity();
-            
-            // NetworkRigidbody2D가 없을 때만 위치 동기화
-            if (!_movement.HasNetworkRigidbody())
-            {
-                NetworkedPosition = transform.position;
-            }
+        }
+        
+        if (Object.HasStateAuthority && DidTeleport)
+        {
+            DidTeleport = false;
         }
 
         _previousPosition = transform.position;
     }
 
-    /// <summary>
-    /// 렌더 업데이트 (네트워크 상태 변경 감지 및 보간)
-    /// </summary>
     public override void Render()
     {
         DetectNetworkChanges();
-        
-        if (_movement != null)
-        {
-            _movement.InterpolatePosition(NetworkedPosition, Object.HasInputAuthority);
-        }
     }
     #endregion
+
+    // ---
 
     #region Public Methods - Network
     /// <summary>
@@ -276,242 +233,210 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             Runner.Despawn(Object);
         }
     }
+
+    /// <summary>
+    /// MapTeleporter가 순간이동을 요청합니다. (State Authority에서 호출)
+    /// </summary>
+    public void RequestTeleport(Vector3 targetPosition)
+    {
+        // PlayerController는 NetworkBehaviour이므로, RPC를 호출하여 서버에 요청합니다.
+        if (Object.HasStateAuthority)
+        {
+            RPC_TeleportPlayer(targetPosition);
+        }
+    }
     #endregion
 
-    #region Public Methods - Character
+    #region Public Methods - Character & State Callbacks
     /// <summary>
     /// 캐릭터 인덱스를 설정하고 뷰 오브젝트를 생성합니다.
     /// </summary>
     public void SetCharacterIndex(int characterIndex)
     {
         CharacterIndex = characterIndex;
-        _characterIndex = characterIndex;
         TryCreateView();
     }
-    #endregion
-
-    #region Public Methods - State Callbacks
-    /// <summary>
-    /// PlayerState에서 사망 시 호출됩니다.
-    /// </summary>
-    public void OnPlayerDied()
-    {
-        AnimationState = "die";
-        Debug.Log($"[PlayerController] Player died");
-    }
 
     /// <summary>
-    /// PlayerState에서 리스폰 시 호출됩니다.
+    /// PlayerState에서 리스폰 시 호출됩니다. 위치를 업데이트하고 움직임을 리셋합니다.
     /// </summary>
     public void OnPlayerRespawned(Vector3 spawnPosition)
     {
-        transform.position = spawnPosition;
+        // Rigidbody 위치를 설정하여 동기화를 보장합니다.
+        if (Movement?.Rigidbody != null)
+        {
+            Movement.Rigidbody.position = spawnPosition;
+        }
+        else
+        {
+            transform.position = spawnPosition;
+        }
+
         _previousPosition = spawnPosition;
         AnimationState = "idle";
-        
-        if (_movement != null)
-        {
-            _movement.ResetVelocity();
-        }
-        
+
+        _movement?.ResetVelocity();
+
         Debug.Log($"[PlayerController] Player respawned at {spawnPosition}");
+    }
+
+    /// <summary>
+    /// 마법 활성화 틱을 설정합니다. (Input Authority에서 호출, RPC로 서버에 전달)
+    /// </summary>
+    public void SetMagicActivationTick(int tick)
+    {
+        if (Object.HasInputAuthority)
+        {
+            RPC_SetMagicActivationTick(tick);
+        }
     }
     #endregion
 
-    #region Public Methods - Component Access (허브 역할)
+    #region RPC Methods
     /// <summary>
-    /// 기본 공격을 실행합니다 (PlayerBehavior로 위임).
+    /// 마법 앵커 로컬 위치를 업데이트합니다. (Input Authority → State Authority)
     /// </summary>
-    public void PerformAttack()
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_UpdateMagicAnchorPosition(Vector3 localPosition)
     {
-        if (_behavior != null)
+        MagicAnchorLocalPosition = localPosition;
+    }
+
+    /// <summary>
+    /// 마법 활성화 틱을 설정합니다. (Input Authority → State Authority)
+    /// </summary>
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_SetMagicActivationTick(int tick)
+    {
+        MagicActivationTick = tick;
+    }
+
+    /// <summary>
+    /// 서버에서 호출되어 플레이어의 위치를 강제로 설정합니다. (MapTeleporter 사용)
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_TeleportPlayer(Vector3 targetPosition)
+    {
+        if (Object.HasInputAuthority)
         {
-            _behavior.PerformAttack();
+            StartCoroutine(TeleportWithLoadingScreen(targetPosition));
+        }
+        else
+        {
+            ExecuteTeleport(targetPosition);
         }
     }
-
-    /// <summary>
-    /// 스킬을 사용합니다 (PlayerBehavior로 위임).
-    /// </summary>
-    public void UseSkill(int skillIndex)
+    
+    private IEnumerator TeleportWithLoadingScreen(Vector3 targetPosition)
     {
-        if (_behavior != null)
+        LoadingPanel.Show();
+        
+        yield return new WaitForSeconds(0.3f);
+        
+        ExecuteTeleport(targetPosition);
+        
+        yield return new WaitForSeconds(0.3f);
+        
+        LoadingPanel.Hide();
+    }
+    
+    private void ExecuteTeleport(Vector3 targetPosition)
+    {
+        var networkRb = GetComponent<NetworkRigidbody2D>();
+        if (networkRb != null && networkRb.Rigidbody != null)
         {
-            _behavior.UseSkill(skillIndex);
+            networkRb.Teleport(targetPosition);
+            networkRb.Rigidbody.velocity = Vector2.zero;
         }
-    }
-
-    /// <summary>
-    /// 마법을 시전합니다 (PlayerMagicController로 위임).
-    /// </summary>
-    public void CastMagic(Vector3 targetPosition)
-    {
-        if (_magicController != null)
+        else
         {
-            _magicController.CastMagic(targetPosition);
+            transform.position = targetPosition;
         }
-    }
-
-    /// <summary>
-    /// 데미지를 받습니다 (PlayerState로 위임).
-    /// </summary>
-    public void TakeDamage(float damage, PlayerRef attacker = default)
-    {
-        if (_state != null)
-        {
-            _state.TakeDamage(damage, attacker);
-        }
-    }
-
-    /// <summary>
-    /// 치료를 받습니다 (PlayerState로 위임).
-    /// </summary>
-    public void Heal(float healAmount)
-    {
-        if (_state != null)
-        {
-            _state.Heal(healAmount);
-        }
-    }
-
-    /// <summary>
-    /// 상호작용을 실행합니다 (PlayerBehavior로 위임).
-    /// </summary>
-    public void Interact()
-    {
-        if (_behavior != null)
-        {
-            _behavior.Interact();
-        }
-    }
-
-    /// <summary>
-    /// 체력 정보를 가져옵니다.
-    /// </summary>
-    public (float current, float max) GetHealth()
-    {
-        return (CurrentHealth, MaxHealth);
-    }
-
-    /// <summary>
-    /// 플레이어가 사망 상태인지 확인합니다.
-    /// </summary>
-    public bool IsPlayerDead()
-    {
-        return IsDead;
+        
+        Movement?.ResetVelocity();
+        _previousPosition = (Vector2)targetPosition;
+        DidTeleport = true;
+        
+        Debug.Log($"[PlayerController] Teleported to {targetPosition}");
     }
     #endregion
 
     #region Private Methods - Initialization
     /// <summary>
-    /// 컴포넌트를 초기화합니다.
+    /// 컴포넌트를 초기화합니다 (없으면 추가).
     /// </summary>
     private void InitializeComponents()
     {
-        // 모든 플레이어 컴포넌트 찾기/추가
-        _state = GetComponent<PlayerState>();
-        if (_state == null)
-        {
-            _state = gameObject.AddComponent<PlayerState>();
-        }
-
-        _behavior = GetComponent<PlayerBehavior>();
-        if (_behavior == null)
-        {
-            _behavior = gameObject.AddComponent<PlayerBehavior>();
-        }
-
-        _magicController = GetComponent<PlayerMagicController>();
-        if (_magicController == null)
-        {
-            _magicController = gameObject.AddComponent<PlayerMagicController>();
-        }
-
-        _movement = GetComponent<PlayerRigidBodyMovement>();
-        if (_movement == null)
-        {
-            _movement = gameObject.AddComponent<PlayerRigidBodyMovement>();
-        }
+        _state = GetComponent<PlayerState>() ?? gameObject.AddComponent<PlayerState>();
+        _behavior = GetComponent<PlayerBehavior>() ?? gameObject.AddComponent<PlayerBehavior>();
+        _magicController = GetComponent<PlayerMagicController>() ?? gameObject.AddComponent<PlayerMagicController>();
+        _movement = GetComponent<PlayerRigidBodyMovement>() ?? gameObject.AddComponent<PlayerRigidBodyMovement>();
 
         _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
-        
-        Debug.Log($"[PlayerController] All components initialized");
     }
 
     /// <summary>
-    /// 네트워크 상태 초기값을 설정합니다.
+    /// 네트워크 상태 초기값을 설정합니다. (State Authority 전용)
     /// </summary>
     private void InitializeNetworkState()
     {
         if (Object.HasStateAuthority)
         {
-            // Animation
             ScaleX = 1f;
             AnimationState = "idle";
-            
-            // Health & Mana - GameDataManager에서 가져올 예정 (InitializeAllComponents에서)
-            // 여기서는 기본값만 설정
             IsDead = false;
+            TeleportCooldownTimer = TickTimer.None;
+            DidTeleport = false; // 초기화
         }
     }
 
     /// <summary>
-    /// 캐릭터 뷰 오브젝트를 생성합니다.
+    /// 캐릭터 뷰 오브젝트를 생성합니다. (CharacterIndex 동기화 후 호출)
     /// </summary>
-private void TryCreateView()
-{
-    if (_viewObj != null) return;
-    if (GameDataManager.Instance == null) return;
-
-    int index = CharacterIndex >= 0 ? CharacterIndex : _characterIndex;
-    var data = GameDataManager.Instance.CharacterService.GetCharacter(index);
-    
-    if (data != null && data.characterAnimator != null)
+    private void TryCreateView()
     {
-        GameObject instance = new GameObject("ViewObj");
-        instance.transform.SetParent(transform, false);
+        if (_viewObj != null || GameDataManager.Instance == null) return;
 
-        _viewObj = instance;
-        _animator = _viewObj.AddComponent<Animator>();
-        SpriteRenderer _spriteRenderer = _viewObj.AddComponent<SpriteRenderer>();
+        var data = GameDataManager.Instance.CharacterService.GetCharacter(CharacterIndex);
 
-        _spriteRenderer.sprite = data.characterSprite;
-        _spriteRenderer.material = GameDataManager.Instance.DefaltSpriteMat;
+        if (data != null && data.characterAnimator != null)
+        {
+            if (_viewObj != null) Destroy(_viewObj);
 
-        _animator.runtimeAnimatorController = data.characterAnimator;
+            GameObject instance = new GameObject("ViewObj");
+            instance.transform.SetParent(transform, false);
 
-        Debug.Log($"[PlayerController] Character view created: {index}");
+            _viewObj = instance;
+
+            _animator = _viewObj.AddComponent<Animator>();
+            SpriteRenderer _spriteRenderer = _viewObj.AddComponent<SpriteRenderer>();
+
+            _spriteRenderer.sprite = data.characterSprite;
+            _spriteRenderer.material = GameDataManager.Instance.DefaltSpriteMat;
+
+            _animator.runtimeAnimatorController = data.characterAnimator;
+        }
     }
-    else
-    {
-        Debug.LogError($"[PlayerController] Character view not found: {index}");
-    }
-}
     #endregion
 
     #region Private Methods - Animation
     /// <summary>
-    /// 실제 이동 거리를 기반으로 애니메이션 상태를 업데이트합니다.
+    /// 실제 이동 거리를 기반으로 애니메이션 상태를 업데이트합니다. (서버 전용)
     /// </summary>
     private void UpdateAnimation()
     {
-        if (_animator == null) return;
-
-        // 사망 상태면 애니메이션 업데이트 안 함
-        if (IsDead) return;
+        if (_animator == null || IsDead) return;
 
         Vector2 currentPos = transform.position;
         Vector2 actualMovement = currentPos - _previousPosition;
         float actualSpeed = actualMovement.magnitude / Runner.DeltaTime;
 
-        // 실제로 움직이지 않으면 idle
         if (actualSpeed < MIN_MOVEMENT_SPEED)
         {
             AnimationState = "idle";
         }
         else
         {
-            // 실제 이동 방향으로 애니메이션 결정
             if (Mathf.Abs(actualMovement.y) > Mathf.Abs(actualMovement.x))
             {
                 AnimationState = actualMovement.y > 0 ? "up" : "down";
@@ -541,21 +466,18 @@ private void TryCreateView()
     /// </summary>
     private void UpdateScale()
     {
-        // 뷰 오브젝트 스케일 업데이트
         if (_viewObj != null)
         {
             Vector3 scale = _viewObj.transform.localScale;
             scale.x = ScaleX;
             _viewObj.transform.localScale = scale;
         }
-        
-        // 마법 앵커는 좌우 반전하지 않음 (마우스 위치에 따라 결정됨)
     }
     #endregion
 
     #region Private Methods - Network Synchronization
     /// <summary>
-    /// 네트워크 상태 변경을 감지하고 처리합니다.
+    /// 네트워크 상태 변경을 감지하고 처리합니다. (렌더링 틱)
     /// </summary>
     private void DetectNetworkChanges()
     {
@@ -566,20 +488,21 @@ private void TryCreateView()
                 case nameof(AnimationState):
                     PlayAnimation(AnimationState.ToString());
                     break;
-                    
+
                 case nameof(ScaleX):
                     UpdateScale();
                     break;
-                    
+
                 case nameof(CharacterIndex):
                     TryCreateView();
                     break;
-                    
+
                 case nameof(MagicActive):
-                    if (_magicController != null)
-                    {
-                        _magicController.UpdateMagicUIFromNetwork(MagicActive);
-                    }
+                    _magicController?.UpdateMagicUIFromNetwork(MagicActive);
+                    break;
+
+                case nameof(MagicAnchorLocalPosition):
+                    _magicController?.UpdateAnchorPositionFromNetwork(MagicAnchorLocalPosition);
                     break;
             }
         }

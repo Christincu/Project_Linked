@@ -8,27 +8,33 @@ using Fusion;
 public class TitleCanvas : MonoBehaviour, ICanvas
 {
     [Header("UI Panels")]
-    [SerializeField] private GameObject titlePanel;      // Title screen
-    [SerializeField] private GameObject lobbyPanel;    // Lobby screen
-    
+    [SerializeField] private GameObject _titlePanel;
+    [SerializeField] private GameObject _lobbyPanel;
+
     [Header("Lobby UI")]
-    [SerializeField] private TextMeshProUGUI playerListText;    // Player list
-    [SerializeField] private TextMeshProUGUI roomNameText;     // Room name
-    [SerializeField] private Button startGameButton;            // Start game button
-    [SerializeField] private Button leaveRoomButton;            // Leave room button
-    
+    [SerializeField] private TextMeshProUGUI _playerListText;
+    [SerializeField] private TextMeshProUGUI _roomNameText;
+    [SerializeField] private Button _startGameButton;
+    [SerializeField] private Button _leaveRoomButton;
+
     [Header("Room Setup UI")]
-    [SerializeField] private TMP_InputField nicknameInput;     // Nickname input
-    [SerializeField] private TMP_InputField roomNameInput;     // Room name input
-    [SerializeField] private Button createRoomButton;          // Create room button
-    [SerializeField] private Button joinRoomButton;            // Join room button
-    
+    [SerializeField] private TMP_InputField _nicknameInput;
+    [SerializeField] private TMP_InputField _roomNameInput;
+    [SerializeField] private Button _createRoomButton;
+    [SerializeField] private Button _joinRoomButton;
+
     [Header("Character Selection UI")]
-    [SerializeField] private TextMeshProUGUI characterNameText;     // Character name text
-    [SerializeField] private TextMeshProUGUI characterDescriptionText;     // Character description text
+    [SerializeField] private TextMeshProUGUI _characterNameText;
+    [SerializeField] private TextMeshProUGUI _characterDescriptionText;
+
+    [Header("Chapter UI")]
+    [SerializeField] private TextMeshProUGUI _chapterTitleText;
+    [SerializeField] private GameObject _chapterBtnPrefab;
+    [SerializeField] private Transform _chapterScrollViewContent;
+    [SerializeField] private List<string> _chapterNames;
 
     public Transform CanvasTransform => transform;
-    
+
     void Start()
     {
         // Create TitleGameManager if it doesn't exist
@@ -41,171 +47,222 @@ public class TitleCanvas : MonoBehaviour, ICanvas
 
     public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
-        // Initial UI setup
         ShowTitlePanel();
-        
-        // Initialize TitleGameManager
         TitleGameManager.Instance?.Initialize(this);
-        
-        // Auto assign button events
         SetupButtonEvents();
-        
-        // Load saved nickname
+        InitializeChapterButtons();
+
         string savedNickname = PlayerPrefs.GetString("PlayerNick", "Player");
-        nicknameInput.text = savedNickname;
+        _nicknameInput.text = savedNickname;
     }
     
+    /// <summary>
+    /// 챕터 버튼들을 생성합니다.
+    /// </summary>
+    private void InitializeChapterButtons()
+    {
+        if (_chapterBtnPrefab == null || _chapterScrollViewContent == null)
+        {
+            Debug.LogWarning("[TitleCanvas] Chapter button prefab or scroll content is not set!");
+            return;
+        }
+        
+        ClearChapterButtons();
+        
+        for (int i = 0; i < _chapterNames.Count; i++)
+        {
+            string sceneName = _chapterNames[i];
+            GameObject btnObj = Instantiate(_chapterBtnPrefab, _chapterScrollViewContent);
+            btnObj.name = $"ChapterBtn_{i}_{sceneName}";
+            
+            ChapterBtn chapterBtn = btnObj.GetComponent<ChapterBtn>();
+            if (chapterBtn != null)
+            {
+                string displayName = $"Chapter {i + 1}: {sceneName}";
+                chapterBtn.Initialize(sceneName, displayName, this);
+            }
+        }
+        
+        Debug.Log($"[TitleCanvas] Created {_chapterNames.Count} chapter buttons");
+    }
+    
+    /// <summary>
+    /// 기존 챕터 버튼들을 제거합니다.
+    /// </summary>
+    private void ClearChapterButtons()
+    {
+        if (_chapterScrollViewContent == null) return;
+        
+        foreach (Transform child in _chapterScrollViewContent)
+        {
+            Destroy(child.gameObject);
+        }
+    }
+
     // Auto assign button events
     private void SetupButtonEvents()
     {
-        // 중복 등록 방지를 위해 먼저 제거
         RemoveButtonEvents();
-        
-        // Create room button
-        if (createRoomButton != null)
-            createRoomButton.onClick.AddListener(OnCreateRoomButton);
-        
-        // Join room button
-        if (joinRoomButton != null)
-            joinRoomButton.onClick.AddListener(OnJoinRoomButton);
-        
-        // Start game button
-        if (startGameButton != null)
-            startGameButton.onClick.AddListener(OnStartGameButton);
-        
-        // Leave room button
-        if (leaveRoomButton != null)
-            leaveRoomButton.onClick.AddListener(OnLeaveRoomButton);
+
+        if (_createRoomButton != null)
+            _createRoomButton.onClick.AddListener(OnCreateRoomButton);
+
+        if (_joinRoomButton != null)
+            _joinRoomButton.onClick.AddListener(OnJoinRoomButton);
+
+        if (_startGameButton != null)
+            _startGameButton.onClick.AddListener(OnStartGameButton);
+
+        if (_leaveRoomButton != null)
+            _leaveRoomButton.onClick.AddListener(OnLeaveRoomButton);
     }
-    
+
     void OnDestroy()
     {
-        // Remove button event connections
         RemoveButtonEvents();
     }
-    
+
     // Remove button event connections
     private void RemoveButtonEvents()
     {
-        if (createRoomButton != null)
-            createRoomButton.onClick.RemoveListener(OnCreateRoomButton);
-        
-        if (joinRoomButton != null)
-            joinRoomButton.onClick.RemoveListener(OnJoinRoomButton);
-        
-        if (startGameButton != null)
-            startGameButton.onClick.RemoveListener(OnStartGameButton);
-        
-        if (leaveRoomButton != null)
-            leaveRoomButton.onClick.RemoveListener(OnLeaveRoomButton);
+        if (_createRoomButton != null)
+            _createRoomButton.onClick.RemoveListener(OnCreateRoomButton);
+
+        if (_joinRoomButton != null)
+            _joinRoomButton.onClick.RemoveListener(OnJoinRoomButton);
+
+        if (_startGameButton != null)
+            _startGameButton.onClick.RemoveListener(OnStartGameButton);
+
+        if (_leaveRoomButton != null)
+            _leaveRoomButton.onClick.RemoveListener(OnLeaveRoomButton);
     }
-    
+
     // ========== UI Panel Switching ==========
-    
+
     public void ShowTitlePanel()
     {
-        titlePanel.SetActive(true);
-        lobbyPanel.SetActive(false);
+        _titlePanel.SetActive(true);
+        _lobbyPanel.SetActive(false);
     }
-    
+
     public void ShowLobbyPanel()
     {
-        titlePanel.SetActive(false);
-        lobbyPanel.SetActive(true);
-        
-        // Initialize character UI for local player
+        _titlePanel.SetActive(false);
+        _lobbyPanel.SetActive(true);
+
         InitializeLocalPlayerCharacterUI();
-        
-        // Immediate UI update (show room name before connection)
+        UpdateChapterButtonsInteractable();
         UpdateLobbyUI();
     }
     
+    /// <summary>
+    /// 챕터 버튼들의 활성화 상태를 업데이트합니다. (호스트만 활성화)
+    /// </summary>
+    private void UpdateChapterButtonsInteractable()
+    {
+        if (_chapterScrollViewContent == null) return;
+        
+        bool isHost = FusionManager.LocalRunner != null && FusionManager.LocalRunner.IsServer;
+        
+        foreach (Transform child in _chapterScrollViewContent)
+        {
+            Button btn = child.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.interactable = isHost;
+            }
+        }
+    }
+
     // ========== Button Events ==========
-    
-    // Create room button
+
     public void OnCreateRoomButton()
     {
         // 버튼 즉시 비활성화 (중복 클릭 방지)
-        if (createRoomButton != null)
-            createRoomButton.interactable = false;
-        
-        string roomName = roomNameInput.text;
-        string playerNickname = nicknameInput.text;
-        
+        SetButtonsInteractable(false);
+
+        string roomName = _roomNameInput.text;
+        string playerNickname = _nicknameInput.text;
+
         TitleGameManager.Instance?.CreateRoom(roomName, playerNickname);
     }
-    
-    // Join room button
+
     public void OnJoinRoomButton()
     {
         // 버튼 즉시 비활성화 (중복 클릭 방지)
-        if (joinRoomButton != null)
-            joinRoomButton.interactable = false;
-        
-        string roomName = roomNameInput.text;
-        string playerNickname = nicknameInput.text;
-        
+        SetButtonsInteractable(false);
+
+        string roomName = _roomNameInput.text;
+        string playerNickname = _nicknameInput.text;
+
         TitleGameManager.Instance?.JoinRoom(roomName, playerNickname);
     }
-    
-    // Start game button (host only)
+
     public void OnStartGameButton()
     {
         TitleGameManager.Instance?.StartGame();
     }
-    
-    // Leave room button
+
     public void OnLeaveRoomButton()
     {
         TitleGameManager.Instance?.LeaveRoom();
     }
-    
-    // Exit game button
+
     public void OnExitGameButton()
     {
         GameManager.Instance?.ExitGame();
     }
     
+    /// <summary>
+    /// 챕터가 선택되었을 때 호출됩니다.
+    /// </summary>
+    public void OnChapterSelected(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            Debug.LogError("[TitleCanvas] Scene name is empty!");
+            return;
+        }
+        
+        Debug.Log($"[TitleCanvas] Chapter selected: {sceneName}");
+        TitleGameManager.Instance?.LoadChapterScene(sceneName);
+    }
+
     // ========== Character Selection Functions ==========
-    
-    // Select character 0
+
     public void OnSelectCharacter0()
     {
         SelectCharacter(0);
     }
-    
-    // Select character 1
+
     public void OnSelectCharacter1()
     {
         SelectCharacter(1);
     }
-    
-    // Select character 2
+
     public void OnSelectCharacter2()
     {
         SelectCharacter(2);
     }
-    
-    // Common character selection logic
+
     private void SelectCharacter(int characterIndex)
     {
-        // Get character data from GameDataManager
         if (GameDataManager.Instance == null)
         {
             Debug.LogWarning("GameDataManager instance not found");
             return;
         }
-        
+
         CharacterData characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
         if (characterData == null)
         {
             Debug.LogWarning($"Character data not found for index: {characterIndex}");
             return;
         }
-        
-        // Update UI with character data
+
         UpdateCharacterUI(characterData);
-        
+
         // Set character index in network if connected
         if (FusionManager.LocalRunner != null)
         {
@@ -213,77 +270,68 @@ public class TitleCanvas : MonoBehaviour, ICanvas
             if (playerData != null)
             {
                 playerData.SetCharacterIndex(characterIndex);
-                Debug.Log($"Character '{characterData.characterName}' (index: {characterIndex}) selected");
             }
             else
             {
                 Debug.LogWarning("PlayerData not found for local player");
             }
         }
-        else
-        {
-            Debug.Log($"Character '{characterData.characterName}' (index: {characterIndex}) selected (not connected yet)");
-        }
     }
-    
-    // Update character UI elements (public for TitleGameManager access)
+
     public void UpdateCharacterUI(CharacterData characterData)
     {
         if (characterData == null) return;
-        
-        // Update character name text
-        if (characterNameText != null)
+
+        if (_characterNameText != null)
         {
-            characterNameText.text = characterData.characterName;
+            _characterNameText.text = characterData.characterName;
         }
-        
-        // Update character description text
-        if (characterDescriptionText != null)
+
+        if (_characterDescriptionText != null)
         {
-            characterDescriptionText.text = characterData.description;
+            _characterDescriptionText.text = characterData.description;
         }
     }
-    
-    // Initialize local player's character UI when entering lobby
+
     private void InitializeLocalPlayerCharacterUI()
     {
         if (FusionManager.LocalRunner != null && GameManager.Instance != null && GameDataManager.Instance != null)
         {
-            var playerData = GameManager.Instance.GetPlayerData(FusionManager.LocalRunner.LocalPlayer, FusionManager.LocalRunner);
+            var playerData = GameManager.Instance?.GetPlayerData(FusionManager.LocalRunner.LocalPlayer, FusionManager.LocalRunner);
             if (playerData != null)
             {
-                var characterData = GameDataManager.Instance.CharacterService.GetCharacter(playerData.CharacterIndex);
+                var characterData = GameDataManager.Instance?.CharacterService.GetCharacter(playerData.CharacterIndex);
                 if (characterData != null)
                 {
                     UpdateCharacterUI(characterData);
-                    Debug.Log($"Initialized character UI with '{characterData.characterName}'");
                 }
             }
         }
     }
-    
+
     // ========== UI Update (public for TitleGameManager access) ==========
-    
+
     public void UpdateLobbyUI()
     {
-        Debug.Log($"UpdateLobbyUI - FusionManager.LocalRunner: {FusionManager.LocalRunner}");
-        
-        // Show room name (even before network connection)
         if (FusionManager.LocalRunner != null)
         {
-            Debug.Log($"LocalRunner found - ActivePlayers: {FusionManager.LocalRunner.ActivePlayers}");
+            _roomNameText.text = $"Room: {FusionManager.LocalRunner.SessionInfo.Name}";
+
+            bool isHost = FusionManager.LocalRunner.IsServer;
             
-            // When connected: use session name
-            roomNameText.text = $"Room: {FusionManager.LocalRunner.SessionInfo.Name}";
+            if (_startGameButton != null)
+            {
+                _startGameButton.interactable = isHost;
+            }
             
-            // Update player list
+            UpdateChapterButtonsInteractable();
+
             string playerList = "";
             foreach (var player in FusionManager.LocalRunner.ActivePlayers)
             {
                 var playerData = GameManager.Instance?.GetPlayerData(player, FusionManager.LocalRunner);
                 string nick = playerData?.Nick.ToString() ?? $"Player_{player.AsIndex}";
-                
-                // Get character name
+
                 string characterName = "No Character";
                 if (playerData != null && GameDataManager.Instance != null)
                 {
@@ -293,31 +341,38 @@ public class TitleCanvas : MonoBehaviour, ICanvas
                         characterName = characterData.characterName;
                     }
                 }
-                
+
                 string isLocal = (player == FusionManager.LocalRunner.LocalPlayer) ? " (You)" : "";
-                string isHost = (player == FusionManager.LocalRunner.LocalPlayer && FusionManager.LocalRunner.IsServer) ? " [Host]" : "";
-                playerList += $"{nick} - {characterName}{isLocal}{isHost}\n";
+                string isHostTag = (player == FusionManager.LocalRunner.LocalPlayer && isHost) ? " [Host]" : "";
+                playerList += $"{nick} - {characterName}{isLocal}{isHostTag}\n";
             }
-            playerListText.text = playerList;
+            _playerListText.text = playerList;
         }
         else
         {
-            Debug.Log("LocalRunner is null - showing connecting...");
-            // Before connection: use local variable
             string roomName = TitleGameManager.Instance?.RoomName ?? "Unknown";
-            roomNameText.text = $"Room: {roomName}";
-            playerListText.text = "Connecting...";
+            _roomNameText.text = $"Room: {roomName}";
+            _playerListText.text = TitleGameManager.Instance.IsConnecting ? "Connecting..." : "Waiting for connection...";
+
+            if (_startGameButton != null)
+            {
+                _startGameButton.interactable = false;
+            }
+            
+            UpdateChapterButtonsInteractable();
         }
     }
-    
+
     // ========== Helper Functions ==========
-    
+
     // 버튼 활성화/비활성화 설정 (public for TitleGameManager access)
     public void SetButtonsInteractable(bool interactable)
     {
-        if (createRoomButton != null)
-            createRoomButton.interactable = interactable;
-        if (joinRoomButton != null)
-            joinRoomButton.interactable = interactable;
+        if (_createRoomButton != null)
+            _createRoomButton.interactable = interactable;
+        if (_joinRoomButton != null)
+            _joinRoomButton.interactable = interactable;
+
+        // 로비 패널 진입 후에는 startGameButton과 leaveRoomButton은 UpdateLobbyUI에서 관리
     }
 }

@@ -10,16 +10,21 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
-    // 현재 게임 상태
+    // 현재 게임 상태 (GameState enum이 별도로 정의되어 있다고 가정)
     public GameState State { get; private set; } = GameState.Lobby;
     public ICanvas Canvas { get; private set; }
 
+    [Header("Manager & UI Prefabs")]
+    [Tooltip("타이틀 씬이 아닌 경우 자동으로 생성할 MainGameManager 프리팹")]
+    [SerializeField] private GameObject _mainGameManagerPrefab;
+    
+    [Tooltip("타이틀 씬이 아닌 경우 자동으로 생성할 MainCanvas 프리팹")]
     [SerializeField] private GameObject _mainCanvasPrefab;
-    [SerializeField] private GameObject _warningPanel;
+    
+    [SerializeField] private GameObject _warningPanelPrefab;
     [SerializeField] private GameObject _loadingPanelPrefab;
     
     private Dictionary<PlayerRef, PlayerData> _playerData = new Dictionary<PlayerRef, PlayerData>();
-    private LoadingPanel _loadingPanel;
 
     void Awake()
     {
@@ -31,47 +36,125 @@ public class GameManager : MonoBehaviour
         else
         {
             Destroy(gameObject);
+            return;
         }
 
-        // FusionHelper의 이벤트에 연결
         SetupNetworkEvents();
-
-        FindCanvas();
-
         SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+    
+    void Start()
+    {
+        CreateLoadingPanelIfNeeded();
+        FindCanvas();
+    }
+    
+    /// <summary>
+    /// LoadingPanel이 없으면 생성합니다. (외부에서도 호출 가능)
+    /// </summary>
+    public void CreateLoadingPanelIfNeeded()
+    {
+        if (LoadingPanel.Instance == null && _loadingPanelPrefab != null)
+        {
+            GameObject panelObj = Instantiate(_loadingPanelPrefab);
+            panelObj.name = "LoadingPanel";
+            Debug.Log("[GameManager] LoadingPanel created");
+        }
     }
 
     void OnDestroy()
     {
-        // 이벤트 연결 해제
         RemoveNetworkEvents();
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        FindCanvas();
-    }
-
-    private void FindCanvas()
-    {
-        GameObject canvasObject = GameObject.Find("Canvas");
-        if (canvasObject == null)
+        if (scene.name != "Title")
         {
-            canvasObject = Instantiate(_mainCanvasPrefab);
+            EnsureMainGameComponents();
         }
         
-        Canvas = canvasObject.GetComponent<ICanvas>();
-        if (Canvas == null)
+        FindCanvas();
+    }
+    
+    /// <summary>
+    /// 메인 게임 씬에 필요한 컴포넌트들이 있는지 확인하고 없으면 생성합니다.
+    /// </summary>
+    private void EnsureMainGameComponents()
+    {
+        if (MainGameManager.Instance == null)
         {
-            Debug.LogWarning("GameManager: ICanvas component not found on Canvas object");
+            if (_mainGameManagerPrefab == null)
+            {
+                Debug.LogError("[GameManager] MainGameManagerPrefab is not set!");
+                return;
+            }
+            
+            GameObject managerObj = Instantiate(_mainGameManagerPrefab);
+            managerObj.name = "MainGameManager";
+            Debug.Log("[GameManager] MainGameManager created");
+        }
+        
+        if (FindAnyObjectByType<UnityEngine.Canvas>() == null)
+        {
+            if (_mainCanvasPrefab == null)
+            {
+                Debug.LogError("[GameManager] MainCanvasPrefab is not set!");
+                return;
+            }
+            
+            GameObject canvasObj = Instantiate(_mainCanvasPrefab);
+            canvasObj.name = "Canvas";
+            Debug.Log("[GameManager] MainCanvas created");
+        }
+        
+        EnsureMainCamera();
+    }
+    
+    /// <summary>
+    /// Main Camera에 MainCameraController가 있는지 확인하고 없으면 추가합니다.
+    /// </summary>
+    private void EnsureMainCamera()
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            Debug.LogWarning("[GameManager] Main Camera not found in scene!");
             return;
         }
         
-        Canvas.Initialize(this, GameDataManager.Instance);
-        Debug.Log($"GameManager: Canvas initialized - {Canvas.GetType().Name}");
+        MainCameraController cameraController = mainCamera.GetComponent<MainCameraController>();
+        if (cameraController == null)
+        {
+            mainCamera.gameObject.AddComponent<MainCameraController>();
+            Debug.Log("[GameManager] MainCameraController added to Main Camera");
+        }
     }
 
-    // 네트워크 이벤트 연결
+    /// <summary>
+    /// 현재 씬에서 ICanvas 인터페이스를 구현한 캔버스 오브젝트를 안전하게 찾습니다.
+    /// (ICanvas가 MonoBehaviour를 상속한 컴포넌트에 구현되어야 합니다.)
+    /// </summary>
+    private void FindCanvas()
+    {
+        ICanvas foundCanvas = GameObject.Find("Canvas").GetComponent<ICanvas>();
+
+        if (foundCanvas == null)
+        {
+            Debug.LogError("GameManager: The found Canvas object does not implement ICanvas.");
+            Canvas = null;
+            return;
+        }
+
+        Canvas = foundCanvas;
+        
+        // 3. 초기화
+        Canvas.Initialize(this, GameDataManager.Instance);
+        Debug.Log($"GameManager: Canvas initialized - {Canvas.GetType().Name} in scene {SceneManager.GetActiveScene().name}");
+    }
+
+    // ========== Network Event Setup (이하 동일) ==========
     private void SetupNetworkEvents()
     {
         FusionManager.OnPlayerJoinedEvent += OnPlayerJoined;
@@ -80,7 +163,6 @@ public class GameManager : MonoBehaviour
         FusionManager.OnDisconnectedEvent += OnDisconnected;
     }
 
-    // 네트워크 이벤트 연결 해제
     private void RemoveNetworkEvents()
     {
         FusionManager.OnPlayerJoinedEvent -= OnPlayerJoined;
@@ -89,37 +171,29 @@ public class GameManager : MonoBehaviour
         FusionManager.OnDisconnectedEvent -= OnDisconnected;
     }
 
-    // 게임 상태 변경
+    // ========== Game State & Data Management (이하 동일) ==========
+
     public void SetGameState(GameState newState)
     {
         State = newState;
         Debug.Log($"Game state changed: {State}");
     }
 
-    // 플레이어 접속 시 호출
     private void OnPlayerJoined(PlayerRef player, NetworkRunner runner)
     {
         Debug.Log($"GameManager: Player {player} joined");
-        // 여기서 플레이어 데이터 초기화 등 처리
     }
 
-    // 플레이어 나감 시 호출
     private void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
     {
         Debug.Log($"GameManager: Player {player} left");
-        // 플레이어 데이터 제거
-        if (_playerData.ContainsKey(player))
-        {
-            _playerData.Remove(player);
-        }
+        _playerData.Remove(player);
     }
 
-    // 네트워크 종료 시 호출
     private void OnShutdown(NetworkRunner runner)
     {
         Debug.Log("GameManager: Network session shutdown");
         
-        // LocalRunner 정리
         if (runner == FusionManager.LocalRunner)
         {
             FusionManager.LocalRunner = null;
@@ -129,12 +203,10 @@ public class GameManager : MonoBehaviour
         _playerData.Clear();
     }
 
-    // 연결 끊김 시 호출
     private void OnDisconnected(NetworkRunner runner)
     {
         Debug.Log("GameManager: Disconnected from server");
         
-        // LocalRunner 정리
         if (runner == FusionManager.LocalRunner)
         {
             FusionManager.LocalRunner = null;
@@ -144,173 +216,84 @@ public class GameManager : MonoBehaviour
         _playerData.Clear();
     }
 
-    // 플레이어 데이터 가져오기
     public PlayerData GetPlayerData(PlayerRef player, NetworkRunner runner)
     {
-        // First try to get from dictionary
-        if (_playerData.ContainsKey(player))
+        if (_playerData.TryGetValue(player, out PlayerData data))
         {
-            return _playerData[player];
+            return data;
         }
 
-        // Fallback: get from NetworkRunner's player object
         if (runner != null)
         {
             NetworkObject playerObject = runner.GetPlayerObject(player);
-            if (playerObject != null)
+            if (playerObject != null && playerObject.TryGetComponent(out data))
             {
-                PlayerData playerData = playerObject.GetComponent<PlayerData>();
-                if (playerData != null)
-                {
-                    // Cache it for next time
-                    _playerData[player] = playerData;
-                    return playerData;
-                }
+                _playerData[player] = data;
+                return data;
             }
         }
-
         return null;
     }
 
-    // 플레이어 데이터 설정
     public void SetPlayerData(PlayerRef player, PlayerData data)
     {
         _playerData[player] = data;
     }
+    
+    // ========== UI & Utility (이하 동일) ==========
 
-    // 게임 종료
     public void ExitGame()
     {
         Application.Quit();
+        Debug.Log("Application Quit requested.");
     }
 
     public void ShowWarningPanel(string warningText)
     {
-        if (Canvas == null)
+        if (Canvas == null || _warningPanelPrefab == null)
         {
-            Debug.LogError("[GameManager] Cannot show warning panel - Canvas is null. Message: {warningText}");
+            Debug.LogError($"[GameManager] Cannot show warning panel - Canvas or Prefab is null. Message: {warningText}");
             return;
         }
         
-        if (_warningPanel == null)
-        {
-            Debug.LogError("[GameManager] Warning panel prefab is null. Message: {warningText}");
-            return;
-        }
+        GameObject warningPanel = Instantiate(_warningPanelPrefab, Canvas.CanvasTransform);
         
-        GameObject warningPanel = Instantiate(_warningPanel, Canvas.CanvasTransform);
-        warningPanel.GetComponent<WarningPanel>().Initialize(warningText);
+        if (warningPanel.TryGetComponent(out WarningPanel panel))
+        {
+            panel.Initialize(warningText);
+        }
+        else
+        {
+            Debug.LogError("[GameManager] WarningPanel component not found on the instantiated prefab.");
+            Destroy(warningPanel);
+        }
     }
 
-    /// <summary>
-    /// 로딩 화면을 시작합니다 (페이드 인).
-    /// </summary>
     public void StartLoadingScreen()
     {
-        if (_loadingPanel == null)
-        {
-            CreateLoadingPanel();
-        }
-
-        if (_loadingPanel != null)
-        {
-            _loadingPanel.gameObject.SetActive(true);
-            _loadingPanel.Open();
-            Debug.Log("[GameManager] Loading screen started (Fade In)");
-        }
-        else
-        {
-            Debug.LogError("[GameManager] Failed to create loading panel");
-        }
+        LoadingPanel.Show();
     }
 
-    /// <summary>
-    /// 로딩 화면을 종료합니다 (페이드 아웃).
-    /// </summary>
     public void FinishLoadingScreen()
     {
-        if (_loadingPanel != null)
-        {
-            _loadingPanel.Close();
-            Debug.Log("[GameManager] Loading screen finished (Fade Out)");
-            
-            // 페이드 아웃 애니메이션 후 비활성화
-            StartCoroutine(DisableLoadingPanelAfterDelay(1f));
-        }
+        LoadingPanel.Hide();
     }
-
-    /// <summary>
-    /// 로딩 패널을 생성합니다.
-    /// </summary>
-    private void CreateLoadingPanel()
-    {
-        if (_loadingPanelPrefab == null)
-        {
-            Debug.LogError("[GameManager] Loading panel prefab is null!");
-            return;
-        }
-
-        // Canvas를 부모로 하여 로딩 패널 생성
-        Transform parent = Canvas != null ? Canvas.CanvasTransform : transform;
-        GameObject panelObj = Instantiate(_loadingPanelPrefab, parent);
-        _loadingPanel = panelObj.GetComponent<LoadingPanel>();
-
-        if (_loadingPanel == null)
-        {
-            Debug.LogError("[GameManager] LoadingPanel component not found on prefab!");
-        }
-        else
-        {
-            panelObj.SetActive(false); // 처음에는 비활성화
-            DontDestroyOnLoad(panelObj); // 씬 전환 시에도 유지
-            Debug.Log("[GameManager] Loading panel created");
-        }
-    }
-
-    /// <summary>
-    /// 일정 시간 후 로딩 패널을 비활성화합니다.
-    /// </summary>
-    private IEnumerator DisableLoadingPanelAfterDelay(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        
-        if (_loadingPanel != null)
-        {
-            _loadingPanel.gameObject.SetActive(false);
-            Debug.Log("[GameManager] Loading panel disabled");
-        }
-    }
-
-    /// <summary>
-    /// 씬 로드와 함께 로딩 화면을 표시합니다.
-    /// </summary>
+    
     public void LoadSceneWithLoading(string sceneName)
     {
         StartCoroutine(LoadSceneAsync(sceneName));
     }
 
-    /// <summary>
-    /// 비동기로 씬을 로드합니다.
-    /// </summary>
     private IEnumerator LoadSceneAsync(string sceneName)
     {
-        // 로딩 시작
-        StartLoadingScreen();
-
-        // 페이드 인 애니메이션 대기
+        LoadingPanel.Show();
         yield return new WaitForSeconds(0.5f);
 
-        // 씬 로드 시작
         AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
         asyncLoad.allowSceneActivation = false;
 
-        // 로딩 진행
         while (!asyncLoad.isDone)
         {
-            // 로딩 진행률 확인 (0.0 ~ 0.9)
-            float progress = Mathf.Clamp01(asyncLoad.progress / 0.9f);
-            
-            // 90% 도달 시 씬 활성화
             if (asyncLoad.progress >= 0.9f)
             {
                 asyncLoad.allowSceneActivation = true;
@@ -319,8 +302,7 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
 
-        // 로딩 완료
         yield return new WaitForSeconds(0.5f);
-        FinishLoadingScreen();
+        LoadingPanel.Hide();
     }
 }
