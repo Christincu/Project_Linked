@@ -62,6 +62,8 @@ public class MagicMergeOrchestrator : MonoBehaviour
             angleSpawnDelta: 15f, segmentLife: 0.6f
         );
 
+        absorber?.MagicController?.BeginMergeLock(5f);
+
         if (_server && absorber.Object.HasStateAuthority)
         {
             var fwd = getForward();
@@ -76,7 +78,10 @@ public class MagicMergeOrchestrator : MonoBehaviour
         int ownerKey = unchecked((int)absorber.Object.Id.Raw);
         if (_vfx) _vfx.StopConeEmitter(ownerKey);
 
+        absorber?.MagicController?.ClearMergeLock();
+
         if (_server && absorber.Object.HasStateAuthority)
             _server.StopServerAttack(absorber);
     }
+
 }

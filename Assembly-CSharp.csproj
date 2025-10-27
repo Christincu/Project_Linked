@@ -69,9 +69,7 @@
     <Compile Include="Assets\ParticleTest\Script\MagicMergedAttackServer.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerInputData.cs" />
     <Compile Include="Assets\ParticleTest\MagicMergeVFXAutoBinder.cs" />
-    <Compile Include="Assets\ParticleTest\Script\FollowTransform.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\EnvMapAnimator.cs" />
-    <Compile Include="Assets\ParticleTest\Script\MagicMergeRecipeByData.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_A.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark01_UGUI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\SimpleScript.cs" />
@@ -99,7 +97,6 @@
     <Compile Include="Assets\ParticleTest\Script\MagicMergeOrchestrator.cs" />
     <Compile Include="Assets\Scripts\Type\GameState.cs" />
     <Compile Include="Assets\ParticleTest\ParticleCollisionDamager.cs" />
-    <Compile Include="Assets\ParticleTest\Script\MagicVFXRecipe.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_ExampleScript_01.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMPro_InstructionOverlay.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexShakeB.cs" />

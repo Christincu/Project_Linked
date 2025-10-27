@@ -260,6 +260,7 @@ public class PlayerMagicController : MonoBehaviour
     /// <param name="targetPosition">목표 위치 (월드 좌표)</param>
     public void CastMagic(Vector3 targetPosition)
     {
+
         if (_controller == null || _currentMagicData == null) return;
         if (!_controller.Object.HasStateAuthority) return;
 
@@ -308,11 +309,28 @@ public class PlayerMagicController : MonoBehaviour
         Destroy(projectile, _currentMagicData.range / _currentMagicData.speed);
     }
 
+    // 머지 락: 화염방사 유지 동안 새 매직 금지
+    private float _mergeLockEndTime = 0.0f;
+    public bool IsMergeLocked => Time.time < _mergeLockEndTime;
+
+    public void BeginMergeLock(float seconds)
+    {
+        float until = Time.time + Mathf.Max(0f, seconds);
+        if (until > _mergeLockEndTime) _mergeLockEndTime = until;
+
+        if (!_magicUIToggleActive) ActivateMagicUI(_controller);
+    }
+
+    public void ClearMergeLock()
+    {
+        _mergeLockEndTime = 0.0f;
+    }
     public void ForceStopMagicUI()
     {
         if (!_isInitialized) return;
+        if (IsMergeLocked) return; 
         if (_magicUIToggleActive)
-            DeactivateMagicUI(_controller); 
+            DeactivateMagicUI(_controller);
     }
 
     public void ForceStopMerge()
@@ -320,9 +338,8 @@ public class PlayerMagicController : MonoBehaviour
         if (_isMerged)
         {
             _isMerged = false;
-
+            ClearMergeLock(); 
             OnMergeStopped?.Invoke(_controller);
-            
         }
     }
     #endregion
@@ -338,7 +355,10 @@ public class PlayerMagicController : MonoBehaviour
         if (!_isInitialized) return;
         
         Debug.Log($"[PlayerMagicController] UpdateMagicUIFromNetwork called - isActive: {isActive}");
-        
+
+        if (!isActive && IsMergeLocked)
+            return;
+
         // 네트워크에서 받은 상태를 토글 상태에도 반영
         _magicUIToggleActive = isActive;
         
@@ -397,7 +417,15 @@ public class PlayerMagicController : MonoBehaviour
         // 초기화 확인
         if (!_isInitialized) return;
         if (!controller.Object.HasInputAuthority) return;
-        
+
+        if (IsMergeLocked)
+        {
+            if (_magicUIToggleActive)
+                UpdateMagicAnchorPosition(inputData, controller); // 조준점은 움직일 수 있게
+            UpdateIdleSecondFloor();
+            return;
+        }
+
         // 현재 마우스 버튼 상태
         bool currentLeftButton = inputData.GetMouseButton(InputMouseButton.LEFT);
         bool currentRightButton = inputData.GetMouseButton(InputMouseButton.RIGHT);
@@ -661,7 +689,8 @@ public class PlayerMagicController : MonoBehaviour
     private void DeactivateMagicUI(PlayerController controller)
     {
         if (controller == null) return;
-        
+        if (IsMergeLocked) return;
+
         // 토글 상태 비활성화
         _magicUIToggleActive = false;
         
