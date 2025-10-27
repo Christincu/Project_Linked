@@ -40,20 +40,23 @@ TagManager:
   - 
   - 
   m_SortingLayers:
-  - name: Default
-    uniqueID: 0
-    locked: 0
   - name: BaseObjectTilemap
     uniqueID: 2377639471
-    locked: 0
-  - name: Characters
-    uniqueID: 3147604621
     locked: 0
   - name: OutlineTilemap
     uniqueID: 2187758869
     locked: 0
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: Characters
+    uniqueID: 3147604621
+    locked: 0
   - name: Magic
     uniqueID: 836987307
+    locked: 0
+  - name: OutlineEntranceTilemap
+    uniqueID: 3293083709
     locked: 0
   - name: VFX
     uniqueID: 665262441
