@@ -96,6 +96,14 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         Debug.Log($"[PlayerController] Spawned - InputAuth: {Object.HasInputAuthority}, StateAuth: {Object.HasStateAuthority}");
     }
+    void Start()
+    {
+        if (MagicController != null)
+        {
+            var vfx = FindObjectOfType<MagicMergeVFXListener>(true);
+            if (vfx) vfx.Bind(MagicController); 
+        }
+    }
 
     /// <summary>
     /// 모든 컴포넌트를 초기화합니다.

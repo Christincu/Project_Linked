@@ -12,6 +12,7 @@ public class PlayerMagicController : MonoBehaviour
     #region Serialized Fields
     [Header("Prefabs")]
     [SerializeField] private GameObject magicProjectilePrefab;
+
     #endregion
 
     #region Private Fields
@@ -38,6 +39,12 @@ public class PlayerMagicController : MonoBehaviour
     private bool _previousLeftMouseButton = false; // 이전 프레임의 좌클릭 상태
     private bool _previousRightMouseButton = false; // 이전 프레임의 우클릭 상태
     private float _magicActivationTime = 0f; // 마법을 활성화한 시간 (Time.time)
+
+    private bool _isMerged = false; // 현재 마법이 병합된 상태인지
+    private PlayerRef _currentMergeAbsorber;
+
+    private PlayerController _currentAbsorberController;
+
     #endregion
 
     #region Properties
@@ -95,6 +102,9 @@ public class PlayerMagicController : MonoBehaviour
     public System.Action<Vector3, Vector3> OnMagicCast; // (position, direction)
     public System.Action OnCooldownStarted;
     public System.Action OnCooldownEnded;
+
+    public event System.Action<PlayerController, PlayerController> OnMergeStarted;
+    public event System.Action<PlayerController> OnMergeStopped;
     #endregion
 
     #region Initialization
@@ -239,6 +249,7 @@ public class PlayerMagicController : MonoBehaviour
             _magicIdleSecondFloor.SetActive(false);
         if (_magicActiveFloor != null)
             _magicActiveFloor.SetActive(false);
+
     }
     #endregion
 
@@ -439,7 +450,20 @@ public class PlayerMagicController : MonoBehaviour
         // _magicViewObj 위치 업데이트 (충돌 여부에 따라)
         UpdateMagicViewObjPosition(playerPos);
     }
-    
+
+    /// <summary>
+    /// 플레이어가 바라보는 좌/우 방향 벡터를 반환합니다.
+    /// (ScaleX 기준: 음수면 오른쪽, 양수면 왼쪽)
+    /// </summary>
+    private Vector2 GetForward()
+    {
+        // ScaleX는 좌우 반전용 스케일 값이에요.
+        // -1이면 오른쪽 바라봄, +1이면 왼쪽 바라봄이라면 이렇게 씁니다.
+        return _controller != null && _controller.ScaleX < 0f
+            ? Vector2.right   // 오른쪽 바라보는 중
+            : Vector2.left;   // 왼쪽 바라보는 중
+    }
+
     /// <summary>
     /// _magicViewObj의 위치를 업데이트합니다.
     /// 충돌 중일 경우, 나중에 활성화한 플레이어의 마법이 먼저 활성화한 플레이어의 위치로 흡수됩니다.
@@ -447,21 +471,22 @@ public class PlayerMagicController : MonoBehaviour
     private void UpdateMagicViewObjPosition(Vector3 playerPos)
     {
         if (_magicViewObj == null) return;
-        
+
+        bool shouldAbsorb = false;
+
         // 다른 플레이어와 충돌 중일 경우
         if (_isPlayerColliding && _collidingPlayer != null && _collidingPlayer.MagicController != null)
         {
             // 두 플레이어 중 누가 먼저 마법을 활성화했는지 확인
             float myActivationTime = _magicActivationTime;
             float otherActivationTime = _collidingPlayer.MagicController.MagicActivationTime;
-            
-            bool shouldAbsorb = false;
-            
+
+
             // 시간 비교
             if (otherActivationTime > 0 && myActivationTime > 0)
             {
                 float timeDiff = Mathf.Abs(myActivationTime - otherActivationTime);
-                
+
                 if (timeDiff > 0.01f) // 0.01초 이상 차이나면
                 {
                     if (otherActivationTime < myActivationTime)
@@ -474,7 +499,7 @@ public class PlayerMagicController : MonoBehaviour
                 {
                     int myCharIndex = _controller.CharacterIndex;
                     int otherCharIndex = _collidingPlayer.CharacterIndex;
-                    
+
                     if (myCharIndex != otherCharIndex)
                     {
                         // 캐릭터 인덱스가 큰 쪽이 흡수됨
@@ -493,11 +518,11 @@ public class PlayerMagicController : MonoBehaviour
                     }
                 }
             }
-            
+
             if (shouldAbsorb)
             {
                 Debug.Log($"[PlayerMagicController] ABSORBING - My time: {myActivationTime}, Other time: {otherActivationTime}, My char: {_controller.CharacterIndex}, Other char: {_collidingPlayer.CharacterIndex}, My ID: {_controller.Object.Id}, Other ID: {_collidingPlayer.Object.Id}");
-                
+
                 // 상대방의 MagicViewObj 위치로 이동
                 if (_collidingPlayer.MagicController.MagicViewObj != null)
                 {
@@ -522,8 +547,41 @@ public class PlayerMagicController : MonoBehaviour
                 _magicViewObj.transform.position = _magicAnchor.transform.position;
             }
         }
+
+        bool bothActive = _magicUIToggleActive
+                  && _collidingPlayer != null
+                  && _collidingPlayer.MagicController != null
+                  && _collidingPlayer.MagicController.IsMagicUIActive;
+
+        bool mergedNow = bothActive && _isPlayerColliding;
+
+        PlayerController absorber = null;
+        PlayerController other = null;
+
+        if (mergedNow)
+        {
+            if (shouldAbsorb) { absorber = _collidingPlayer; other = _controller; }
+            else { absorber = _controller; other = _collidingPlayer; }
+        }
+
+        // 머지 시작
+        if (mergedNow && !_isMerged && absorber != null && other != null)
+        {
+            Debug.Log($"[PMC] MERGE START fire event — absorber={absorber.Object.Id.Raw}, other={other.Object.Id.Raw}");
+            OnMergeStarted?.Invoke(absorber, other);    
+        }
+
+        // 머지 종료
+        else if (!mergedNow && _isMerged)
+        {
+            Debug.Log($"[PMC] MERGE STOP fire event — absorber(me)={_controller.Object.Id.Raw}");
+            OnMergeStopped?.Invoke(_controller);      
+        }
+
+        _isMerged = mergedNow;
+
     }
-    
+
     /// <summary>
     /// Magic UI를 활성화합니다.
     /// </summary>
