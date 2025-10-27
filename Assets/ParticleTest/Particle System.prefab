@@ -28,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 1676933742067343098}
   serializedVersion: 2
   m_LocalRotation: {x: -0.5014161, y: 0.49857995, z: -0.49857995, w: 0.5014161}
-  m_LocalPosition: {x: -4.71875, y: 0.5, z: 0}
+  m_LocalPosition: {x: 0.28125, y: 0.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -810,7 +810,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
     arc:
-      value: 60
+      value: 360
       mode: 0
       spread: 0
       speed:

@@ -307,6 +307,24 @@ public class PlayerMagicController : MonoBehaviour
         // 일정 시간 후 제거
         Destroy(projectile, _currentMagicData.range / _currentMagicData.speed);
     }
+
+    public void ForceStopMagicUI()
+    {
+        if (!_isInitialized) return;
+        if (_magicUIToggleActive)
+            DeactivateMagicUI(_controller); 
+    }
+
+    public void ForceStopMerge()
+    {
+        if (_isMerged)
+        {
+            _isMerged = false;
+
+            OnMergeStopped?.Invoke(_controller);
+            
+        }
+    }
     #endregion
 
 

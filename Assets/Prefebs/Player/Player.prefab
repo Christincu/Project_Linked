@@ -13,6 +13,8 @@ GameObject:
   - component: {fileID: 4213512067562145536}
   - component: {fileID: 4633555525266518599}
   - component: {fileID: 7420771076577286498}
+  - component: {fileID: 1830659127845173990}
+  - component: {fileID: 4934535057859710826}
   m_Layer: 0
   m_Name: MagicAnchor
   m_TagString: Untagged
@@ -140,6 +142,41 @@ MonoBehaviour:
     Position: 0.01
     Rotation: 0.01
     Scale: 0.01
+--- !u!114 &1830659127845173990
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 762830782927680907}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1f039fd8af248f418c0a5f62d1f0340, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  flamePrefab: {fileID: 7354311895251643393, guid: 902d917191dd8c44abb5454b94f48a27, type: 3}
+  anchor: {fileID: 5415338093849273226}
+  owner: {fileID: 4600561303719498630}
+  aimDistance: 1.2
+  segInterval: 0.12
+  segmentLifetime: 0.7
+  totalDurationOnRelease: 5
+  useMouseInput: 0
+--- !u!114 &4934535057859710826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 762830782927680907}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d70c13285bce47d499ea3f89faaf3d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  emitter: {fileID: 1830659127845173990}
+  pmc: {fileID: 5349171466248291276}
+  sustainSeconds: 5
 --- !u!1 &1215593109106226948
 GameObject:
   m_ObjectHideFlags: 0

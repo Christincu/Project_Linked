@@ -1,4 +1,7 @@
+// MagicMergeVFXListener.cs
+
 using UnityEngine;
+using System.Collections;
 
 public class MagicMergeVFXListener : MonoBehaviour
 {
@@ -8,10 +11,8 @@ public class MagicMergeVFXListener : MonoBehaviour
     private PlayerMagicController _mc;
     private Transform _follow;   // 흡수자의 MagicViewObj or Transform
     private bool _isPlaying;
+    private Coroutine _autoStopCR;   // ← 5초 타이머 핸들
 
-    /// <summary>
-    /// PlayerMagicController와 이벤트 바인딩
-    /// </summary>
     public void Bind(PlayerMagicController mc)
     {
         if (_mc != null)
@@ -38,51 +39,69 @@ public class MagicMergeVFXListener : MonoBehaviour
 
     private void HandleMergeStarted(PlayerController absorber, PlayerController other)
     {
-        // 흡수자 기준 기준점
         _follow = (absorber.MagicController && absorber.MagicController.MagicViewObj)
             ? absorber.MagicController.MagicViewObj.transform
             : absorber.transform;
 
-        // 파티클을 "원본 설정 그대로" 재생하되, 위치만 맞춰줌
         foreach (var ps in flameSystems)
         {
             if (!ps) continue;
-
-            // 위치 동기화
             ps.transform.position = _follow.position;
 
-            // 원본 프리셋을 존중하되, World Space를 권장 (부채꼴 유지에 유리)
             var main = ps.main;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
 
-            // Play On Awake는 꺼두고, 여기서 수동 재생
             ps.Play(true);
         }
 
         _isPlaying = true;
+
+        // 이전 타이머가 돌고 있으면 정지
+        if (_autoStopCR != null) StopCoroutine(_autoStopCR);
+        // 5초 뒤 자동 종료
+        _autoStopCR = StartCoroutine(AutoStopAfterSeconds(5f));
     }
 
     private void HandleMergeStopped(PlayerController absorber)
     {
+        // 파티클 정지
         foreach (var ps in flameSystems)
         {
             if (!ps) continue;
-            // 이미 나간 파티클은 자연 소멸, 새 배출은 중지
             ps.Stop(withChildren: true, stopBehavior: ParticleSystemStopBehavior.StopEmitting);
         }
+
         _isPlaying = false;
         _follow = null;
+
+        // 타이머 클리어
+        if (_autoStopCR != null)
+        {
+            StopCoroutine(_autoStopCR);
+            _autoStopCR = null;
+        }
     }
 
     private void LateUpdate()
     {
         if (!_isPlaying || _follow == null) return;
 
-        // World Space면 위치만 추적해주면 됨 (회전/스케일은 파티클 프리셋 그대로)
         foreach (var ps in flameSystems)
         {
             if (!ps) continue;
             ps.transform.position = _follow.position;
         }
+    }
+
+    private IEnumerator AutoStopAfterSeconds(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+
+        // 아직도 재생 중이면 (즉, Merge 유지 중이면) 강제 종료 요청
+        if (_isPlaying && _mc != null)
+        {
+            _mc.ForceStopMerge();   // ← 이벤트를 올바르게 트리거하는 공개 메서드
+        }
+        _autoStopCR = null;
     }
 }
