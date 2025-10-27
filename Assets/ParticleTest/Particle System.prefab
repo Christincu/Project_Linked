@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7354311895251643393}
   - component: {fileID: 1282558320758956771}
   - component: {fileID: 7886472523597810226}
+  - component: {fileID: 1128703386139662573}
   m_Layer: 0
   m_Name: Particle System
   m_TagString: Untagged
@@ -3623,8 +3624,8 @@ ParticleSystem:
   CollisionModule:
     enabled: 1
     serializedVersion: 4
-    type: 0
-    collisionMode: 0
+    type: 1
+    collisionMode: 1
     colliderForce: 0
     multiplyColliderForceByParticleSize: 0
     multiplyColliderForceByParticleSpeed: 0
@@ -4845,6 +4846,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   applyEveryEnable: 1
+--- !u!114 &1128703386139662573
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1676933742067343098}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ec5b24f9ef720043a0ec3fc3b72a24d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  damagePerHit: 10
+  perTargetCooldown: 0.2
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  follow: {fileID: 0}
 --- !u!1 &3043634795364512164
 GameObject:
   m_ObjectHideFlags: 0
