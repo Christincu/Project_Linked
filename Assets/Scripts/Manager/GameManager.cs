@@ -281,14 +281,11 @@ public class GameManager : MonoBehaviour
     
     public void LoadSceneWithLoading(string sceneName)
     {
-        StartCoroutine(LoadSceneAsync(sceneName));
+        LoadingPanel.ShowDuring(LoadSceneAsync(sceneName));
     }
 
     private IEnumerator LoadSceneAsync(string sceneName)
     {
-        LoadingPanel.Show();
-        yield return new WaitForSeconds(0.5f);
-
         AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
         asyncLoad.allowSceneActivation = false;
 
@@ -303,6 +300,5 @@ public class GameManager : MonoBehaviour
         }
 
         yield return new WaitForSeconds(0.5f);
-        LoadingPanel.Hide();
     }
 }

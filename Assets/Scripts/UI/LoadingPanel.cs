@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// 로딩 화면 패널을 관리합니다.
@@ -10,9 +12,12 @@ public class LoadingPanel : MonoBehaviour
 {
     public static LoadingPanel Instance { get; private set; }
 
-    private CanvasGroup _canvasGroup;
+    [SerializeField] private float _fadeInDuration = 0.3f;
+    [SerializeField] private float _fadeOutDuration = 0.5f;
+
+    private Image _image;
     private Animator _animator;
-    private bool _isHiding = false;
+    private Coroutine _currentOperation = null;
 
     void Awake()
     {
@@ -28,20 +33,26 @@ public class LoadingPanel : MonoBehaviour
         }
 
         _animator = GetComponent<Animator>();
-        _canvasGroup = GetComponent<CanvasGroup>();
+        _image = GetComponent<Image>();
+        
         if (_animator == null)
         {
             Debug.LogError("[LoadingPanel] Animator component not found!");
+        }
+        if (_image == null)
+        {
+            Debug.LogError("[LoadingPanel] Image component not found!");
         }
     }
 
     void Start()
     {
-        if (_canvasGroup != null)
+        if (_image != null)
         {
-            _canvasGroup.alpha = 0f;
-            _canvasGroup.blocksRaycasts = false;
+            _image.raycastTarget = false;
         }
+
+        Close();
     }
 
     void OnDestroy()
@@ -52,74 +63,133 @@ public class LoadingPanel : MonoBehaviour
         }
     }
 
+    #region Public API
+    /// <summary>
+    /// 로딩 화면을 표시합니다 (수동 제어용).
+    /// </summary>
     public static void Show()
     {
-        if (Instance == null)
-        {
-            Debug.LogWarning("[LoadingPanel] Instance is null! Make sure LoadingPanel prefab is set in GameManager.");
-            return;
-        }
-
-        Instance._isHiding = false;
-
-        if (Instance._animator != null)
-        {
-            Instance._animator.Play("Open");
-        }
-        Debug.Log("[LoadingPanel] Show - Open Animation Started");
+        if (Instance == null) return;
+        Instance.ShowInternal();
     }
 
+    /// <summary>
+    /// 로딩 화면을 숨깁니다 (수동 제어용).
+    /// </summary>
     public static void Hide()
     {
-        if (Instance == null)
+        if (Instance == null) return;
+        Instance.HideInternal();
+    }
+
+    /// <summary>
+    /// 지정된 시간 동안 로딩 화면을 표시합니다 (자동으로 숨김).
+    /// </summary>
+    public static void ShowForSeconds(float duration)
+    {
+        if (Instance == null) return;
+        Instance.ShowForSecondsInternal(duration);
+    }
+
+    /// <summary>
+    /// 코루틴 작업이 완료될 때까지 로딩 화면을 표시합니다.
+    /// </summary>
+    public static Coroutine ShowDuring(IEnumerator operation)
+    {
+        if (Instance == null) return null;
+        return Instance.StartCoroutine(Instance.ShowDuringInternal(operation));
+    }
+
+    /// <summary>
+    /// 비동기 작업이 완료될 때까지 로딩 화면을 표시합니다.
+    /// </summary>
+    public static void ShowDuringAsync(Func<IEnumerator> operationFunc, Action onComplete = null)
+    {
+        if (Instance == null) return;
+        Instance.StartCoroutine(Instance.ShowDuringAsyncInternal(operationFunc, onComplete));
+    }
+    #endregion
+
+    #region Internal Methods
+    private void ShowInternal()
+    {
+        if (_image != null)
         {
-            Debug.LogWarning("[LoadingPanel] Instance is null, cannot hide");
-            return;
+            _image.raycastTarget = true;
         }
 
-        if (Instance._isHiding) return;
-
-        Instance._isHiding = true;
-
-        if (Instance._animator != null)
+        if (_animator != null)
         {
-            Instance._animator.Play("Close");
-            Instance.StartCoroutine(Instance.DisableAfterAnimation(1.5f));
+            _animator.Play("Open");
         }
-        Debug.Log("[LoadingPanel] Hide - Close Animation Started");
+
+        Debug.Log("[LoadingPanel] Show");
     }
 
-    private IEnumerator DisableAfterDelay(float delay)
+    private void HideInternal()
     {
-        yield return new WaitForSeconds(delay);
-
-        if (_isHiding)
+        if (_animator != null)
         {
-            gameObject.SetActive(false);
-            Debug.Log("[LoadingPanel] Disabled");
+            _animator.Play("Close");
         }
+
+        StartCoroutine(DisableAfterAnimation());
+        Debug.Log("[LoadingPanel] Hide");
     }
 
-    private IEnumerator DisableAfterAnimation(float delay)
+    private void ShowForSecondsInternal(float duration)
     {
-        yield return new WaitForSeconds(delay);
-
-        if (_isHiding && _canvasGroup != null)
+        if (_currentOperation != null)
         {
-            _canvasGroup.alpha = 0f;
-            _canvasGroup.blocksRaycasts = false;
-            Debug.Log("[LoadingPanel] Fully Hidden (CanvasGroup Alpha 0)");
+            StopCoroutine(_currentOperation);
         }
-        _isHiding = false;
+
+        _currentOperation = StartCoroutine(ShowForSecondsCoroutine(duration));
     }
 
-    public void Open()
+    private IEnumerator ShowForSecondsCoroutine(float duration)
     {
-        Show();
+        ShowInternal();
+        yield return new WaitForSeconds(_fadeInDuration);
+        yield return new WaitForSeconds(duration);
+        HideInternal();
+        _currentOperation = null;
     }
 
-    public void Close()
+    private IEnumerator ShowDuringInternal(IEnumerator operation)
     {
-        Hide();
+        ShowInternal();
+        yield return new WaitForSeconds(_fadeInDuration);
+        yield return operation;
+        yield return new WaitForSeconds(0.3f);
+        HideInternal();
     }
+
+    private IEnumerator ShowDuringAsyncInternal(Func<IEnumerator> operationFunc, Action onComplete)
+    {
+        ShowInternal();
+        yield return new WaitForSeconds(_fadeInDuration);
+        yield return operationFunc();
+        yield return new WaitForSeconds(0.3f);
+        HideInternal();
+        onComplete?.Invoke();
+    }
+
+    private IEnumerator DisableAfterAnimation()
+    {
+        yield return new WaitForSeconds(_fadeOutDuration);
+
+        if (_image != null)
+        {
+            _image.raycastTarget = false;
+        }
+        
+        Debug.Log("[LoadingPanel] Fully Hidden");
+    }
+    #endregion
+
+    #region Legacy Support (for Animation Events)
+    public void Open() => Show();
+    public void Close() => Hide();
+    #endregion
 }

@@ -313,31 +313,12 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
     /// <summary>
     /// 서버에서 호출되어 플레이어의 위치를 강제로 설정합니다. (MapTeleporter 사용)
+    /// 로딩 화면은 MapTeleporter에서 관리합니다.
     /// </summary>
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     public void RPC_TeleportPlayer(Vector3 targetPosition)
     {
-        if (Object.HasInputAuthority)
-        {
-            StartCoroutine(TeleportWithLoadingScreen(targetPosition));
-        }
-        else
-        {
-            ExecuteTeleport(targetPosition);
-        }
-    }
-    
-    private IEnumerator TeleportWithLoadingScreen(Vector3 targetPosition)
-    {
-        LoadingPanel.Show();
-        
-        yield return new WaitForSeconds(0.3f);
-        
         ExecuteTeleport(targetPosition);
-        
-        yield return new WaitForSeconds(0.3f);
-        
-        LoadingPanel.Hide();
     }
     
     private void ExecuteTeleport(Vector3 targetPosition)

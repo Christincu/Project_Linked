@@ -20,6 +20,9 @@ public class MapTeleporter : MonoBehaviour
     [Tooltip("순간이동 쿨다운 (초)")]
     [SerializeField] private float cooldown = 1f;
     
+    [Tooltip("텔레포트 실행 전 대기 시간 (로딩 화면 페이드 인)")]
+    [SerializeField] private float teleportDelay = 0.3f;
+    
     [Tooltip("스폰 위치 오프셋")]
     [SerializeField] private Vector2 spawnOffset = Vector2.zero;
     
@@ -123,6 +126,17 @@ public class MapTeleporter : MonoBehaviour
     
     private void TeleportPlayer(PlayerController player)
     {
+        StartCoroutine(TeleportPlayerCoroutine(player));
+    }
+    
+    private IEnumerator TeleportPlayerCoroutine(PlayerController player)
+    {
+        // 로딩 화면 표시 (자동으로 Show -> 대기 -> Hide)
+        LoadingPanel.ShowForSeconds(teleportDelay);
+        
+        // 로딩 화면 페이드 인 대기
+        yield return new WaitForSeconds(teleportDelay);
+        
         Vector3 spawnPosition = targetTeleporter.GetSpawnPosition();
         player.RequestTeleport(spawnPosition);
         

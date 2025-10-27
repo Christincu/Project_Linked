@@ -17,6 +17,9 @@ public class ScenDespawner : MonoBehaviour
 
     [Tooltip("씬 전환 쿨다운 (초) - 중복 트리거 방지")]
     [SerializeField] private float cooldown = 2f;
+    
+    [Tooltip("씬 로드 실행 전 대기 시간 (로딩 화면 페이드 인)")]
+    [SerializeField] private float sceneLoadDelay = 0.3f;
 
     [Header("Visual Settings")]
     [Tooltip("트리거 영역 표시 색상")]
@@ -117,6 +120,14 @@ public class ScenDespawner : MonoBehaviour
         Debug.Log($"[ScenDespawner] Scene transition started: {targetSceneName}");
 
         LoadingPanel.Show();
+        StartCoroutine(LoadSceneAfterDelay());
+    }
+    
+    private IEnumerator LoadSceneAfterDelay()
+    {
+        // 로딩 화면 페이드 인 대기
+        yield return new WaitForSeconds(sceneLoadDelay);
+        
         _runner.LoadScene(targetSceneName);
     }
     #endregion
