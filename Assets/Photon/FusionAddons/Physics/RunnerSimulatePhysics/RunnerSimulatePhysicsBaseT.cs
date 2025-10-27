@@ -29,7 +29,7 @@ namespace Fusion.Addons.Physics {
     /// </summary>
     /// <param name="scene">The Physics Scene to include in simulation.</param>
     /// <param name="clientPhysicsSimulation">Defines physics simulation of the additional scene for clients.
-    /// Typically this will be Disabled (physics no simulated) or SimulateForward (if you want to simulate physics locally for non-networked objects such as rag dolls).</param>
+    /// Typically this will be Disabled (physics not simulated) or SimulateForward (if you want to simulate physics locally for non-networked objects such as rag dolls).</param>
     public void RegisterAdditionalScene(TPhysicsScene scene, ClientPhysicsSimulation clientPhysicsSimulation = ClientPhysicsSimulation.Disabled) {
       if (_additionalScenes == null) {
         _additionalScenes = new List<AdditionalScene>();

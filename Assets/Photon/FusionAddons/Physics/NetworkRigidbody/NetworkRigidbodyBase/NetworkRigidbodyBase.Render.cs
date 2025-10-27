@@ -126,7 +126,7 @@ namespace Fusion.Addons.Physics
 
             // If the parent changes between From and To ... do no try to interpolate (different spaces)
             // We also are skipping sleep detection and teleport testing.
-            if (frHasNonNetworkedParent || frData.TRSPData.Parent != toData.TRSPData.Parent) {
+            if (frData.TRSPData.Parent != toData.TRSPData.Parent) {
               // For Non-Networked parents we use world space
               // When parented, ignore any specified interpolation target and move the NO transform always
               // (devs may want to change this behaviour themselves for edge cases)

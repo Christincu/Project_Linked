@@ -117,6 +117,13 @@ public class MainGameManager : MonoBehaviour
             _runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
             _runner.gameObject.AddComponent<NetworkObjectProviderDefault>();
             
+            // ✅ Physics2D 시뮬레이션을 위한 컴포넌트 추가 (필수!)
+            if (_runner.gameObject.GetComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>() == null)
+            {
+                _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+                Debug.Log("[MainGameManager] RunnerSimulatePhysics2D added to NetworkRunner");
+            }
+            
             await _runner.StartGame(new StartGameArgs
             {
                 GameMode = GameMode.Host,
@@ -235,11 +242,43 @@ public class MainGameManager : MonoBehaviour
         }
         else
         {
+            // 클라이언트: 서버가 스폰한 플레이어를 찾아서 딕셔너리에 추가
             yield return new WaitForSeconds(1.0f);
+            FindAndRegisterSpawnedPlayers(runner);
         }
         
         InitializeMainCameraForNetworkMode();
         GameManager.Instance?.FinishLoadingScreen();
+    }
+    
+    /// <summary>
+    /// 클라이언트에서 이미 스폰된 플레이어를 찾아서 딕셔너리에 등록합니다.
+    /// </summary>
+    private void FindAndRegisterSpawnedPlayers(NetworkRunner runner)
+    {
+        PlayerController[] allPlayers = FindObjectsOfType<PlayerController>();
+        int newlyRegistered = 0;
+        
+        foreach (var player in allPlayers)
+        {
+            if (player.Object != null)
+            {
+                PlayerRef playerRef = player.Object.InputAuthority;
+                
+                // PlayerRef.None이 아니고 아직 등록되지 않은 경우에만 추가
+                if (playerRef != PlayerRef.None && !_spawnedPlayers.ContainsKey(playerRef))
+                {
+                    _spawnedPlayers[playerRef] = player.Object;
+                    newlyRegistered++;
+                    Debug.Log($"[MainGameManager] Client: Registered player {playerRef} (Local: {playerRef == runner.LocalPlayer})");
+                }
+            }
+        }
+        
+        if (newlyRegistered > 0)
+        {
+            Debug.Log($"[MainGameManager] Client: Registered {newlyRegistered} new player(s). Total: {_spawnedPlayers.Count}");
+        }
     }
     
     private void InitializeMainCameraForNetworkMode()
@@ -258,17 +297,51 @@ public class MainGameManager : MonoBehaviour
         }
     }
     
-    // 게임 중 플레이어 참여 처리 (서버만 스폰)
+    // 게임 중 플레이어 참여 처리
     private void OnPlayerJoinedDuringGame(PlayerRef player, NetworkRunner runner)
     {
         if (SceneManager.GetActiveScene().name == "Main")
         {
             if (runner.IsServer && !_spawnedPlayers.ContainsKey(player))
             {
+                // 서버: 플레이어 스폰
                 int spawnIndex = _spawnedPlayers.Count;
                 StartCoroutine(SpawnPlayerAsync(runner, player, spawnIndex));
             }
+            else if (!runner.IsServer)
+            {
+                // 클라이언트: 서버가 스폰한 플레이어가 동기화될 때까지 대기 후 등록
+                StartCoroutine(WaitAndRegisterPlayer(runner, player));
+            }
         }
+    }
+    
+    /// <summary>
+    /// 클라이언트에서 새로 참여한 플레이어가 스폰될 때까지 대기 후 등록합니다.
+    /// </summary>
+    private IEnumerator WaitAndRegisterPlayer(NetworkRunner runner, PlayerRef player)
+    {
+        Debug.Log($"[MainGameManager] Client: Waiting for player {player} to spawn...");
+        
+        // 플레이어가 스폰될 때까지 대기
+        int maxAttempts = 50; // 5초 (0.1초 * 50)
+        int attempts = 0;
+        
+        while (attempts < maxAttempts)
+        {
+            FindAndRegisterSpawnedPlayers(runner);
+            
+            if (_spawnedPlayers.ContainsKey(player))
+            {
+                Debug.Log($"[MainGameManager] Client: Player {player} registered successfully");
+                yield break;
+            }
+            
+            yield return new WaitForSeconds(0.1f);
+            attempts++;
+        }
+        
+        Debug.LogWarning($"[MainGameManager] Client: Timeout waiting for player {player} to spawn");
     }
     
     private IEnumerator SpawnAllPlayersAsync(NetworkRunner runner)
@@ -367,37 +440,47 @@ public class MainGameManager : MonoBehaviour
     // 플레이어 제거 처리
     public void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
     {
+        Debug.Log($"[MainGameManager] OnPlayerLeft - Player {player}, IsServer: {runner.IsServer}");
+        
+        // PlayerData 가져오기 및 제거 (서버만) - 먼저 처리
+        if (runner.IsServer)
+        {
+            PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
+            if (playerData != null && playerData.Object != null)
+            {
+                Debug.Log($"[MainGameManager] Despawning PlayerData for player {player}");
+                runner.Despawn(playerData.Object);
+            }
+            else
+            {
+                Debug.LogWarning($"[MainGameManager] PlayerData not found or already despawned for player {player}");
+            }
+        }
+        
+        // PlayerController 제거
         if (_spawnedPlayers.TryGetValue(player, out NetworkObject playerObject))
         {
-            // PlayerData 정리 (서버만)
-            if (runner.IsServer)
-            {
-                PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
-                if (playerData != null)
-                {
-                    playerData.PlayerInstance = null;
-                }
-            }
-            
             // 플레이어 오브젝트 제거 (서버만)
             if (playerObject != null && runner.IsServer)
             {
+                Debug.Log($"[MainGameManager] Despawning PlayerController for player {player}");
                 runner.Despawn(playerObject);
             }
             _spawnedPlayers.Remove(player);
-            
-            // 게임 중 플레이어가 나가면 Title 씬으로 복귀 로직 (서버만 실행)
-            if (!_isTestMode && SceneManager.GetActiveScene().name == "Main")
+        }
+        else
+        {
+            Debug.LogWarning($"[MainGameManager] PlayerController not found in _spawnedPlayers for player {player}");
+        }
+        
+        // 게임 중 플레이어가 나가면 경고창만 표시 (게임은 계속 진행)
+        if (!_isTestMode && SceneManager.GetActiveScene().name == "Main")
+        {
+            int remainingPlayers = runner.ActivePlayers.Count();
+            Debug.Log($"[MainGameManager] Remaining players: {remainingPlayers}");
+            if (remainingPlayers < 2)
             {
-                int remainingPlayers = runner.ActivePlayers.Count();
-                if (remainingPlayers < 2)
-                {
-                    GameManager.Instance?.ShowWarningPanel("상대방이 나갔습니다.");
-                    if (runner.IsServer)
-                    {
-                        StartCoroutine(ReturnToTitleSceneDelayed(runner));
-                    }
-                }
+                GameManager.Instance?.ShowWarningPanel("상대방이 나갔습니다.");
             }
         }
     }
@@ -424,12 +507,25 @@ public class MainGameManager : MonoBehaviour
         
         NetworkRunner runner = _runner ?? FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
         
-        if (runner == null) return null;
+        if (runner == null)
+        {
+            return null;
+        }
 
         var localPlayerRef = runner.LocalPlayer;
+        
         if (_spawnedPlayers.TryGetValue(localPlayerRef, out var playerObj))
         {
-            return playerObj.GetComponent<PlayerController>();
+            return playerObj?.GetComponent<PlayerController>();
+        }
+
+        // 플레이어를 찾지 못한 경우 한 번 더 시도 (클라이언트 초기화 타이밍 문제 대응)
+        FindAndRegisterSpawnedPlayers(runner);
+        
+        if (_spawnedPlayers.TryGetValue(localPlayerRef, out playerObj))
+        {
+            Debug.Log($"[MainGameManager] GetLocalPlayer - Found and registered player {localPlayerRef}");
+            return playerObj?.GetComponent<PlayerController>();
         }
 
         return null;

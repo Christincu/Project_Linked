@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Fusion; // Fusion 사용을 위해 추가
+using Fusion;
 
 /// <summary>
 /// 맵 내부 순간이동 시스템 (양방향 지원)
@@ -131,8 +131,11 @@ public class MapTeleporter : MonoBehaviour
     
     private IEnumerator TeleportPlayerCoroutine(PlayerController player)
     {
-        // 로딩 화면 표시 (자동으로 Show -> 대기 -> Hide)
-        LoadingPanel.ShowForSeconds(teleportDelay);
+        // 텔레포트하는 플레이어에게만 로딩 화면 표시 (PlayerController의 RPC 사용)
+        if (player.Object != null)
+        {
+            player.RPC_ShowLoadingPanel(teleportDelay);
+        }
         
         // 로딩 화면 페이드 인 대기
         yield return new WaitForSeconds(teleportDelay);

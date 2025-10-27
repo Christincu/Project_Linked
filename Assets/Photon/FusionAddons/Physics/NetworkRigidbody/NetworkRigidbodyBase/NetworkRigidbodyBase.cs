@@ -77,13 +77,13 @@ namespace Fusion.Addons.Physics {
     /// <summary>
     /// Dirty flag for the root Transform.
     /// True when interpolation has altered the root transform's position, rotation, or scale in Render().
-    /// Is reset to false when the transform when the transform is restored to its networked state during the simulation loop.
+    /// Is reset to false when the transform is restored to its networked state during the simulation loop.
     /// </summary>
     protected bool _rootIsDirtyFromInterpolation;
     /// <summary>
     /// Dirty flag for the Interpolation Target.
     /// True when interpolation has altered the position, rotation, or scale in Render().
-    /// Is reset to false when the transform when the transform is restored to defaults during the simulation loop.
+    /// Is reset to false when the transform is restored to defaults during the simulation loop.
     /// </summary>
     protected bool _targIsDirtyFromInterpolation;
     /// <summary>

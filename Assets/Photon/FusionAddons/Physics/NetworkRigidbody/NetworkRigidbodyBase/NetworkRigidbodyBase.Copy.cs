@@ -38,7 +38,7 @@ namespace Fusion.Addons.Physics
     /// Abstracted method for capturing position and rotation values from the passed Rigidbody or Rigidbody2D
     /// to the <see cref="NetworkRBData"/> networked property.
     /// </summary>
-    protected abstract void CaptureRBPositionRotation(RBType rb, ref NetworkRBData data);
+    protected abstract void CaptureRBPositionRotation(RBType rb, ref NetworkRBData data, bool useWorldSpace);
     /// <summary>
     /// Abstracted method for capturing velocity and other values from the passed Rigidbody or Rigidbody2D
     /// to the <see cref="NetworkRBData"/> networked property.
@@ -125,7 +125,7 @@ namespace Fusion.Addons.Physics
         CopyToBuffer(remainingTicks == 2);
       } else {
         // Non-StateAuth clients only need capture values for interpolation if they are InSimulation (predicted)
-        if (Object.IsInSimulation) {
+        if (Object.IsInSimulation && _clientPrediction) {
           CopyToBuffer(true);
         }
       }
@@ -200,7 +200,7 @@ namespace Fusion.Addons.Physics
         }
 
       } else {
-        CaptureRBPositionRotation(rb, ref Data);
+        CaptureRBPositionRotation(rb, ref Data, useWorldSpace);
 
         // Only capture extras (velocity, etc) on the State Authority or if there is client prediction.
         if (!captureTRSPOnly) {

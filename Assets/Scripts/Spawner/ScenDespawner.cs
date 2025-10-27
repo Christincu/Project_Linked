@@ -89,14 +89,8 @@ public class ScenDespawner : MonoBehaviour
             _runner = FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
         }
 
-        if (_runner == null)
-        {
-            Debug.LogError($"[ScenDespawner] NetworkRunner not found!");
-            return;
-        }
-
         // 서버만 씬 전환 실행 (클라이언트는 서버의 씬 로드를 따라감)
-        if (!_runner.IsServer)
+        if (_runner == null || !_runner.IsServer)
         {
             return;
         }
@@ -119,8 +113,25 @@ public class ScenDespawner : MonoBehaviour
 
         Debug.Log($"[ScenDespawner] Scene transition started: {targetSceneName}");
 
-        LoadingPanel.Show();
+        // 모든 플레이어에게 로딩 패널 표시 (PlayerController의 RPC 사용)
+        ShowLoadingPanelToAllPlayers();
+        
         StartCoroutine(LoadSceneAfterDelay());
+    }
+    
+    /// <summary>
+    /// 모든 플레이어에게 로딩 패널을 표시합니다.
+    /// </summary>
+    private void ShowLoadingPanelToAllPlayers()
+    {
+        PlayerController[] allPlayers = FindObjectsOfType<PlayerController>();
+        foreach (var player in allPlayers)
+        {
+            if (player != null && player.Object != null)
+            {
+                player.RPC_ShowLoadingPanelToAll();
+            }
+        }
     }
     
     private IEnumerator LoadSceneAfterDelay()
@@ -128,7 +139,10 @@ public class ScenDespawner : MonoBehaviour
         // 로딩 화면 페이드 인 대기
         yield return new WaitForSeconds(sceneLoadDelay);
         
-        _runner.LoadScene(targetSceneName);
+        if (_runner != null)
+        {
+            _runner.LoadScene(targetSceneName);
+        }
     }
     #endregion
 

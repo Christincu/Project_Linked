@@ -11,7 +11,7 @@ namespace Fusion.Addons.Physics {
   public abstract class RunnerSimulatePhysicsBase: SimulationBehaviour, IBeforeTick  {
 
     /// <summary>
-    /// Stored original Physics setting auto-simulate setting, used to restore Unity settings when Fusion runners are shutdown.
+    /// Stored original Physics auto-simulate setting, used to restore Unity settings when Fusion runners are shutdown.
     /// </summary>
     [StaticField(StaticFieldResetMode.None)]
     protected static PhysicsTimings _physicsAutoSimRestore;
@@ -73,10 +73,10 @@ namespace Fusion.Addons.Physics {
     public    PhysicsTimings PhysicsTiming => _physicsTiming;
 
     /// <summary>
-    /// Controls physics simulation on clients.
-    /// Disabled - physics simulation doesn't run on clients. This value is default for performance reasons.
-    /// SyncTransforms - clients call Physics.SyncTransforms() in all ticks.
-    /// SimulateForward - clients call Physics.SyncTransforms() in resimulation ticks and Physics.Simulate() in forward ticks (a tick which is being simulated for the first time).
+    /// Controls physics simulation on clients.<br/>
+    /// Disabled - physics simulation doesn't run on clients. This value is default for performance reasons.<br/>
+    /// SyncTransforms - clients call Physics.SyncTransforms() in all ticks.<br/>
+    /// SimulateForward - clients call Physics.SyncTransforms() in resimulation ticks and Physics.Simulate() in forward ticks (a tick which is being simulated for the first time).<br/>
     /// SimulateAlways - clients call Physics.Simulate() in both resimulation and forward ticks. This option may introduce noticeable CPU overhead.
     /// </summary>
     [InlineHelp]
@@ -87,7 +87,7 @@ namespace Fusion.Addons.Physics {
     /// <para>This value is used to scale PhysicsSimulationDeltaTime, typically to speed up and slow down the passing of time.
     /// This doesn't change the Fusion TickRate (that value is fixed and cannot be changed once a game is started),
     /// and instead changes how much time is simulated each Physics tick. When changing this value, be sure to account for it
-    /// in all code where you use <see cref="NetworkRunner.DeltaTime"/>, as you likely ill want to apply the same modifier everywhere.</para>
+    /// in all code where you use <see cref="NetworkRunner.DeltaTime"/>, as you likely will want to apply the same modifier everywhere.</para>
     ///
     /// <para>For Physics.Simulate(deltaTime) - the deltaTime is calculated as PhysicsSimulationDeltaTime * DeltaTimeMultiplier.
     /// The resulting deltaTime must be a greater than zero value (You cannot simulate using zero or negative values).
@@ -138,7 +138,7 @@ namespace Fusion.Addons.Physics {
     /// </summary>
     protected abstract void OverrideAutoSimulate(bool enabled);
     /// <summary>
-    /// Restore sauto-simulate setting of the associated physics engine to its original value prior to any <see cref="OverrideAutoSimulate"/> method calls.
+    /// Restores auto-simulate setting of the associated physics engine to its original value prior to any <see cref="OverrideAutoSimulate"/> method calls.
     /// </summary>
     protected abstract void RestoreAutoSimulate();
 
@@ -158,7 +158,7 @@ namespace Fusion.Addons.Physics {
     private readonly Queue<Action> _onBeforeSimulateCallbacks = new Queue<Action>();
 
     /// <summary>
-    /// Returns true FixedUpdateNetwork has executed for the current tick, and physics has simulated.
+    /// Returns true if FixedUpdateNetwork has executed for the current tick, and physics has simulated.
     /// </summary>
     public bool HasSimulatedThisTick { get; private set; }
 
@@ -180,12 +180,12 @@ namespace Fusion.Addons.Physics {
 #endregion
 
     /// <summary>
-    /// Method which calls simulate() for the associated Unity physics engine,
+    /// Method which calls Simulate() for the associated Unity physics engine,
     /// for the primary physics scene of the associated <see cref="NetworkRunner"/>.
     /// </summary>
     protected abstract void SimulatePrimaryScene(    float deltaTime);
     /// <summary>
-    /// Method which calls simulate() for the associated Unity physics engine,
+    /// Method which calls Simulate() for the associated Unity physics engine,
     /// for any additional physics scenes of the associated <see cref="NetworkRunner"/>.
     /// </summary>
     protected abstract void SimulateAdditionalScenes(float deltaTime, bool checkPhysicsSimulation);
@@ -205,6 +205,27 @@ namespace Fusion.Addons.Physics {
     /// Initialization code that is run on the first execution of <see cref="FixedUpdateNetwork"/>.
     /// </summary>
     protected virtual void Startup() {
+      
+      // Startup Fix for shared mode incompatible configuration.
+      if (_physicsAuthority == PhysicsAuthorities.Fusion 
+          && _physicsTiming == PhysicsTimings.FixedUpdateNetwork 
+          && ClientPhysicsSimulation == ClientPhysicsSimulation.Disabled 
+          && Runner.GameMode == GameMode.Shared)
+      {
+
+        var targetAuthority = Runner.Config.PeerMode == NetworkProjectConfig.PeerModes.Single
+          ? PhysicsAuthorities.Unity
+          : PhysicsAuthorities.Auto;
+        
+        Log.Warn($"Incompatible configuration on {GetType().Name} for shared mode. " +
+                 $"Current physics authority: {_physicsAuthority} will be changed to {targetAuthority}. " +
+                 $"Current physics timing: {_physicsTiming} will be changed to {PhysicsTimings.FixedUpdate}. " +
+                 $"Current client physics simulation: {ClientPhysicsSimulation} will be changed to {ClientPhysicsSimulation.SimulateAlways}.");
+        _physicsAuthority = targetAuthority; 
+        _physicsTiming = PhysicsTimings.FixedUpdate;
+        ClientPhysicsSimulation = ClientPhysicsSimulation.SimulateAlways;
+      }
+      
       // Resolve 'Auto" to give Unity or Fusion control of Physics.Simulate
       // Should let Unity handle Physics if running Single-Peer, and in a valid Timing that Unity can Handle.
       _physicsAuthority = _physicsAuthority == PhysicsAuthorities.Auto ?
@@ -363,7 +384,7 @@ namespace Fusion.Addons.Physics {
     }
 
     /// <summary>
-    /// Executes the simulation of primary and secondary physics scenes, and triggers the associated callback interfaces.
+    /// Executes the simulation of the primary physics scene and triggers the associated callback interfaces.
     /// </summary>
     protected virtual void DoSimulatePrimaryScene(float deltaTime) {
 

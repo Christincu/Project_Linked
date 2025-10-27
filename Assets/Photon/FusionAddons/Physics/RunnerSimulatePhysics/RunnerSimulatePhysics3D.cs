@@ -9,7 +9,7 @@ namespace Fusion.Addons.Physics {
   public class RunnerSimulatePhysics3D : RunnerSimulatePhysicsBase<PhysicsScene> {
 
     // Unity 2022.3 made changes to PhysX (Physics3D) which made it similar to Box2d (Physics2D)
-    // This changed from a basic Physics.AutoSimulate to Simulations options for FixedUpdate, Update or Script(the equivalent of auto-simulate disabled).
+    // This changed from a basic Physics.AutoSimulate to Simulation options for FixedUpdate, Update or Script(the equivalent of auto-simulate disabled).
 #if !UNITY_2022_3_OR_NEWER
 
     /// <inheritdoc/>

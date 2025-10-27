@@ -14,7 +14,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     private Rigidbody2D _rigidbody;
     private PlayerController _controller;
     private Vector2 _inputDirection;
-    
+
     // 이동 설정
     private float _moveSpeed;
     private float _maxVelocity;
@@ -22,6 +22,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     #endregion
 
     #region Properties
+    public NetworkRigidbody2D NetworkRigidbody2D => _networkRb;
     public Rigidbody2D Rigidbody => _rigidbody;
     public Vector2 InputDirection => _inputDirection;
     #endregion
@@ -33,7 +34,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     public void Initialize(PlayerController controller, InitialPlayerData data)
     {
         _controller = controller;
-        
+
         if (data != null)
         {
             _moveSpeed = data.MoveSpeed;
@@ -43,7 +44,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
 
         // NetworkRigidbody2D 컴포넌트 가져오기 (필수)
         _networkRb = GetComponent<NetworkRigidbody2D>();
-        
+
         if (_networkRb != null)
         {
             _rigidbody = _networkRb.Rigidbody;
@@ -56,7 +57,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
         }
 
         ConfigureRigidbody();
-        
+
         Debug.Log($"[PlayerRigidBodyMovement] Initialized - Speed: {_moveSpeed}, MaxVel: {_maxVelocity}");
     }
 
@@ -66,14 +67,14 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     private void ConfigureRigidbody()
     {
         if (_rigidbody == null) return;
-        
+
         _rigidbody.freezeRotation = true;
         _rigidbody.gravityScale = 0f;
         _rigidbody.drag = 0f;
         _rigidbody.angularDrag = 0f;
-        
-        // NetworkRigidbody2D 사용 시 Interpolation은 None으로 두는 것이 안전함
-        _rigidbody.interpolation = RigidbodyInterpolation2D.None; 
+
+        // NetworkRigidbody2D + Rigidbody2D.Interpolate 함께 사용
+        _rigidbody.interpolation = RigidbodyInterpolation2D.Interpolate;
         _rigidbody.sleepMode = RigidbodySleepMode2D.NeverSleep;
     }
     #endregion
@@ -101,58 +102,57 @@ public class PlayerRigidBodyMovement : MonoBehaviour
 
         int x = 0;
         int y = 0;
-        
+
         if (inputData.GetButton(InputButton.LEFT)) x -= 1;
         if (inputData.GetButton(InputButton.RIGHT)) x += 1;
         if (inputData.GetButton(InputButton.DOWN)) y -= 1;
         if (inputData.GetButton(InputButton.UP)) y += 1;
-        
+
         _inputDirection = new Vector2(x, y).normalized;
     }
 
     /// <summary>
     /// 입력에 따라 플레이어를 이동시킵니다. (FixedUpdateNetwork에서 호출)
+    /// 서버(State Authority)에서만 물리를 제어합니다.
     /// </summary>
     public void Move()
     {
-        if (_rigidbody == null) return;
+        if (_rigidbody == null || _controller == null) return;
 
         // 사망 상태면 이동 불가
-        if (_controller != null && _controller.IsDead)
+        if (_controller.IsDead)
         {
             _rigidbody.velocity = Vector2.zero;
             return;
         }
-        
-        // 틱 시간 가져오기 (이 코드는 PlayerController의 FixedUpdateNetwork 내부에서 호출되어야 함)
+
+        // 틱 시간 가져오기
         float deltaTime = _controller.Runner != null ? _controller.Runner.DeltaTime : Time.fixedDeltaTime;
 
         if (_inputDirection.magnitude > 0)
         {
             // 목표 속도 계산
             Vector2 targetVelocity = _inputDirection * _moveSpeed;
-            
+
             // 가속도 적용 (Lerp 방식)
             if (_acceleration >= 1f)
             {
-                // 즉시 이동 (가속도 1.0 이상)
+                // 즉시 이동
                 _rigidbody.velocity = targetVelocity;
             }
             else
             {
-                // 부드러운 이동 (가속도 적용)
-                // Lerp 비율에 deltaTime을 곱하여 프레임 의존성을 제거하고 틱 기반으로 만듦
-                float lerpRatio = _acceleration * deltaTime * 10f; // 10f는 Lerp 속도를 맞추기 위한 상수값
+                // 부드러운 가속
+                float lerpRatio = _acceleration * deltaTime * 10f;
                 _rigidbody.velocity = Vector2.Lerp(_rigidbody.velocity, targetVelocity, lerpRatio);
             }
         }
         else
         {
-            // 입력이 없으면 감속 (감속 로직은 Drag=0이므로 수동으로 처리하거나 Force를 사용해야 함)
-            // 현재는 즉시 정지:
+            // 입력 없으면 즉시 정지
             _rigidbody.velocity = Vector2.zero;
         }
-        
+
         LimitSpeed();
     }
 
@@ -162,7 +162,7 @@ public class PlayerRigidBodyMovement : MonoBehaviour
     private void LimitSpeed()
     {
         if (_rigidbody == null || _maxVelocity <= 0) return;
-        
+
         if (_rigidbody.velocity.magnitude > _maxVelocity)
         {
             _rigidbody.velocity = _rigidbody.velocity.normalized * _maxVelocity;

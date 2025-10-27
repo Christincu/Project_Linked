@@ -32,6 +32,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public TickTimer RespawnTimer { get; set; }
 
     // Magic
+    [Networked] public int ActiveMagicSlotNetworked { get; set; }
     [Networked] public Vector3 MagicAnchorLocalPosition { get; set; } // 앵커의 로컬 위치 동기화
     [Networked] public bool MagicActive { get; set; }
     [Networked] public TickTimer MagicCooldownTimer { get; set; }
@@ -39,8 +40,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
     // Teleporter
     [Networked] public TickTimer TeleportCooldownTimer { get; set; }
-
-    // ⭐ [추가됨] 순간이동 플래그 (보간 건너뛰기용)
     [Networked] public NetworkBool DidTeleport { get; set; }
     #endregion
 
@@ -69,6 +68,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     #endregion
 
     #region Properties
+    public GameObject ViewObj => _viewObj;
     public PlayerBehavior Behavior => _behavior;
     public PlayerMagicController MagicController => _magicController;
     public PlayerState State => _state;
@@ -82,8 +82,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     // Test Mode Property
     public bool IsTestMode => _isTestMode;
     #endregion
-
-    // ---
 
     #region Fusion Callbacks
     /// <summary>
@@ -205,7 +203,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         {
             UpdateAnimation();
         }
-        
+
         if (Object.HasStateAuthority && DidTeleport)
         {
             DidTeleport = false;
@@ -217,10 +215,14 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public override void Render()
     {
         DetectNetworkChanges();
+
+        // ViewObj를 root 위치와 동기화
+        if (_viewObj != null)
+        {
+            _viewObj.transform.localPosition = Vector3.zero;
+        }
     }
     #endregion
-
-    // ---
 
     #region Public Methods - Network
     /// <summary>
@@ -280,16 +282,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         Debug.Log($"[PlayerController] Player respawned at {spawnPosition}");
     }
 
-    /// <summary>
-    /// 마법 활성화 틱을 설정합니다. (Input Authority에서 호출, RPC로 서버에 전달)
-    /// </summary>
-    public void SetMagicActivationTick(int tick)
-    {
-        if (Object.HasInputAuthority)
-        {
-            RPC_SetMagicActivationTick(tick);
-        }
-    }
     #endregion
 
     #region RPC Methods
@@ -303,12 +295,102 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     }
 
     /// <summary>
-    /// 마법 활성화 틱을 설정합니다. (Input Authority → State Authority)
+    /// 마법 UI를 활성화합니다. (Input Authority → State Authority)
+    /// 서버가 MagicActive를 변경하면 자동으로 모든 클라이언트에 동기화됨
     /// </summary>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_SetMagicActivationTick(int tick)
+    public void RPC_ActivateMagic(int magicSlot)
     {
-        MagicActivationTick = tick;
+        // 서버에서 MagicActive 변경 (자동으로 브로드캐스트됨)
+        if (!MagicActive)
+        {
+            MagicActive = true;
+            MagicActivationTick = Runner.Tick;
+
+            ActiveMagicSlotNetworked = magicSlot;
+            Debug.Log($"[PlayerController RPC] Magic activated - Slot: {magicSlot}, Tick: {MagicActivationTick}");
+        }
+    }
+
+    /// <summary>
+    /// 마법 UI를 비활성화합니다. (Input Authority → State Authority)
+    /// 서버가 MagicActive를 변경하면 자동으로 모든 클라이언트에 동기화됨
+    /// </summary>
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_DeactivateMagic()
+    {
+        // 서버에서 MagicActive 변경 (자동으로 브로드캐스트됨)
+        if (MagicActive)
+        {
+            MagicActive = false;
+            MagicActivationTick = 0;
+
+            ActiveMagicSlotNetworked = 0;
+            Debug.Log($"[PlayerController RPC] Magic deactivated");
+        }
+    }
+
+    /// <summary>
+    /// 특정 플레이어의 마법을 흡수합니다. (Input Authority → State Authority → Target Player)
+    /// </summary>
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_AbsorbMagic(PlayerRef targetPlayer)
+    {
+        // 서버에서 타겟 플레이어에게 흡수당했다고 알림
+        if (Runner.TryGetPlayerObject(targetPlayer, out NetworkObject targetObj))
+        {
+            if (targetObj.TryGetComponent(out PlayerController targetController))
+            {
+                targetController.RPC_NotifyAbsorbed();
+                Debug.Log($"[PlayerController RPC] Player {Object.InputAuthority} absorbed magic from {targetPlayer}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 마법이 흡수당했음을 알립니다. (State Authority → Target Player)
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_NotifyAbsorbed()
+    {
+        // 흡수당한 플레이어의 마법 비활성화
+        if (MagicActive)
+        {
+            MagicActive = false;
+            MagicActivationTick = 0;
+            ActiveMagicSlotNetworked = 0;
+            
+            // MagicController에 흡수당했다고 알림
+            _magicController?.OnAbsorbed();
+            
+            Debug.Log($"[PlayerController RPC] Magic was absorbed by another player");
+        }
+    }
+
+    /// <summary>
+    /// 텔레포트하는 플레이어에게만 로딩 패널을 표시합니다.
+    /// (MapTeleporter에서 호출)
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_ShowLoadingPanel(float duration)
+    {
+        // 해당 플레이어만 로딩 패널 표시
+        if (Object.HasInputAuthority)
+        {
+            LoadingPanel.ShowForSeconds(duration);
+            Debug.Log($"[PlayerController RPC] Loading panel shown for {duration}s");
+        }
+    }
+
+    /// <summary>
+    /// 모든 플레이어에게 로딩 패널을 표시합니다.
+    /// (ScenDespawner에서 호출)
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_ShowLoadingPanelToAll()
+    {
+        LoadingPanel.Show();
+        Debug.Log($"[PlayerController RPC] Loading panel shown for all");
     }
 
     /// <summary>
@@ -320,7 +402,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     {
         ExecuteTeleport(targetPosition);
     }
-    
+
     private void ExecuteTeleport(Vector3 targetPosition)
     {
         var networkRb = GetComponent<NetworkRigidbody2D>();
@@ -333,11 +415,11 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         {
             transform.position = targetPosition;
         }
-        
+
         Movement?.ResetVelocity();
         _previousPosition = (Vector2)targetPosition;
         DidTeleport = true;
-        
+
         Debug.Log($"[PlayerController] Teleported to {targetPosition}");
     }
     #endregion
@@ -462,6 +544,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     /// </summary>
     private void DetectNetworkChanges()
     {
+        bool magicStateChanged = false;
+        
         foreach (var change in _changeDetector.DetectChanges(this))
         {
             switch (change)
@@ -479,13 +563,24 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                     break;
 
                 case nameof(MagicActive):
-                    _magicController?.UpdateMagicUIFromNetwork(MagicActive);
+                    magicStateChanged = true;
+                    break;
+
+                case nameof(ActiveMagicSlotNetworked):
+                    // MagicActive와 함께 변경될 수 있으므로 플래그만 설정
+                    magicStateChanged = true;
                     break;
 
                 case nameof(MagicAnchorLocalPosition):
                     _magicController?.UpdateAnchorPositionFromNetwork(MagicAnchorLocalPosition);
                     break;
             }
+        }
+        
+        // 마법 상태가 변경되었을 때만 한 번 호출 (중복 방지)
+        if (magicStateChanged)
+        {
+            _magicController?.UpdateMagicUIFromNetwork(MagicActive);
         }
     }
     #endregion

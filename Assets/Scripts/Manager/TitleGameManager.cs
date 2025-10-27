@@ -199,6 +199,10 @@ public class TitleGameManager : MonoBehaviour
             runner.AddCallbacks(FusionManager.Instance);
             runner.ProvideInput = true;
 
+            // ✅ Physics2D 시뮬레이션을 위한 컴포넌트 추가 (필수!)
+            networkObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+            Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Host)");
+
             var result = await runner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.Host,
@@ -269,6 +273,10 @@ public class TitleGameManager : MonoBehaviour
 
             runner.AddCallbacks(FusionManager.Instance);
             runner.ProvideInput = true;
+
+            // ✅ Physics2D 시뮬레이션을 위한 컴포넌트 추가 (필수!)
+            networkObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+            Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Client)");
 
             var result = await runner.StartGame(new StartGameArgs()
             {

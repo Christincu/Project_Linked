@@ -1,6 +1,14 @@
 Photon Fusion Physics Addon - Release History
 
-Last tested with Fusion SDK 2.0.0 Stable 834
+Last tested with Fusion SDK 2.0.5
+
+Version 2.0.3
+- Fix: Added safety check when despawning the NetworkRigidbody to avoid exceptions.
+- Fix: Broken interpolation with interpolation target set and client physics disabled
+
+Version 2.0.2
+- Fix: local and world space mixing.
+- Fix: Broken interpolation in shared mode with SyncParent enabled.
 
 Version 2.0.1
 - Fixed reset of Physics.autoSimulation after stopping all network runners.

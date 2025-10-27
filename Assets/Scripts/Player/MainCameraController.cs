@@ -11,26 +11,27 @@ public class MainCameraController : MonoBehaviour
     #region Serialized Fields
     [Header("Camera Settings")]
     [Tooltip("카메라 이동 속도 (0-1, 낮을수록 부드럽게 따라감)")]
-    [SerializeField] private float followSpeed = 0.125f;
+    [SerializeField] private float _followSpeed = 0.125f;
     
     [Tooltip("카메라와 플레이어 사이의 Z축 거리")]
-    [SerializeField] private float zOffset = -10f;
+    [SerializeField] private float _zOffset = -10f;
     
     [Tooltip("카메라 이동 데드존 (이 범위 내에서는 카메라가 움직이지 않음)")]
-    [SerializeField] private float deadZone = 0.5f;
+    [SerializeField] private float _deadZone = 0.5f;
     
     [Header("Boundary Settings")]
     [Tooltip("카메라 이동 제한 활성화")]
-    [SerializeField] private bool useBoundary = false;
+    [SerializeField] private bool _useBoundary = false;
     
     [Tooltip("카메라 이동 가능 범위 (Min X, Min Y, Max X, Max Y)")]
-    [SerializeField] private Vector4 cameraBounds = new Vector4(-50f, -50f, 50f, 50f);
+    [SerializeField] private Vector4 _cameraBounds = new Vector4(-50f, -50f, 50f, 50f);
     #endregion
     
     #region Private Fields
     private PlayerController _targetPlayer;
     private Camera _camera;
     private bool _isInitialized = false;
+    private Vector3 _lastTargetPosition;
     #endregion
     
     #region Properties
@@ -62,24 +63,35 @@ public class MainCameraController : MonoBehaviour
     
     void LateUpdate()
     {
-        if (!_isInitialized) return;
+        if (!_isInitialized)
+        {
+            // 초기화가 안 되어 있으면 타겟 플레이어 찾기 시도
+            if (MainGameManager.Instance != null)
+            {
+                UpdateTargetPlayer();
+                if (_targetPlayer != null)
+                {
+                    _isInitialized = true;
+                    Debug.Log($"[MainCameraController] Late initialization - Target found: {_targetPlayer.name}");
+                }
+            }
+            return;
+        }
         
         if (MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode)
         {
             HandleTestModeInput();
         }
         
-        if (_targetPlayer != null)
+        // 타겟이 없으면 다시 찾기 시도
+        if (_targetPlayer == null)
         {
-            if (_targetPlayer.DidTeleport)
-            {
-                TeleportToTarget(_targetPlayer.transform.position);
-            }
-            else
-            {
-                FollowTarget(_targetPlayer.transform.position);
-            }
+            UpdateTargetPlayer();
+            return;
         }
+        
+        // 타겟 위치 따라가기
+        FollowTarget(_targetPlayer.transform.position);
     }
     #endregion
     
@@ -108,22 +120,31 @@ public class MainCameraController : MonoBehaviour
     /// </summary>
     private void UpdateTargetPlayer()
     {
-        if (MainGameManager.Instance == null) return;
+        if (MainGameManager.Instance == null)
+        {
+            return;
+        }
+        
+        PlayerController newTarget = null;
         
         if (MainGameManager.Instance.IsTestMode)
         {
-            _targetPlayer = MainGameManager.Instance.GetSelectedPlayer();
+            newTarget = MainGameManager.Instance.GetSelectedPlayer();
         }
         else
         {
-            _targetPlayer = MainGameManager.Instance.GetLocalPlayer();
+            newTarget = MainGameManager.Instance.GetLocalPlayer();
         }
         
-        if (_targetPlayer != null)
+        if (newTarget != null && newTarget != _targetPlayer)
         {
+            _targetPlayer = newTarget;
             Vector3 targetPos = _targetPlayer.transform.position;
-            targetPos.z = zOffset;
+            targetPos.z = _zOffset;
             transform.position = targetPos;
+            _lastTargetPosition = _targetPlayer.transform.position;
+            
+            Debug.Log($"[MainCameraController] Target updated to: {_targetPlayer.name} at position {targetPos}");
         }
     }
     
@@ -156,27 +177,42 @@ public class MainCameraController : MonoBehaviour
     #region Camera Movement
     /// <summary>
     /// 타겟 위치를 부드럽게 따라갑니다.
+    /// 큰 위치 변화(텔레포트)가 감지되면 즉시 따라갑니다.
     /// </summary>
     private void FollowTarget(Vector3 targetPosition)
     {
+        // 텔레포트 감지 (큰 위치 변화)
+        const float TELEPORT_THRESHOLD = 10f;
+        float distanceMoved = Vector3.Distance(targetPosition, _lastTargetPosition);
+        
+        if (distanceMoved > TELEPORT_THRESHOLD)
+        {
+            // 텔레포트로 판단 - 즉시 따라가기
+            TeleportToTarget(targetPosition);
+            _lastTargetPosition = targetPosition;
+            return;
+        }
+        
+        _lastTargetPosition = targetPosition;
+        
         Vector2 currentPos2D = new Vector2(transform.position.x, transform.position.y);
         Vector2 targetPos2D = new Vector2(targetPosition.x, targetPosition.y);
         float distance = Vector2.Distance(currentPos2D, targetPos2D);
         
-        if (distance < deadZone)
+        if (distance < _deadZone)
         {
             return;
         }
         
-        Vector3 desiredPosition = new Vector3(targetPosition.x, targetPosition.y, zOffset);
+        Vector3 desiredPosition = new Vector3(targetPosition.x, targetPosition.y, _zOffset);
         
-        if (useBoundary)
+        if (_useBoundary)
         {
-            desiredPosition.x = Mathf.Clamp(desiredPosition.x, cameraBounds.x, cameraBounds.z);
-            desiredPosition.y = Mathf.Clamp(desiredPosition.y, cameraBounds.y, cameraBounds.w);
+            desiredPosition.x = Mathf.Clamp(desiredPosition.x, _cameraBounds.x, _cameraBounds.z);
+            desiredPosition.y = Mathf.Clamp(desiredPosition.y, _cameraBounds.y, _cameraBounds.w);
         }
         
-        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, followSpeed);
+        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, _followSpeed);
         transform.position = smoothedPosition;
     }
     
@@ -185,12 +221,12 @@ public class MainCameraController : MonoBehaviour
     /// </summary>
     private void TeleportToTarget(Vector3 targetPosition)
     {
-        Vector3 newPos = new Vector3(targetPosition.x, targetPosition.y, zOffset);
+        Vector3 newPos = new Vector3(targetPosition.x, targetPosition.y, _zOffset);
         
-        if (useBoundary)
+        if (_useBoundary)
         {
-            newPos.x = Mathf.Clamp(newPos.x, cameraBounds.x, cameraBounds.z);
-            newPos.y = Mathf.Clamp(newPos.y, cameraBounds.y, cameraBounds.w);
+            newPos.x = Mathf.Clamp(newPos.x, _cameraBounds.x, _cameraBounds.z);
+            newPos.y = Mathf.Clamp(newPos.y, _cameraBounds.y, _cameraBounds.w);
         }
         
         transform.position = newPos;
@@ -231,8 +267,9 @@ public class MainCameraController : MonoBehaviour
             
             // 즉시 위치 동기화
             Vector3 targetPos = _targetPlayer.transform.position;
-            targetPos.z = zOffset;
+            targetPos.z = _zOffset;
             transform.position = targetPos;
+            _lastTargetPosition = _targetPlayer.transform.position;
             
             Debug.Log($"[MainCameraController] Target manually set to: {player.name}");
         }
@@ -244,12 +281,12 @@ public class MainCameraController : MonoBehaviour
     public void TeleportToPosition(Vector3 position)
     {
         Vector3 newPos = position;
-        newPos.z = zOffset;
+        newPos.z = _zOffset;
         
-        if (useBoundary)
+        if (_useBoundary)
         {
-            newPos.x = Mathf.Clamp(newPos.x, cameraBounds.x, cameraBounds.z);
-            newPos.y = Mathf.Clamp(newPos.y, cameraBounds.y, cameraBounds.w);
+            newPos.x = Mathf.Clamp(newPos.x, _cameraBounds.x, _cameraBounds.z);
+            newPos.y = Mathf.Clamp(newPos.y, _cameraBounds.y, _cameraBounds.w);
         }
         
         transform.position = newPos;
@@ -260,8 +297,8 @@ public class MainCameraController : MonoBehaviour
     /// </summary>
     public void SetBounds(float minX, float minY, float maxX, float maxY)
     {
-        cameraBounds = new Vector4(minX, minY, maxX, maxY);
-        useBoundary = true;
+        _cameraBounds = new Vector4(minX, minY, maxX, maxY);
+        _useBoundary = true;
     }
     #endregion
 }
