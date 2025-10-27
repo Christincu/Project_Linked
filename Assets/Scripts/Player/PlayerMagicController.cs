@@ -12,124 +12,134 @@ public class PlayerMagicController : MonoBehaviour
     #region Serialized Fields
     [Header("Prefabs")]
     [SerializeField] private GameObject magicProjectilePrefab;
+
     #endregion
 
     #region Private Fields
     private PlayerController _controller;
-    private MagicData _magicData1; // 좌클릭 마법
-    private MagicData _magicData2; // 우클릭 마법
-    private int _activeMagicSlot = 0; // 현재 활성화된 마법 슬롯 (0: 없음, 1: 좌클릭, 2: 우클릭)
-    private bool _isInitialized = false;
-
-    // Magic UI References
-    private GameObject _magicViewObj;
+    private MagicData _currentMagicData;
+    private bool _isInitialized = false; // 초기화 완료 플래그
+    
+    // Magic UI References (from PlayerController)
+    private GameObject _magicViewObj; // 실제로 움직이는 뷰 오브젝트 (IdleFirst, IdleSecond, Active의 부모)
     private GameObject _magicAnchor;
     private GameObject _magicIdleFirstFloor;
     private GameObject _magicIdleSecondFloor;
     private GameObject _magicActiveFloor;
-
+    
     private SpriteRenderer _idleFirstFloorRenderer;
     private SpriteRenderer _idleSecondFloorRenderer;
     private SpriteRenderer _activeFloorRenderer;
-
-    // 충돌 상태
-    private bool _isPlayerColliding = false;
-    private PlayerController _collidingPlayer = null;
     
-    // 흡수 상태
-    private PlayerController _absorbedPlayer = null; // 흡수한 플레이어
-    private bool _wasAbsorbed = false; // 내가 흡수당했는지 여부
+    private bool _isPlayerColliding = false; // 다른 플레이어와 충돌 중인지
+    private PlayerController _collidingPlayer = null; // 충돌 중인 플레이어
+    private MagicData _collidingPlayerMagicData = null; // 충돌 중인 플레이어의 마법 데이터
+    
+    private bool _magicUIToggleActive = false; // 토글 상태: 마법 UI가 활성화되어 있는지
+    private bool _previousLeftMouseButton = false; // 이전 프레임의 좌클릭 상태
+    private bool _previousRightMouseButton = false; // 이전 프레임의 우클릭 상태
+    private float _magicActivationTime = 0f; // 마법을 활성화한 시간 (Time.time)
 
-    // 입력 상태
-    private bool _previousLeftMouseButton = false;
-    private bool _previousRightMouseButton = false;
+    private bool _isMerged = false; // 현재 마법이 병합된 상태인지
+    private PlayerRef _currentMergeAbsorber;
+
+    private PlayerController _currentAbsorberController;
+
     #endregion
 
     #region Properties
+    /// <summary>
+    /// 연결된 PlayerController
+    /// </summary>
     public PlayerController Controller => _controller;
 
     /// <summary>
-    /// 현재 활성화된 마법 데이터를 반환합니다.
-    /// 네트워크 동기화된 슬롯 번호를 사용합니다.
+    /// 현재 마법 데이터
     /// </summary>
-    public MagicData CurrentMagicData
-    {
-        get
-        {
-            // 네트워크 동기화된 슬롯 번호 사용
-            int slot = _controller != null ? _controller.ActiveMagicSlotNetworked : _activeMagicSlot;
-            return slot == 1 ? _magicData1 : (slot == 2 ? _magicData2 : null);
-        }
-    }
+    public MagicData CurrentMagicData => _currentMagicData;
 
     /// <summary>
-    /// 현재 활성화된 마법 슬롯 (로컬 또는 네트워크 동기화)
-    /// </summary>
-    public int ActiveMagicSlot
-    {
-        get
-        {
-            // InputAuthority는 로컬 값, 다른 클라이언트는 네트워크 값 사용
-            if (_controller != null && _controller.Object.HasInputAuthority)
-                return _activeMagicSlot;
-            return _controller != null ? _controller.ActiveMagicSlotNetworked : 0;
-        }
-    }
-
-    /// <summary>
-    /// 마법을 시전할 수 있는지 확인 (쿨다운, 사망 상태 체크)
+    /// 마법을 시전할 수 있는지 확인
     /// </summary>
     public bool CanCastMagic
     {
         get
         {
-            if (_controller == null || CurrentMagicData == null || _controller.IsDead) return false;
-            return _controller.MagicCooldownTimer.ExpiredOrNotRunning(_controller.Runner);
+            if (_controller == null || _currentMagicData == null) return false;
+            if (_controller.MagicCooldownTimer.IsRunning) return false;
+            if (_controller.IsDead) return false;
+            return true;
         }
     }
 
+    /// <summary>
+    /// 쿨다운 중인지 확인
+    /// </summary>
     public bool IsOnCooldown => _controller != null && _controller.MagicCooldownTimer.IsRunning;
-    public float RemainingCooldown => _controller?.MagicCooldownTimer.RemainingTime(_controller.Runner) ?? 0f;
 
-    public bool IsMagicUIActive => _controller != null ? _controller.MagicActive : false;
+    /// <summary>
+    /// 남은 쿨다운 시간
+    /// </summary>
+    public float RemainingCooldown => _controller?.MagicCooldownTimer.RemainingTime(_controller.Runner) ?? 0f;
+    
+    /// <summary>
+    /// 마법을 활성화한 시간 (Time.time)
+    /// </summary>
+    public float MagicActivationTime => _magicActivationTime;
+    
+    /// <summary>
+    /// 마법 UI가 활성화되어 있는지
+    /// </summary>
+    public bool IsMagicUIActive => _magicUIToggleActive;
+    
+    /// <summary>
+    /// 마법 ViewObj (다른 플레이어의 위치 참조용)
+    /// </summary>
     public GameObject MagicViewObj => _magicViewObj;
     #endregion
 
     #region Events
-    public System.Action<Vector3, Vector3> OnMagicCast;
+    public System.Action<Vector3, Vector3> OnMagicCast; // (position, direction)
     public System.Action OnCooldownStarted;
     public System.Action OnCooldownEnded;
+
+    public event System.Action<PlayerController, PlayerController> OnMergeStarted;
+    public event System.Action<PlayerController> OnMergeStopped;
     #endregion
 
-    // ---
-
     #region Initialization
+    /// <summary>
+    /// PlayerController에서 호출하여 초기화합니다.
+    /// </summary>
     public void Initialize(PlayerController controller)
     {
         _controller = controller;
+        
+        Debug.Log($"[PlayerMagicController] Initialize called - Controller: {_controller != null}");
     }
-
+    
+    /// <summary>
+    /// 매 프레임 호출되어 충돌 상태를 업데이트합니다.
+    /// </summary>
     void Update()
     {
-        // 로컬 Input Authority를 가진 플레이어만 UI 위치 갱신
-        if (!_isInitialized || _controller == null || !_controller.Object.HasInputAuthority) return;
-
-        if (_controller.MagicActive)
+        if (!_isInitialized || _controller == null) return;
+        
+        // 충돌 상태 디버그
+        if (_isPlayerColliding && _collidingPlayer != null)
         {
-            UpdateMagicViewObjPosition(_controller.transform.position);
-            
-            // 흡수 상태가 있으면 흡수된 마법 표시, 아니면 일반 충돌 표시
-            if (_absorbedPlayer != null && !_absorbedPlayer.MagicActive)
+            // 마법 UI가 활성화되어 있을 때 위치 업데이트
+            if (_magicUIToggleActive)
             {
-                UpdateIdleSecondFloorForAbsorbed();
-            }
-            else
-            {
+                UpdateMagicViewObjPosition(_controller.transform.position);
                 UpdateIdleSecondFloor();
             }
         }
     }
-
+    
+    /// <summary>
+    /// Magic UI 오브젝트 레퍼런스를 설정합니다. (PlayerController에서 호출)
+    /// </summary>
     public void SetMagicUIReferences(GameObject viewObj, GameObject anchor, GameObject idleFirst, GameObject idleSecond, GameObject active)
     {
         _magicViewObj = viewObj;
@@ -137,525 +147,692 @@ public class PlayerMagicController : MonoBehaviour
         _magicIdleFirstFloor = idleFirst;
         _magicIdleSecondFloor = idleSecond;
         _magicActiveFloor = active;
-
-        _idleFirstFloorRenderer = _magicIdleFirstFloor?.GetComponent<SpriteRenderer>();
-        _idleSecondFloorRenderer = _magicIdleSecondFloor?.GetComponent<SpriteRenderer>();
-        _activeFloorRenderer = _magicActiveFloor?.GetComponent<SpriteRenderer>();
-
+        
+        // 디버깅: 레퍼런스 확인
+        Debug.Log($"[PlayerMagicController] Magic UI References Set - ViewObj: {_magicViewObj != null}, Anchor: {_magicAnchor != null}, " +
+                  $"IdleFirst: {_magicIdleFirstFloor != null}, IdleSecond: {_magicIdleSecondFloor != null}, " +
+                  $"Active: {_magicActiveFloor != null}");
+        
+        // SpriteRenderer 가져오기
+        if (_magicIdleFirstFloor != null)
+            _idleFirstFloorRenderer = _magicIdleFirstFloor.GetComponent<SpriteRenderer>();
+        if (_magicIdleSecondFloor != null)
+            _idleSecondFloorRenderer = _magicIdleSecondFloor.GetComponent<SpriteRenderer>();
+        if (_magicActiveFloor != null)
+            _activeFloorRenderer = _magicActiveFloor.GetComponent<SpriteRenderer>();
+        
+        // 캐릭터 인덱스에 따른 MagicData 로드
         LoadMagicData();
+        
+        // Magic UI 초기화
         InitializeMagicUI();
-
-        _isInitialized = true;
+        
+        _isInitialized = true; // 초기화 완료
+        Debug.Log($"[PlayerMagicController] Initialization complete - MagicData: {_currentMagicData != null}");
     }
-
+    
+    /// <summary>
+    /// 캐릭터 인덱스에 따라 MagicData를 로드합니다.
+    /// </summary>
     private void LoadMagicData()
     {
         if (_controller == null || GameDataManager.Instance == null) return;
-
+        
+        // 캐릭터 인덱스로 마법 데이터 가져오기
         int characterIndex = _controller.CharacterIndex;
-        CharacterData characterData = GameDataManager.Instance.CharacterService.GetCharacter(characterIndex);
-
-        if (characterData == null) return;
-
-        _magicData1 = characterData.magicData1;
-        _magicData2 = characterData.magicData2;
+        _currentMagicData = GameDataManager.Instance.MagicService.GetMagic(characterIndex);
+        
+        if (_currentMagicData == null)
+        {
+            Debug.LogWarning($"[PlayerMagicController] MagicData not found for character index: {characterIndex}");
+        }
     }
-
+    
+    /// <summary>
+    /// Magic UI를 초기화합니다.
+    /// </summary>
     private void InitializeMagicUI()
     {
+        if (_currentMagicData == null) return;
+        
+        // _magicViewObj 초기화 및 구조 설정
         if (_magicViewObj != null)
         {
+            // _magicViewObj의 초기 위치를 (0, 0, 0)으로 설정
             _magicViewObj.transform.localPosition = Vector3.zero;
-            _magicIdleFirstFloor?.transform.SetParent(_magicViewObj.transform, false);
-            _magicIdleSecondFloor?.transform.SetParent(_magicViewObj.transform, false);
-            _magicActiveFloor?.transform.SetParent(_magicViewObj.transform, false);
+            
+            // IdleFirst, IdleSecond, Active를 _magicViewObj의 자식으로 설정
+            if (_magicIdleFirstFloor != null && _magicIdleFirstFloor.transform.parent != _magicViewObj.transform)
+            {
+                _magicIdleFirstFloor.transform.SetParent(_magicViewObj.transform, false);
+            }
+            if (_magicIdleSecondFloor != null && _magicIdleSecondFloor.transform.parent != _magicViewObj.transform)
+            {
+                _magicIdleSecondFloor.transform.SetParent(_magicViewObj.transform, false);
+            }
+            if (_magicActiveFloor != null && _magicActiveFloor.transform.parent != _magicViewObj.transform)
+            {
+                _magicActiveFloor.transform.SetParent(_magicViewObj.transform, false);
+            }
         }
-
+        
+        // 스프라이트 설정
+        if (_idleFirstFloorRenderer != null && _currentMagicData.magicIdleSprite != null)
+        {
+            _idleFirstFloorRenderer.sprite = _currentMagicData.magicIdleSprite;
+        }
+        
+        if (_activeFloorRenderer != null && _currentMagicData.magicActiveSprite != null)
+        {
+            _activeFloorRenderer.sprite = _currentMagicData.magicActiveSprite;
+        }
+        
+        // _magicAnchor에 충돌 감지 스크립트 추가
         if (_magicAnchor != null)
         {
-            var collision = _magicAnchor.GetComponent<MagicAnchorCollision>() ?? _magicAnchor.AddComponent<MagicAnchorCollision>();
+            var collision = _magicAnchor.GetComponent<MagicAnchorCollision>();
+            if (collision == null)
+            {
+                collision = _magicAnchor.AddComponent<MagicAnchorCollision>();
+            }
             collision.Initialize(this);
         }
+        
+        // 초기 상태: 모두 비활성화
+        if (_magicViewObj != null)
+            _magicViewObj.SetActive(false);
+        if (_magicAnchor != null)
+            _magicAnchor.SetActive(false);
+        if (_magicIdleFirstFloor != null)
+            _magicIdleFirstFloor.SetActive(false);
+        if (_magicIdleSecondFloor != null)
+            _magicIdleSecondFloor.SetActive(false);
+        if (_magicActiveFloor != null)
+            _magicActiveFloor.SetActive(false);
 
-        _magicViewObj?.SetActive(false);
-        _magicAnchor?.SetActive(false);
-        _magicIdleFirstFloor?.SetActive(false);
-        _magicIdleSecondFloor?.SetActive(false);
-        _magicActiveFloor?.SetActive(false);
     }
     #endregion
 
-    // ---
-
     #region Magic Casting
+    /// <summary>
+    /// 마법을 시전합니다.
+    /// </summary>
+    /// <param name="targetPosition">목표 위치 (월드 좌표)</param>
     public void CastMagic(Vector3 targetPosition)
     {
-        if (_controller == null || CurrentMagicData == null || !_controller.Object.HasStateAuthority) return;
-        if (!CanCastMagic || _controller.State == null) return;
 
-        _controller.MagicCooldownTimer = TickTimer.CreateFromSeconds(_controller.Runner, CurrentMagicData.cooldown);
+        if (_controller == null || _currentMagicData == null) return;
+        if (!_controller.Object.HasStateAuthority) return;
 
+        // 시전 가능 여부 확인
+        if (!CanCastMagic) return;
+        if (_controller.State == null) return;
+
+        // 쿨다운 시작
+        _controller.MagicCooldownTimer = TickTimer.CreateFromSeconds(_controller.Runner, _currentMagicData.cooldown);
+
+        // 발사 방향 계산
         Vector3 startPos = _controller.transform.position;
         Vector3 direction = (targetPosition - startPos).normalized;
 
+        // 마법 발사체 생성
         SpawnMagicProjectile(startPos, direction);
 
+        Debug.Log($"[PlayerMagicController] Magic cast!");
+
+        // 이벤트 발생
         OnMagicCast?.Invoke(startPos, direction);
         OnCooldownStarted?.Invoke();
     }
 
+    /// <summary>
+    /// 마법 발사체를 생성합니다.
+    /// </summary>
     private void SpawnMagicProjectile(Vector3 position, Vector3 direction)
     {
-        if (magicProjectilePrefab == null || CurrentMagicData == null) return;
+        if (magicProjectilePrefab == null)
+        {
+            Debug.LogWarning("[PlayerMagicController] Magic projectile prefab is null!");
+            return;
+        }
 
-        // TODO: NetworkObject로 스폰 로직으로 변경 필요
+        if (_currentMagicData == null) return;
+
+        // TODO: NetworkObject로 발사체 스폰
+        // 현재는 로컬 오브젝트로 임시 생성
         GameObject projectile = Instantiate(magicProjectilePrefab, position, Quaternion.identity);
-        Destroy(projectile, CurrentMagicData.range / CurrentMagicData.speed);
+        
+        // 발사체 초기화 (데미지, 속도, 방향 등)
+        // TODO: MagicProjectile 스크립트 추가 필요
+        
+        // 일정 시간 후 제거
+        Destroy(projectile, _currentMagicData.range / _currentMagicData.speed);
+    }
+
+    // 머지 락: 화염방사 유지 동안 새 매직 금지
+    private float _mergeLockEndTime = 0.0f;
+    public bool IsMergeLocked => Time.time < _mergeLockEndTime;
+
+    public void BeginMergeLock(float seconds)
+    {
+        float until = Time.time + Mathf.Max(0f, seconds);
+        if (until > _mergeLockEndTime) _mergeLockEndTime = until;
+
+        if (!_magicUIToggleActive) ActivateMagicUI(_controller);
+    }
+
+    public void ClearMergeLock()
+    {
+        _mergeLockEndTime = 0.0f;
+    }
+    public void ForceStopMagicUI()
+    {
+        if (!_isInitialized) return;
+        if (IsMergeLocked) return; 
+        if (_magicUIToggleActive)
+            DeactivateMagicUI(_controller);
+    }
+
+    public void ForceStopMerge()
+    {
+        if (_isMerged)
+        {
+            _isMerged = false;
+            ClearMergeLock(); 
+            OnMergeStopped?.Invoke(_controller);
+        }
     }
     #endregion
 
-    // ---
 
-    #region Magic UI Control & Input
-
+    #region Magic UI Control
     /// <summary>
-    /// 네트워크에서 MagicActive 상태가 변경될 때 호출됩니다.
+    /// 네트워크 동기화된 MagicActive 상태를 반영하여 UI를 업데이트합니다.
+    /// PlayerController의 DetectNetworkChanges에서 호출됩니다.
     /// </summary>
     public void UpdateMagicUIFromNetwork(bool isActive)
     {
         if (!_isInitialized) return;
+        
+        Debug.Log($"[PlayerMagicController] UpdateMagicUIFromNetwork called - isActive: {isActive}");
 
+        if (!isActive && IsMergeLocked)
+            return;
+
+        // 네트워크에서 받은 상태를 토글 상태에도 반영
+        _magicUIToggleActive = isActive;
+        
         if (isActive)
         {
-            // 네트워크 동기화된 슬롯으로 마법 데이터 가져오기
-            int networkSlot = _controller.ActiveMagicSlotNetworked;
-            MagicData activeData = networkSlot == 1 ? _magicData1 : (networkSlot == 2 ? _magicData2 : null);
-
-            if (activeData == null)
+            // 활성화 시간 기록 (네트워크 동기화 시)
+            if (_magicActivationTime == 0f)
             {
-                Debug.LogWarning($"[PlayerMagicController] No magic data for slot {networkSlot}");
-                return;
+                _magicActivationTime = Time.time;
+                Debug.Log($"[PlayerMagicController] MagicActivationTime set from network: {_magicActivationTime}");
             }
-
-            // InputAuthority가 아닌 클라이언트도 로컬 슬롯 동기화
-            if (!_controller.Object.HasInputAuthority)
-            {
-                _activeMagicSlot = networkSlot;
-            }
-
-            // UI 활성화
-            _magicAnchor?.SetActive(true);
-            _magicViewObj?.SetActive(true);
-            _magicIdleFirstFloor?.SetActive(true);
-            _magicActiveFloor?.SetActive(true);
-
-            // 스프라이트 설정
-            if (_idleFirstFloorRenderer != null && activeData.magicIdleSprite != null)
-            {
-                _idleFirstFloorRenderer.sprite = activeData.magicIdleSprite;
-            }
-            if (_activeFloorRenderer != null && activeData.magicActiveSprite != null)
-            {
-                _activeFloorRenderer.sprite = activeData.magicActiveSprite;
-            }
+            
+            // Magic UI 활성화 (위치 업데이트 없이)
+            if (_magicAnchor != null)
+                _magicAnchor.SetActive(true);
+            if (_magicViewObj != null)
+                _magicViewObj.SetActive(true);
+            if (_magicIdleFirstFloor != null)
+                _magicIdleFirstFloor.SetActive(true);
+            if (_magicActiveFloor != null)
+                _magicActiveFloor.SetActive(true);
         }
         else
         {
-            // 비활성화 시 로컬 슬롯도 초기화 (InputAuthority는 이미 DeactivateMagicUI에서 처리)
-            if (!_controller.Object.HasInputAuthority)
-            {
-                _activeMagicSlot = 0;
-            }
-
-            // 흡수 상태 초기화 (마법이 비활성화되면 흡수도 해제)
-            _absorbedPlayer = null;
-
-            // UI 비활성화 및 위치 초기화
+            // 활성화 시간 리셋
+            _magicActivationTime = 0f;
+            
+            // _magicViewObj를 (0, 0, 0) 위치로 이동 후 비활성화
             if (_magicViewObj != null)
             {
                 _magicViewObj.transform.localPosition = Vector3.zero;
                 _magicViewObj.SetActive(false);
             }
-            if (_magicAnchor != null)
-            {
-                _magicAnchor.transform.localPosition = Vector3.zero; // 앵커 위치도 초기화
-                _magicAnchor.SetActive(false);
-            }
-
-            _magicIdleFirstFloor?.SetActive(false);
-            _magicActiveFloor?.SetActive(false);
-            _magicIdleSecondFloor?.SetActive(false);
-        }
-
-        // 흡수 상태 체크하여 적절한 업데이트 호출
-        if (_absorbedPlayer != null && !_absorbedPlayer.MagicActive)
-        {
-            UpdateIdleSecondFloorForAbsorbed();
-        }
-        else
-        {
-            UpdateIdleSecondFloor();
-        }
-    }
-    
-    /// <summary>
-    /// 마법이 흡수당했을 때 호출됩니다. (PlayerController에서 호출)
-    /// </summary>
-    public void OnAbsorbed()
-    {
-        if (!_isInitialized) return;
-        
-        _wasAbsorbed = true;
-        _activeMagicSlot = 0;
-        
-        Debug.Log($"[PlayerMagicController] Magic was absorbed - cannot toggle until reactivated");
-    }
-    
-    /// <summary>
-    /// 흡수 상태를 해제합니다. (다시 마법을 활성화할 수 있음)
-    /// </summary>
-    public void ClearAbsorbedState()
-    {
-        _wasAbsorbed = false;
-    }
-
-    public void ProcessInput(InputData? inputData, PlayerController controller, bool isTestMode)
-    {
-        if (!_isInitialized || !inputData.HasValue || !controller.Object.HasInputAuthority) return;
-
-        InputData data = inputData.Value;
-
-        bool currentLeftButton = data.GetMouseButton(InputMouseButton.LEFT);
-        bool currentRightButton = data.GetMouseButton(InputMouseButton.RIGHT);
-
-        bool leftClickDown = currentLeftButton && !_previousLeftMouseButton;
-        bool rightClickDown = currentRightButton && !_previousRightMouseButton;
-
-        // 흡수당한 상태에서는 마법 토글 불가
-        if (!_wasAbsorbed)
-        {
-            if (leftClickDown)
-            {
-                ToggleMagicUI(controller, 1);
-            }
-            else if (rightClickDown)
-            {
-                ToggleMagicUI(controller, 2);
-            }
-        }
-
-        _previousLeftMouseButton = currentLeftButton;
-        _previousRightMouseButton = currentRightButton;
-
-        if (controller.MagicActive)
-        {
-            UpdateMagicAnchorPosition(data, controller);
             
-            // Space 키로 상대방 마법 흡수
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                TryAbsorbOtherPlayerMagic();
-            }
+            // Magic UI 비활성화
+            if (_magicIdleFirstFloor != null)
+                _magicIdleFirstFloor.SetActive(false);
+            if (_magicActiveFloor != null)
+                _magicActiveFloor.SetActive(false);
+            if (_magicIdleSecondFloor != null)
+                _magicIdleSecondFloor.SetActive(false);
+            if (_magicAnchor != null)
+                _magicAnchor.SetActive(false);
         }
+        
+        // 충돌 상태에 따라 IdleSecondFloor 업데이트
+        UpdateIdleSecondFloor();
     }
     
     /// <summary>
-    /// 충돌 중인 상대방의 마법을 흡수합니다.
+    /// 입력을 처리하여 마법 UI를 업데이트합니다.
+    /// PlayerController에서 호출됩니다.
     /// </summary>
-    private void TryAbsorbOtherPlayerMagic()
+    public void ProcessInput(InputData inputData, PlayerController controller, bool isTestMode)
     {
-        if (!_isPlayerColliding || _collidingPlayer == null || !_collidingPlayer.MagicActive) return;
-        
-        // 우선순위가 있을 때만 흡수 가능
-        bool myPriority = _controller.Object.Id.Raw < _collidingPlayer.Object.Id.Raw;
-        if (!myPriority) return;
-        
-        // 이미 흡수한 플레이어인지 확인
-        if (_absorbedPlayer == _collidingPlayer)
+        // 초기화 확인
+        if (!_isInitialized) return;
+        if (!controller.Object.HasInputAuthority) return;
+
+        if (IsMergeLocked)
         {
-            Debug.Log($"[PlayerMagicController] Already absorbed player {_collidingPlayer.Object.InputAuthority}");
+            if (_magicUIToggleActive)
+                UpdateMagicAnchorPosition(inputData, controller); // 조준점은 움직일 수 있게
+            UpdateIdleSecondFloor();
             return;
         }
+
+        // 현재 마우스 버튼 상태
+        bool currentLeftButton = inputData.GetMouseButton(InputMouseButton.LEFT);
+        bool currentRightButton = inputData.GetMouseButton(InputMouseButton.RIGHT);
         
-        // 흡수 실행
-        _absorbedPlayer = _collidingPlayer;
+        // 클릭 감지: 이전 프레임에는 안 눌렸고 현재 프레임에 눌린 경우
+        bool leftClickDown = currentLeftButton && !_previousLeftMouseButton;
+        bool rightClickDown = currentRightButton && !_previousRightMouseButton;
         
-        // 상대방에게 흡수당했다고 알림
-        _controller.RPC_AbsorbMagic(_collidingPlayer.Object.InputAuthority);
+        // 토글 처리: 클릭할 때마다 활성화/비활성화 전환
+        if (leftClickDown || rightClickDown)
+        {
+            _magicUIToggleActive = !_magicUIToggleActive;
+            
+            if (_magicUIToggleActive)
+            {
+                ActivateMagicUI(controller);
+            }
+            else
+            {
+                DeactivateMagicUI(controller);
+            }
+        }
         
-        Debug.Log($"[PlayerMagicController] Absorbed magic from player {_collidingPlayer.Object.InputAuthority}");
-    }
-
-    private void ToggleMagicUI(PlayerController controller, int targetSlot)
-    {
-        MagicData magicData = targetSlot == 1 ? _magicData1 : _magicData2;
-        if (magicData == null) return;
-
-        if (_activeMagicSlot == targetSlot)
-        {
-            DeactivateMagicUI(controller);
-        }
-        else
-        {
-            ActivateMagicUI(controller, targetSlot, magicData);
-        }
-    }
-
-    private void ActivateMagicUI(PlayerController controller, int magicSlot, MagicData magicData)
-    {
-        if (magicData == null) return;
-
-        // 로컬 슬롯 설정 (InputAuthority만)
-        _activeMagicSlot = magicSlot;
+        // 이전 프레임 상태 업데이트
+        _previousLeftMouseButton = currentLeftButton;
+        _previousRightMouseButton = currentRightButton;
         
-        // 흡수 상태 해제 (다시 활성화 시도 시)
-        if (_wasAbsorbed)
+        // 토글 상태가 활성화되어 있으면 계속 마우스 위치 업데이트
+        if (_magicUIToggleActive)
         {
-            _wasAbsorbed = false;
-            Debug.Log($"[PlayerMagicController] Cleared absorbed state - can activate magic again");
+            UpdateMagicAnchorPosition(inputData, controller);
         }
-
-        // 네트워크 동기화: RPC를 통해 서버에 요청 → 서버가 브로드캐스트
-        if (controller.Object.HasInputAuthority && !controller.MagicActive)
-        {
-            controller.RPC_ActivateMagic(magicSlot);
-        }
+        
+        // 충돌 상태에 따라 IdleSecondFloor 활성화
+        UpdateIdleSecondFloor();
     }
-
-    private void DeactivateMagicUI(PlayerController controller)
-    {
-        // 로컬 슬롯 초기화
-        _activeMagicSlot = 0;
-
-        // 네트워크 동기화: RPC를 통해 서버에 요청 → 서버가 브로드캐스트
-        if (controller.Object.HasInputAuthority && controller.MagicActive)
-        {
-            controller.RPC_DeactivateMagic();
-        }
-    }
-
+    
+    /// <summary>
+    /// MagicAnchor의 위치를 플레이어가 바라보는 방향(좌/우)으로 업데이트합니다.
+    /// _magicViewObj가 충돌 중일 경우 두 플레이어의 중간 위치로 이동합니다.
+    /// </summary>
     private void UpdateMagicAnchorPosition(InputData inputData, PlayerController controller)
     {
         if (_magicAnchor == null) return;
-
+        
+        // 플레이어 위치
         Vector3 playerPos = controller.transform.position;
+        
+        // 일반 모드: 마우스 위치를 기반으로 앵커의 로컬 위치 업데이트
         Camera mainCamera = Camera.main;
         if (mainCamera == null) return;
-
+        
         Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(inputData.MousePosition);
-        mouseWorldPos.z = 0;
-
+        mouseWorldPos.z = 0; // 2D 게임이므로 z는 0
+        
+        // 마우스가 플레이어 기준 좌우 어디에 있는지 확인
         float horizontalDirection = mouseWorldPos.x - playerPos.x;
+        
+        // MagicAnchor의 로컬 위치 가져오기
         Vector3 anchorLocalPos = _magicAnchor.transform.localPosition;
-        float distance = 1f;
-        if (_magicAnchor.transform.parent != null)
-        {
-            distance = Mathf.Abs(_magicAnchor.transform.localPosition.x);
-        }
-
+        
+        // 좌우 방향만 업데이트 (위아래는 고정)
+        float distance = Mathf.Abs(anchorLocalPos.x); // 기본 거리 유지
         anchorLocalPos.x = horizontalDirection >= 0 ? distance : -distance;
+        
         _magicAnchor.transform.localPosition = anchorLocalPos;
-
-        // RPC를 통해 서버에 앵커 위치 업데이트 요청
-        if (controller.Object.HasInputAuthority)
-        {
-            controller.RPC_UpdateMagicAnchorPosition(anchorLocalPos);
-        }
-
+        
+        // _magicViewObj 위치 업데이트 (충돌 여부에 따라)
         UpdateMagicViewObjPosition(playerPos);
     }
 
     /// <summary>
-    /// MagicViewObj의 위치를 업데이트합니다.
-    /// 플레이어 간 충돌 시 우선순위에 따라 위치를 결정합니다.
-    /// 흡수된 플레이어는 계속 합체 상태를 유지합니다.
+    /// 플레이어가 바라보는 좌/우 방향 벡터를 반환합니다.
+    /// (ScaleX 기준: 음수면 오른쪽, 양수면 왼쪽)
+    /// </summary>
+    private Vector2 GetForward()
+    {
+        // ScaleX는 좌우 반전용 스케일 값이에요.
+        // -1이면 오른쪽 바라봄, +1이면 왼쪽 바라봄이라면 이렇게 씁니다.
+        return _controller != null && _controller.ScaleX < 0f
+            ? Vector2.right   // 오른쪽 바라보는 중
+            : Vector2.left;   // 왼쪽 바라보는 중
+    }
+
+    /// <summary>
+    /// _magicViewObj의 위치를 업데이트합니다.
+    /// 충돌 중일 경우, 나중에 활성화한 플레이어의 마법이 먼저 활성화한 플레이어의 위치로 흡수됩니다.
     /// </summary>
     private void UpdateMagicViewObjPosition(Vector3 playerPos)
     {
-        if (_magicViewObj == null || _magicAnchor == null) return;
+        if (_magicViewObj == null) return;
 
-        // 흡수한 플레이어가 있고 그 플레이어의 마법이 비활성화된 경우 (흡수 상태 유지)
-        if (_absorbedPlayer != null && !_absorbedPlayer.MagicActive && 
-            _absorbedPlayer.MagicController != null)
+        bool shouldAbsorb = false;
+
+        // 다른 플레이어와 충돌 중일 경우
+        if (_isPlayerColliding && _collidingPlayer != null && _collidingPlayer.MagicController != null)
         {
-            // 흡수된 플레이어의 ViewObj를 계속 표시 (합체 유지)
-            GameObject absorbedViewObj = _absorbedPlayer.MagicController.MagicViewObj;
-            if (absorbedViewObj != null)
+            // 두 플레이어 중 누가 먼저 마법을 활성화했는지 확인
+            float myActivationTime = _magicActivationTime;
+            float otherActivationTime = _collidingPlayer.MagicController.MagicActivationTime;
+
+
+            // 시간 비교
+            if (otherActivationTime > 0 && myActivationTime > 0)
             {
-                // 내 앵커 위치를 사용하지만, 두 번째 층에 흡수된 마법 표시
-                _magicViewObj.transform.position = _magicAnchor.transform.position;
-                UpdateIdleSecondFloorForAbsorbed();
-                return;
-            }
-        }
+                float timeDiff = Mathf.Abs(myActivationTime - otherActivationTime);
 
-        // 일반 충돌 확인 및 우선순위 판단
-        if (_isPlayerColliding && _collidingPlayer != null &&
-            _collidingPlayer.MagicActive && _collidingPlayer.MagicController != null)
-        {
-            GameObject otherMagicViewObj = _collidingPlayer.MagicController.MagicViewObj;
-
-            if (otherMagicViewObj != null)
-            {
-                // 결정론적 우선순위: NetworkObject ID가 낮은 쪽이 우선
-                bool myPriority = _controller.Object.Id.Raw < _collidingPlayer.Object.Id.Raw;
-
-                if (myPriority)
+                if (timeDiff > 0.01f) // 0.01초 이상 차이나면
                 {
-                    // 내가 우선순위 - 내 앵커 위치 사용
+                    if (otherActivationTime < myActivationTime)
+                    {
+                        // 상대방이 먼저 활성화
+                        shouldAbsorb = true;
+                    }
+                }
+                else // 거의 동시면 캐릭터 인덱스로 결정
+                {
+                    int myCharIndex = _controller.CharacterIndex;
+                    int otherCharIndex = _collidingPlayer.CharacterIndex;
+
+                    if (myCharIndex != otherCharIndex)
+                    {
+                        // 캐릭터 인덱스가 큰 쪽이 흡수됨
+                        if (myCharIndex > otherCharIndex)
+                        {
+                            shouldAbsorb = true;
+                        }
+                    }
+                    else
+                    {
+                        // 캐릭터도 같으면 Object ID로 결정 (결정론적)
+                        if (_controller.Object.Id.Raw > _collidingPlayer.Object.Id.Raw)
+                        {
+                            shouldAbsorb = true;
+                        }
+                    }
+                }
+            }
+
+            if (shouldAbsorb)
+            {
+                Debug.Log($"[PlayerMagicController] ABSORBING - My time: {myActivationTime}, Other time: {otherActivationTime}, My char: {_controller.CharacterIndex}, Other char: {_collidingPlayer.CharacterIndex}, My ID: {_controller.Object.Id}, Other ID: {_collidingPlayer.Object.Id}");
+
+                // 상대방의 MagicViewObj 위치로 이동
+                if (_collidingPlayer.MagicController.MagicViewObj != null)
+                {
+                    Vector3 targetPos = _collidingPlayer.MagicController.MagicViewObj.transform.position;
+                    _magicViewObj.transform.position = targetPos;
+                }
+            }
+            else
+            {
+                // 내가 먼저 활성화했으면, 내 앵커 위치 유지
+                if (_magicAnchor != null)
+                {
                     _magicViewObj.transform.position = _magicAnchor.transform.position;
                 }
-                else
-                {
-                    // 상대가 우선순위 - 상대 ViewObj 위치 사용 (겹침 표현)
-                    _magicViewObj.transform.position = otherMagicViewObj.transform.position;
-                }
-                return;
+            }
+        }
+        else
+        {
+            // 일반 모드: 앵커 위치로 이동
+            if (_magicAnchor != null)
+            {
+                _magicViewObj.transform.position = _magicAnchor.transform.position;
             }
         }
 
-        // 충돌이 없거나 상대가 마법을 사용하지 않음 - 기본 위치
-        _magicViewObj.transform.position = _magicAnchor.transform.position;
-    }
-    
-    /// <summary>
-    /// 흡수된 플레이어의 마법을 두 번째 층에 계속 표시합니다.
-    /// </summary>
-    private void UpdateIdleSecondFloorForAbsorbed()
-    {
-        if (_magicIdleSecondFloor == null || _idleSecondFloorRenderer == null || 
-            _absorbedPlayer == null || _absorbedPlayer.MagicController == null)
+        bool bothActive = _magicUIToggleActive
+                  && _collidingPlayer != null
+                  && _collidingPlayer.MagicController != null
+                  && _collidingPlayer.MagicController.IsMagicUIActive;
+
+        bool mergedNow = bothActive && _isPlayerColliding;
+
+        PlayerController absorber = null;
+        PlayerController other = null;
+
+        if (mergedNow)
         {
-            return;
+            if (shouldAbsorb) { absorber = _collidingPlayer; other = _controller; }
+            else { absorber = _controller; other = _collidingPlayer; }
         }
 
-        MagicData absorbedMagicData = _absorbedPlayer.MagicController.CurrentMagicData;
-
-        if (absorbedMagicData != null && absorbedMagicData.magicIdleSprite != null)
+        // 머지 시작
+        if (mergedNow && !_isMerged && absorber != null && other != null)
         {
-            _idleSecondFloorRenderer.sprite = absorbedMagicData.magicIdleSprite;
-            _magicIdleSecondFloor.SetActive(true);
+            Debug.Log($"[PMC] MERGE START fire event — absorber={absorber.Object.Id.Raw}, other={other.Object.Id.Raw}");
+            OnMergeStarted?.Invoke(absorber, other);    
         }
+
+        // 머지 종료
+        else if (!mergedNow && _isMerged)
+        {
+            Debug.Log($"[PMC] MERGE STOP fire event — absorber(me)={_controller.Object.Id.Raw}");
+            OnMergeStopped?.Invoke(_controller);      
+        }
+
+        _isMerged = mergedNow;
+
     }
 
     /// <summary>
-    /// 플레이어 충돌 시 두 번째 층 스프라이트를 업데이트합니다.
-    /// 내가 우선순위일 때 상대방의 마법 스프라이트를 표시합니다.
-    /// 흡수 상태가 아닐 때만 호출됩니다.
+    /// Magic UI를 활성화합니다.
     /// </summary>
-    private void UpdateIdleSecondFloor()
+    private void ActivateMagicUI(PlayerController controller)
     {
-        // 기본 검증
-        if (_magicIdleSecondFloor == null || _idleSecondFloorRenderer == null)
+        if (controller == null)
         {
+            Debug.LogWarning("[PlayerMagicController] Cannot activate - controller is null");
             return;
         }
         
-        // 흡수 상태가 있으면 이 메서드는 호출되지 않아야 함
-        if (_absorbedPlayer != null && !_absorbedPlayer.MagicActive)
+        // 토글 상태 활성화
+        _magicUIToggleActive = true;
+        
+        // 활성화 시간 기록
+        _magicActivationTime = Time.time;
+        
+        // 네트워크 동기화 (InputAuthority가 있는 경우 네트워크 변수 업데이트)
+        if (controller.Object.HasInputAuthority && !controller.MagicActive)
         {
-            UpdateIdleSecondFloorForAbsorbed();
-            return;
+            controller.MagicActive = true;
+            Debug.Log($"[PlayerMagicController] MagicActive set to true at time {_magicActivationTime} (InputAuth: {controller.Object.HasInputAuthority}, StateAuth: {controller.Object.HasStateAuthority})");
         }
-
-        // 충돌 상태가 아니면 비활성화
-        if (!_isPlayerColliding || _collidingPlayer == null ||
-            _collidingPlayer.MagicController == null || !_collidingPlayer.MagicActive)
+        
+        // 로컬 UI 업데이트
+        if (_magicAnchor != null)
         {
-            _magicIdleSecondFloor.SetActive(false);
-            return;
-        }
-
-        // 결정론적 우선순위 판단 (UpdateMagicViewObjPosition 로직과 동일)
-        bool myPriority = _controller.Object.Id.Raw < _collidingPlayer.Object.Id.Raw;
-
-        // 내가 우선순위일 때만 상대방의 스프라이트를 두 번째 층에 표시
-        if (myPriority)
-        {
-            MagicData otherMagicData = _collidingPlayer.MagicController.CurrentMagicData;
-
-            if (otherMagicData != null && otherMagicData.magicIdleSprite != null)
+            if (!_magicAnchor.activeSelf)
             {
-                _idleSecondFloorRenderer.sprite = otherMagicData.magicIdleSprite;
-                _magicIdleSecondFloor.SetActive(true);
-                return;
+                Debug.Log($"[PlayerMagicController] Activating Magic UI");
+            }
+            _magicAnchor.SetActive(true);
+        }
+        else
+        {
+            Debug.LogWarning("[PlayerMagicController] _magicAnchor is null");
+        }
+        
+        if (_magicViewObj != null)
+            _magicViewObj.SetActive(true);
+        else
+            Debug.LogWarning("[PlayerMagicController] _magicViewObj is null");
+        
+        if (_magicIdleFirstFloor != null)
+            _magicIdleFirstFloor.SetActive(true);
+        else
+            Debug.LogWarning("[PlayerMagicController] _magicIdleFirstFloor is null");
+            
+        if (_magicActiveFloor != null)
+            _magicActiveFloor.SetActive(true);
+        else
+            Debug.LogWarning("[PlayerMagicController] _magicActiveFloor is null");
+    }
+    
+    /// <summary>
+    /// Magic UI를 비활성화합니다.
+    /// _magicViewObj를 (0, 0, 0)으로 이동시킵니다.
+    /// </summary>
+    private void DeactivateMagicUI(PlayerController controller)
+    {
+        if (controller == null) return;
+        if (IsMergeLocked) return;
+
+        // 토글 상태 비활성화
+        _magicUIToggleActive = false;
+        
+        // 활성화 시간 리셋
+        _magicActivationTime = 0f;
+        
+        // 네트워크 동기화 (InputAuthority가 있는 경우 네트워크 변수 업데이트)
+        if (controller.Object.HasInputAuthority && controller.MagicActive)
+        {
+            controller.MagicActive = false;
+        }
+        
+        // _magicViewObj를 (0, 0, 0) 위치로 이동 후 비활성화
+        if (_magicViewObj != null)
+        {
+            _magicViewObj.transform.localPosition = Vector3.zero;
+            _magicViewObj.SetActive(false);
+        }
+        
+        // 로컬 UI 업데이트
+        if (_magicIdleFirstFloor != null)
+            _magicIdleFirstFloor.SetActive(false);
+        if (_magicActiveFloor != null)
+            _magicActiveFloor.SetActive(false);
+        if (_magicIdleSecondFloor != null)
+            _magicIdleSecondFloor.SetActive(false);
+        if (_magicAnchor != null)
+            _magicAnchor.SetActive(false);
+    }
+    
+    /// <summary>
+    /// IdleSecondFloor를 충돌 상태에 따라 업데이트합니다.
+    /// 먼저 활성화한 플레이어의 IdleSecondFloor에 나중에 활성화한 플레이어의 마법 스프라이트가 표시됩니다.
+    /// </summary>
+    private void UpdateIdleSecondFloor()
+    {
+        if (_magicIdleSecondFloor == null || _idleSecondFloorRenderer == null) return;
+        
+        // 다른 플레이어와 충돌 중인지 확인
+        if (_isPlayerColliding && _collidingPlayer != null && _collidingPlayer.MagicController != null && _collidingPlayerMagicData != null)
+        {
+            float myActivationTime = _magicActivationTime;
+            float otherActivationTime = _collidingPlayer.MagicController.MagicActivationTime;
+            bool otherMagicActive = _collidingPlayer.MagicController.IsMagicUIActive;
+            
+            bool shouldShowSecondFloor = false;
+            
+            // 시간 비교
+            if (myActivationTime > 0 && otherActivationTime > 0)
+            {
+                float timeDiff = Mathf.Abs(myActivationTime - otherActivationTime);
+                
+                if (timeDiff > 0.01f) // 0.01초 이상 차이나면
+                {
+                    if (myActivationTime < otherActivationTime)
+                    {
+                        // 내가 먼저 활성화 (상대방이 나중)
+                        shouldShowSecondFloor = true;
+                    }
+                }
+                else // 거의 동시면 캐릭터 인덱스로 결정
+                {
+                    int myCharIndex = _controller.CharacterIndex;
+                    int otherCharIndex = _collidingPlayer.CharacterIndex;
+                    
+                    if (myCharIndex != otherCharIndex)
+                    {
+                        // 캐릭터 인덱스가 작은 쪽이 우선권 (흡수하는 쪽)
+                        if (myCharIndex < otherCharIndex)
+                        {
+                            shouldShowSecondFloor = true;
+                        }
+                    }
+                    else
+                    {
+                        // 캐릭터도 같으면 Object ID로 결정 (결정론적)
+                        if (_controller.Object.Id.Raw < _collidingPlayer.Object.Id.Raw)
+                        {
+                            shouldShowSecondFloor = true;
+                        }
+                    }
+                }
+            }
+            
+            Debug.Log($"[PlayerMagicController] UpdateIdleSecondFloor - My time: {myActivationTime}, Other time: {otherActivationTime}, My char: {_controller.CharacterIndex}, Other char: {_collidingPlayer.CharacterIndex}, My ID: {_controller.Object.Id}, Other ID: {_collidingPlayer.Object.Id}, Should show: {shouldShowSecondFloor}");
+            
+            if (shouldShowSecondFloor)
+            {
+                Debug.Log($"[PlayerMagicController] SHOWING IdleSecondFloor");
+                
+                // 상대방의 마법 스프라이트를 내 IdleSecondFloor에 표시
+                if (_collidingPlayerMagicData.magicIdleSprite != null)
+                {
+                    _idleSecondFloorRenderer.sprite = _collidingPlayerMagicData.magicIdleSprite;
+                    _magicIdleSecondFloor.SetActive(true);
+                    Debug.Log($"[PlayerMagicController] IdleSecondFloor activated with sprite: {_collidingPlayerMagicData.magicIdleSprite.name}");
+                    return;
+                }
             }
         }
-
-        // 우선순위가 없거나 상대 데이터가 없으면 비활성화
+        
+        // 그 외의 경우는 비활성화
         _magicIdleSecondFloor.SetActive(false);
     }
-
+    
     /// <summary>
-    /// 다른 클라이언트로부터 앵커 위치를 동기화합니다.
-    /// InputAuthority가 아닌 클라이언트에서만 처리합니다.
-    /// </summary>
-    public void UpdateAnchorPositionFromNetwork(Vector3 localPosition)
-    {
-        if (!_isInitialized || _magicAnchor == null) return;
-
-        // InputAuthority는 자신의 마우스 위치로 앵커를 제어하므로 네트워크 값 무시
-        if (!Controller.Object.HasInputAuthority && Controller.MagicActive)
-        {
-            _magicAnchor.transform.localPosition = localPosition;
-            UpdateMagicViewObjPosition(Controller.transform.position);
-        }
-    }
-
-    #region Collision Callbacks
-    /// <summary>
-    /// MagicAnchorCollision에서 호출됩니다.
-    /// 다른 플레이어와 충돌 시 충돌 상태를 저장합니다.
+    /// MagicAnchorCollision에서 호출: 다른 플레이어와의 충돌 시작
     /// </summary>
     public void OnPlayerCollisionEnter(PlayerController otherPlayer)
     {
-        if (otherPlayer == null || otherPlayer == _controller) return;
-
-        _isPlayerColliding = true;
-        _collidingPlayer = otherPlayer;
-
-        // 충돌 발생 시 UI 즉시 업데이트
-        if (_controller.MagicActive)
+        // 자기 자신이 아닌 다른 플레이어와 충돌했을 때만
+        if (otherPlayer != _controller)
         {
-            UpdateMagicViewObjPosition(_controller.transform.position);
-            UpdateIdleSecondFloor();
-        }
-    }
-
-    /// <summary>
-    /// MagicAnchorCollision에서 호출됩니다.
-    /// 다른 플레이어와 충돌 종료 시 충돌 상태를 초기화합니다.
-    /// 단, 흡수 상태는 유지됩니다.
-    /// </summary>
-    public void OnPlayerCollisionExit(PlayerController otherPlayer)
-    {
-        if (otherPlayer == null || otherPlayer == _controller) return;
-
-        // 충돌하던 플레이어가 나갔을 때만 초기화
-        if (_collidingPlayer == otherPlayer)
-        {
-            _isPlayerColliding = false;
-            _collidingPlayer = null;
+            _isPlayerColliding = true;
+            _collidingPlayer = otherPlayer;
             
-            // 흡수 상태는 유지 (_absorbedPlayer는 초기화하지 않음)
-
-            // 충돌 종료 시 UI 즉시 업데이트
-            if (_controller.MagicActive)
+            Debug.Log($"[PlayerMagicController] Collision ENTER - My time: {_magicActivationTime}, Other time: {(otherPlayer.MagicController != null ? otherPlayer.MagicController.MagicActivationTime : -1f)}, My char: {_controller.CharacterIndex}, Other char: {otherPlayer.CharacterIndex}, My ID: {_controller.Object.Id}, Other ID: {otherPlayer.Object.Id}");
+            
+            // 상대방의 마법 데이터 가져오기
+            if (otherPlayer.MagicController != null)
             {
-                UpdateMagicViewObjPosition(_controller.transform.position);
-                
-                // 흡수 상태 체크
-                if (_absorbedPlayer != null && !_absorbedPlayer.MagicActive)
-                {
-                    UpdateIdleSecondFloorForAbsorbed();
-                }
-                else
-                {
-                    UpdateIdleSecondFloor();
-                }
+                _collidingPlayerMagicData = otherPlayer.MagicController.CurrentMagicData;
+                Debug.Log($"[PlayerMagicController] Colliding with player - MagicData: {_collidingPlayerMagicData != null}");
+            }
+            else
+            {
+                Debug.LogWarning($"[PlayerMagicController] Other player's MagicController is null");
             }
         }
     }
-    #endregion
+    
+    /// <summary>
+    /// MagicAnchorCollision에서 호출: 충돌 종료
+    /// </summary>
+    public void OnPlayerCollisionExit(PlayerController otherPlayer)
+    {
+        if (otherPlayer != _controller)
+        {
+            _isPlayerColliding = false;
+            _collidingPlayer = null;
+            _collidingPlayerMagicData = null;
+        }
+    }
     #endregion
 }
