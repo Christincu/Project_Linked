@@ -12,7 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd59c6076f7662e4c9722255dde6b9ad, type: 3}
   m_Name: 0
   m_EditorClassIdentifier: 
-  magicName: 0
+  magicCode: 0
   magicIdleSprite: {fileID: 21300000, guid: 62940c93c4da45d45b53e74491c45a21, type: 3}
-  magicActiveSprite: {fileID: 21300000, guid: 46b9d874d3df11143afdee5a7117c03d, type: 3}
-  castOrder: 0
+  magicInsideSprite: {fileID: 21300000, guid: 46b9d874d3df11143afdee5a7117c03d, type: 3}
+  cooldown: 1
+  damage: 15
+  speed: 10
+  range: 20
+  manaCost: 20

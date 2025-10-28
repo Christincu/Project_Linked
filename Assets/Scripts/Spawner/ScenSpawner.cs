@@ -12,7 +12,7 @@ public class ScenSpawner : MonoBehaviour
 {
     #region Serialized Fields
     [Header("Spawn Settings")]
-    [Tooltip("스폰 위치 오프셋")]
+    [Tooltip("Spawn position offsets")]
     [SerializeField] private Vector2[] spawnOffsets = new Vector2[]
     {
         new Vector2(0, 2),
@@ -20,10 +20,10 @@ public class ScenSpawner : MonoBehaviour
     };
     
     [Header("Visual Settings")]
-    [Tooltip("스폰 지점 표시 색상")]
+    [Tooltip("Spawn point display color")]
     [SerializeField] private Color gizmoColor = new Color(0f, 1f, 1f, 0.5f);
     
-    [Tooltip("스폰 지점 표시 크기")]
+    [Tooltip("Spawn point display size")]
     [SerializeField] private float gizmoSize = 1f;
     #endregion
     

@@ -34,7 +34,7 @@ public class MagicService
     {
         foreach (var magic in magics)
         {
-            if (magic != null && magic.magicName == magicName)
+            if (magic != null && magic.magicCode == magicName)
             {
                 return magic;
             }

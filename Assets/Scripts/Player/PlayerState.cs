@@ -15,7 +15,6 @@ public class PlayerState : MonoBehaviour
     #endregion
 
     #region Properties (PlayerController의 네트워크 변수 참조)
-    // C# 9.0 이상에서 간결화된 속성 정의 사용
     public float CurrentHealth
     {
         get => _controller != null ? _controller.CurrentHealth : 0;
@@ -158,10 +157,7 @@ public class PlayerState : MonoBehaviour
             }
         }
     }
-
-    // ⭐ [제거] 비결정론적인 코루틴 제거
-    // private IEnumerator RespawnAfterDelay(float delay) { ... }
-
+    
     /// <summary>
     /// 플레이어를 리스폰합니다 (서버/State Authority에서만 실행).
     /// </summary>

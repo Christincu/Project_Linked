@@ -11,29 +11,29 @@ public class MapTeleporter : MonoBehaviour
 {
     #region Serialized Fields
     [Header("Teleport Settings")]
-    [Tooltip("순간이동 목적지 (다른 MapTeleporter)")]
+    [Tooltip("Teleport destination (another MapTeleporter)")]
     [SerializeField] private MapTeleporter targetTeleporter;
     
-    [Tooltip("양방향 텔레포트 활성화 (목적지에서도 이곳으로 돌아올 수 있음)")]
+    [Tooltip("Enable bidirectional teleport (can return from destination)")]
     [SerializeField] private bool isBidirectional = false;
     
-    [Tooltip("순간이동 쿨다운 (초)")]
+    [Tooltip("Teleport cooldown (seconds)")]
     [SerializeField] private float cooldown = 1f;
     
-    [Tooltip("텔레포트 실행 전 대기 시간 (로딩 화면 페이드 인)")]
+    [Tooltip("Delay before teleport execution (loading screen fade in)")]
     [SerializeField] private float teleportDelay = 0.3f;
     
-    [Tooltip("스폰 위치 오프셋")]
+    [Tooltip("Spawn position offset")]
     [SerializeField] private Vector2 spawnOffset = Vector2.zero;
     
     [Header("Visual Settings")]
-    [Tooltip("트리거 영역 표시 색상")]
+    [Tooltip("Trigger area display color")]
     [SerializeField] private Color gizmoColor = new Color(0f, 1f, 1f, 0.3f);
     
-    [Tooltip("스폰 지점 표시 색상")]
+    [Tooltip("Spawn point display color")]
     [SerializeField] private Color spawnGizmoColor = new Color(0f, 1f, 0f, 0.5f);
     
-    [Tooltip("Gizmo 크기")]
+    [Tooltip("Gizmo size")]
     [SerializeField] private float gizmoSize = 1f;
     #endregion
     

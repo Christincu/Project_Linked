@@ -4,9 +4,9 @@ using UnityEngine;
 public class MagicData : ScriptableObject
 {
     [Header("Basic Info")]
-    public int magicName;
+    public int magicCode;
     public Sprite magicIdleSprite;
-    public Sprite magicActiveSprite;
+    public Sprite magicInsideSprite;
     
     [Header("Magic Settings")]
     [Tooltip("마법 쿨다운 시간 (초)")]
