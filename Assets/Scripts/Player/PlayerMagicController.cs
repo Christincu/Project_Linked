@@ -90,7 +90,7 @@ public class PlayerMagicController : MonoBehaviour
     public void Initialize(PlayerController controller, GameDataManager gameDataManager)
     {
         _controller = controller;
-        _gameDataManager = gameDataManager; 
+        _gameDataManager = gameDataManager;
         _characterData = gameDataManager.CharacterService.GetCharacter(_controller.CharacterIndex);
     }
 
@@ -239,7 +239,7 @@ public class PlayerMagicController : MonoBehaviour
             SetMagicUIActive(false);
         }
 
-        
+
         UpdateMagicUiSprite();
     }
 
@@ -361,7 +361,7 @@ public class PlayerMagicController : MonoBehaviour
     /// </summary>
     public void UpdateMagicUiSprite()
     {
-        if(_controller.ActivatedMagicCode != -1)
+        if (_controller.ActivatedMagicCode != -1)
         {
             MagicData activatedMagicData = _gameDataManager.MagicService.GetMagic(_controller.ActivatedMagicCode);
             _idleFirstFloorRenderer.sprite = activatedMagicData.magicIdleSprite;
@@ -378,11 +378,11 @@ public class PlayerMagicController : MonoBehaviour
             _magicInsideFloor.SetActive(false);
         }
 
-        if(_controller.AbsorbedMagicCode != -1)
+        if (_controller.AbsorbedMagicCode != -1)
         {
             MagicData absorbedMagicData = _gameDataManager.MagicService.GetMagic(_controller.AbsorbedMagicCode);
             _idleSecondFloorRenderer.sprite = absorbedMagicData.magicIdleSprite;
-            
+
             _magicIdleSecondFloor.SetActive(true);
         }
         else
@@ -398,73 +398,63 @@ public class PlayerMagicController : MonoBehaviour
     /// </summary>
     public void OnPlayerCollisionEnter(PlayerController otherPlayer)
     {
-        // 자기 자신이 아닌 다른 플레이어와 충돌했을 때만
+        // Early exit checks
         if (otherPlayer == _controller || otherPlayer == null) return;
         if (otherPlayer.MagicController == null) return;
-
-        // 둘 다 마법이 활성화되어 있어야 함
+        if (_controller.Object.Id.Raw > otherPlayer.Object.Id.Raw) return; // 중복 처리 방지
         if (!_controller.MagicActive || !otherPlayer.MagicActive) return;
 
         _isPlayerColliding = true;
         _collidingPlayer = otherPlayer;
-
-        // 누가 먼저 마법을 활성화했는지 확인
-        int myActivationTick = _controller.MagicActivationTick;
-        int otherActivationTick = otherPlayer.MagicActivationTick;
-
-        bool shouldBeAbsorbed = false;
-
-        // 틱으로 비교 (더 정확함)
-        if (otherActivationTick > 0 && myActivationTick > 0)
-        {
-            if (otherActivationTick < myActivationTick)
-            {
-                // 상대방이 먼저 활성화 -> 내가 흡수당함
-                shouldBeAbsorbed = true;
-            }
-            else if (otherActivationTick == myActivationTick)
-            {
-                // 동시 활성화 -> 캐릭터 인덱스로 결정
-                int myCharIndex = _controller.CharacterIndex;
-                int otherCharIndex = otherPlayer.CharacterIndex;
-
-                if (myCharIndex > otherCharIndex)
-                {
-                    shouldBeAbsorbed = true;
-                }
-                else if (myCharIndex == otherCharIndex)
-                {
-                    // 캐릭터도 같으면 Object ID로 결정 (결정론적)
-                    if (_controller.Object.Id.Raw > otherPlayer.Object.Id.Raw)
-                    {
-                        shouldBeAbsorbed = true;
-                    }
-                }
-            }
-        }
-
-        if (shouldBeAbsorbed)
-        {
-            // 내가 흡수당함 -> 상대방에게 흡수 요청
-            if (_controller.Object.HasInputAuthority)
-            {
-                otherPlayer.RPC_AbsorbMagic(_controller.Id);
-            }
-        }
-        else
-        {
-            // 내가 흡수함 -> 상대방의 마법 코드를 저장
-            if (_controller.Object.HasInputAuthority)
-            {
-                _controller.RPC_AbsorbMagic(otherPlayer.Id);
-            }
-        }
+        
+        // 양쪽 플레이어 정보 캡처
+        int myTick = _controller.MagicActivationTick;
+        int otherTick = otherPlayer.MagicActivationTick;
+        
+        if (myTick <= 0 || otherTick <= 0) return;
+        
+        // 누가 흡수할지 결정 (먼저 활성화한 쪽이 흡수)
+        bool iAmAbsorber = DetermineAbsorber(myTick, otherTick, 
+            _controller.CharacterIndex, otherPlayer.CharacterIndex,
+            _controller.Object.Id.Raw, otherPlayer.Object.Id.Raw);
+        
+        PlayerController absorber = iAmAbsorber ? _controller : otherPlayer;
+        PlayerController absorbed = iAmAbsorber ? otherPlayer : _controller;
+        int absorbedMagicCode = absorbed.ActivatedMagicCode;
+        
+        // 흡수 처리
+        absorbed.MagicActive = false;
+        absorbed.MagicActivationTick = 0;
+        absorbed.ActivatedMagicCode = -1;
+        absorbed.ActiveMagicSlotNetworked = 0;
+        absorbed.MagicController?.OnAbsorbed();
+        
+        absorber.AbsorbedMagicCode = absorbedMagicCode;
+        
+        Debug.Log($"[Absorption] {absorber.name} absorbed {absorbed.name}'s magic (code: {absorbedMagicCode})");
+    }
+    
+    /// <summary>
+    /// 누가 흡수할지 결정합니다.
+    /// </summary>
+    private bool DetermineAbsorber(int myTick, int otherTick, int myCharIndex, int otherCharIndex, uint myObjectId, uint otherObjectId)
+    {
+        // 1. 활성화 틱으로 비교 (먼저 활성화한 쪽이 흡수)
+        if (myTick != otherTick)
+            return myTick < otherTick;
+        
+        // 2. 동시 활성화: 캐릭터 인덱스로 결정
+        if (myCharIndex != otherCharIndex)
+            return myCharIndex < otherCharIndex;
+        
+        // 3. 캐릭터도 같으면: Object ID로 결정 (결정론적)
+        return myObjectId < otherObjectId;
     }
 
 
     /// <summary>
     /// 마법이 다른 플레이어에게 흡수당했을 때 호출됩니다.
-    /// PlayerController의 RPC_NotifyAbsorbed에서 호출됩니다.
+    /// OnPlayerCollisionEnter에서 직접 호출됩니다.
     /// </summary>
     public void OnAbsorbed()
     {

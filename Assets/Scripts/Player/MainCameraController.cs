@@ -90,8 +90,30 @@ public class MainCameraController : MonoBehaviour
             return;
         }
         
+        // Interpolation Target이 있으면 그것을 따라가기 (더 부드러운 움직임)
+        Vector3 targetPosition = GetTargetPosition();
+        
         // 타겟 위치 따라가기
-        FollowTarget(_targetPlayer.transform.position);
+        FollowTarget(targetPosition);
+    }
+    
+    /// <summary>
+    /// 타겟의 실제 위치를 가져옵니다. (Interpolation Target이 있으면 우선)
+    /// </summary>
+    private Vector3 GetTargetPosition()
+    {
+        if (_targetPlayer == null) return transform.position;
+        
+        // NetworkRigidbody2D의 Interpolation Target 확인
+        var networkRb = _targetPlayer.GetComponent<Fusion.Addons.Physics.NetworkRigidbody2D>();
+        if (networkRb != null && networkRb.InterpolationTarget != null)
+        {
+            // Interpolation Target이 있으면 그 위치 사용 (클라이언트에서 보간된 부드러운 위치)
+            return networkRb.InterpolationTarget.position;
+        }
+        
+        // Interpolation Target이 없으면 루트 Transform 위치 사용
+        return _targetPlayer.transform.position;
     }
     #endregion
     

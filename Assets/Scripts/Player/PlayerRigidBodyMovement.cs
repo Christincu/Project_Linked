@@ -71,8 +71,8 @@ public class PlayerRigidBodyMovement : MonoBehaviour
         _rigidbody.drag = 0f;
         _rigidbody.angularDrag = 0f;
 
-        // NetworkRigidbody2D + Rigidbody2D.Interpolate 함께 사용
-        _rigidbody.interpolation = RigidbodyInterpolation2D.Interpolate;
+        // NetworkRigidbody2D가 Interpolation을 처리하므로 Unity Interpolation은 끔
+        _rigidbody.interpolation = RigidbodyInterpolation2D.None;
         _rigidbody.sleepMode = RigidbodySleepMode2D.NeverSleep;
     }
     #endregion

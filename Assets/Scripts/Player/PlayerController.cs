@@ -100,6 +100,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         InitializeComponents();
         InitializeNetworkState();
 
+        // ViewObjParent 생성 및 Interpolation Target 설정
+        EnsureViewObjParentExists();
+
         TryCreateView();
 
         // 초기화 및 데이터 동기화 대기
@@ -327,38 +330,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     }
 
     /// <summary>
-    /// 특정 플레이어의 마법을 흡수합니다. (Input Authority → State Authority → Target Player)
-    /// NetworkBehaviourId로 직접 PlayerController를 찾습니다.
-    /// </summary>
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_AbsorbMagic(NetworkBehaviourId targetPlayerId)
-    {
-        // NetworkBehaviourId로 직접 플레이어 찾기
-        if (Runner.TryFindBehaviour(targetPlayerId, out PlayerController targetController))
-        {
-            AbsorbedMagicCode = targetController.ActivatedMagicCode;
-            targetController.RPC_NotifyAbsorbed(ActivatedMagicCode);
-        }
-    }
-
-    /// <summary>
-    /// 마법이 흡수당했음을 알립니다. (State Authority → Target Player)
-    /// </summary>
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    public void RPC_NotifyAbsorbed(int absorbedMagicCode)
-    {
-        // 흡수당한 플레이어의 마법 비활성화
-        if (MagicActive)
-        {
-            MagicActive = false;
-            MagicActivationTick = 0;
-            ActiveMagicSlotNetworked = -1;
-            AbsorbedMagicCode = -1;
-            _magicController?.OnAbsorbed();
-        }
-    }
-
-    /// <summary>
     /// 텔레포트하는 플레이어에게만 로딩 패널을 표시합니다.
     /// (MapTeleporter에서 호출)
     /// </summary>
@@ -442,6 +413,45 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     }
 
     /// <summary>
+    /// ViewObjParent가 존재하는지 확인하고 없으면 생성합니다.
+    /// NetworkRigidbody2D의 Interpolation Target으로 설정합니다.
+    /// </summary>
+    private void EnsureViewObjParentExists()
+    {
+        // ViewObjParent가 이미 존재하는지 확인
+        Transform viewObjParent = transform.Find("ViewObjParent");
+        
+        if (viewObjParent == null)
+        {
+            // ViewObjParent 생성
+            GameObject viewObjParentObj = new GameObject("ViewObjParent");
+            viewObjParentObj.transform.SetParent(transform, false);
+            viewObjParentObj.transform.localPosition = Vector3.zero;
+            viewObjParentObj.transform.localRotation = Quaternion.identity;
+            viewObjParentObj.transform.localScale = Vector3.one;
+            
+            viewObjParent = viewObjParentObj.transform;
+            
+            Debug.Log($"[PlayerController] ViewObjParent created for Player {PlayerSlot}");
+        }
+        
+        // NetworkRigidbody2D의 Interpolation Target 설정
+        var networkRb = GetComponent<NetworkRigidbody2D>();
+        if (networkRb != null)
+        {
+            if (networkRb.InterpolationTarget == null || networkRb.InterpolationTarget != viewObjParent)
+            {
+                networkRb.InterpolationTarget = viewObjParent;
+                Debug.Log($"[PlayerController] Interpolation Target set to ViewObjParent for Player {PlayerSlot}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[PlayerController] NetworkRigidbody2D not found on Player {PlayerSlot}!");
+        }
+    }
+
+    /// <summary>
     /// 캐릭터 뷰 오브젝트를 생성합니다. (CharacterIndex 동기화 후 호출)
     /// </summary>
     private void TryCreateView()
@@ -455,7 +465,20 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             if (_viewObj != null) Destroy(_viewObj);
 
             GameObject instance = new GameObject("ViewObj");
-            instance.transform.SetParent(transform, false);
+            
+            // ViewObjParent를 찾아서 그 자식으로 설정
+            Transform viewObjParent = transform.Find("ViewObjParent");
+            if (viewObjParent != null)
+            {
+                instance.transform.SetParent(viewObjParent, false);
+                Debug.Log($"[PlayerController] ViewObj created under ViewObjParent for Player {PlayerSlot}");
+            }
+            else
+            {
+                // ViewObjParent가 없으면 루트에 생성 (fallback)
+                Debug.LogWarning($"[PlayerController] ViewObjParent not found! Creating ViewObj at root for Player {PlayerSlot}");
+                instance.transform.SetParent(transform, false);
+            }
 
             _viewObj = instance;
 
@@ -562,6 +585,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
                 case nameof(MagicAnchorLocalPosition):
                     _magicController.UpdateMagicUIState(MagicActive);
+                    _magicController.UpdateAnchorPosition(MagicAnchorLocalPosition);
                     break;
 
                 case nameof(AbsorbedMagicCode):
@@ -578,3 +602,4 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     }
     #endregion
 }
+

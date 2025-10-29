@@ -200,8 +200,11 @@ public class TitleGameManager : MonoBehaviour
             runner.ProvideInput = true;
 
             // ✅ Physics2D 시뮬레이션을 위한 컴포넌트 추가 (필수!)
-            networkObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
-            Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Host)");
+            var physicsSimulator = networkObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+            
+            // ClientPhysicsSimulation을 SimulateAlways로 설정 (가장 부드러운 움직임)
+            physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
+            Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Host) - ClientPhysicsSimulation: SimulateAlways");
 
             var result = await runner.StartGame(new StartGameArgs()
             {
@@ -275,8 +278,11 @@ public class TitleGameManager : MonoBehaviour
             runner.ProvideInput = true;
 
             // ✅ Physics2D 시뮬레이션을 위한 컴포넌트 추가 (필수!)
-            networkObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
-            Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Client)");
+            var physicsSimulator = networkObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+            
+            // ClientPhysicsSimulation을 SimulateAlways로 설정 (가장 부드러운 움직임)
+            physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
+            Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Client) - ClientPhysicsSimulation: SimulateAlways");
 
             var result = await runner.StartGame(new StartGameArgs()
             {

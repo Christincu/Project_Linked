@@ -58,6 +58,8 @@ public class MainGameManager : MonoBehaviour
         // 게임 중 플레이어 참여 이벤트 구독
         FusionManager.OnPlayerJoinedEvent += OnPlayerJoinedDuringGame;
         FusionManager.OnPlayerLeftEvent += OnPlayerLeft;
+        FusionManager.OnShutdownEvent += OnNetworkShutdown;
+        FusionManager.OnDisconnectedEvent += OnDisconnectedFromServer;
         
         if (_isTestMode)
         {
@@ -87,6 +89,8 @@ public class MainGameManager : MonoBehaviour
         // 이벤트 구독 해제
         FusionManager.OnPlayerJoinedEvent -= OnPlayerJoinedDuringGame;
         FusionManager.OnPlayerLeftEvent -= OnPlayerLeft;
+        FusionManager.OnShutdownEvent -= OnNetworkShutdown;
+        FusionManager.OnDisconnectedEvent -= OnDisconnectedFromServer;
     }
     
     // =========================================================
@@ -116,11 +120,16 @@ public class MainGameManager : MonoBehaviour
             _runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
             _runner.gameObject.AddComponent<NetworkObjectProviderDefault>();
             
-            if (_runner.gameObject.GetComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>() == null)
+            var physicsSimulator = _runner.gameObject.GetComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+            if (physicsSimulator == null)
             {
-                _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+                physicsSimulator = _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
                 Debug.Log("[MainGameManager] RunnerSimulatePhysics2D added to NetworkRunner");
             }
+            
+            // Client Physics Simulation을 SimulateAlways로 설정 (가장 부드러운 움직임)
+            physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
+            Debug.Log("[MainGameManager] ClientPhysicsSimulation set to SimulateAlways");
             
             await _runner.StartGame(new StartGameArgs
             {
@@ -536,15 +545,6 @@ public class MainGameManager : MonoBehaviour
         }
     }
     
-    private IEnumerator ReturnToTitleSceneDelayed(NetworkRunner runner)
-    {
-        yield return new WaitForSeconds(2f);
-        
-        if (runner != null && runner.IsServer)
-        {
-            runner.LoadScene("Title");
-        }
-    }
 
     /// <summary>
     /// 로컬 플레이어의 PlayerController를 가져옵니다.
@@ -640,6 +640,53 @@ public class MainGameManager : MonoBehaviour
     private void OnPlayerRespawned(PlayerRef player)
     {
         // 추가 리스폰 로직
+    }
+
+    /// <summary>
+    /// 네트워크 세션이 종료되었을 때 호출됩니다 (호스트가 나가거나 세션이 종료됨)
+    /// </summary>
+    private void OnNetworkShutdown(NetworkRunner runner)
+    {
+        Debug.Log("[MainGameManager] Network shutdown detected, returning to title...");
+        
+        // 테스트 모드가 아닐 때만 타이틀로 돌아감
+        if (!_isTestMode)
+        {
+            GameManager.Instance?.ShowWarningPanel("호스트가 나갔습니다. 타이틀로 돌아갑니다.");
+            StartCoroutine(ReturnToTitleAfterDelay());
+        }
+    }
+
+    /// <summary>
+    /// 서버와의 연결이 끊어졌을 때 호출됩니다 (클라이언트 관점)
+    /// </summary>
+    private void OnDisconnectedFromServer(NetworkRunner runner)
+    {
+        Debug.Log("[MainGameManager] Disconnected from server, returning to title...");
+        
+        // 테스트 모드가 아닐 때만 타이틀로 돌아감
+        if (!_isTestMode)
+        {
+            GameManager.Instance?.ShowWarningPanel("서버와의 연결이 끊어졌습니다. 타이틀로 돌아갑니다.");
+            StartCoroutine(ReturnToTitleAfterDelay());
+        }
+    }
+
+    /// <summary>
+    /// 일정 시간 후 타이틀 씬으로 돌아갑니다.
+    /// </summary>
+    private IEnumerator ReturnToTitleAfterDelay()
+    {
+        yield return new WaitForSeconds(2f);
+        
+        // NetworkRunner가 있으면 정리
+        if (_runner != null)
+        {
+            _runner.Shutdown();
+        }
+        
+        // 타이틀 씬으로 이동
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
     }
     #endregion
 }
