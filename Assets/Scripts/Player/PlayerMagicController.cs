@@ -40,14 +40,6 @@ public class PlayerMagicController : MonoBehaviour
     private bool _previousRightMouseButton = false; // 이전 프레임의 우클릭 상태
     private float _magicActivationTime = 0f; // 마법을 활성화한 시간 (Time.time)
 
-    private bool _isMerged = false; // 현재 마법이 병합된 상태인지
-    private PlayerRef _currentMergeAbsorber;
-
-    private PlayerController _currentAbsorberController;
-
-    private bool _isMergeAbsorber = false; // 내가 흡수하는 쪽인지
-    private PlayerController _absorbedPlayer = null; // 내가 흡수한 플레이어
-
     #endregion
 
     #region Properties
@@ -108,14 +100,6 @@ public class PlayerMagicController : MonoBehaviour
     void Update()
     {
         if (!_isInitialized || _controller == null) return;
-        
-        if ((_isMerged || _isPlayerColliding) && _collidingPlayer != null)
-        {
-            if (_controller != null && _controller.MagicActive)
-            {
-                UpdateMagicViewObjPosition();
-            }
-        }
     }
 
     /// <summary>
@@ -264,8 +248,6 @@ public class PlayerMagicController : MonoBehaviour
     /// </summary>
     private void SetMagicUIActive(bool active)
     {
-        Debug.Log($"[PlayerMagicController.SetMagicUIActive] active: {active}");
-
         _magicAnchor.SetActive(active);
         _magicViewObj.SetActive(active);
         _magicIdleFirstFloor.SetActive(active);
@@ -291,7 +273,6 @@ public class PlayerMagicController : MonoBehaviour
             {
                 _controller.MagicAnchorLocalPosition = localPosition;
             }
-            UpdateMagicViewObjPosition();
         }
     }
 
@@ -374,107 +355,6 @@ public class PlayerMagicController : MonoBehaviour
         return anchorLocalPos;
     }
 
-    /// <summary>
-    /// _magicViewObj의 위치를 업데이트합니다.
-    /// 충돌 중일 경우, 나중에 활성화한 플레이어의 마법이 먼저 활성화한 플레이어의 위치로 흡수됩니다.
-    /// </summary>
-    private void UpdateMagicViewObjPosition()
-    {
-        if (_magicViewObj == null) return;
-
-        bool shouldAbsorb = false;
-        PlayerController targetPlayer = null;
-
-        // 머지 중이면 저장된 플레이어 정보 사용 (콜라이더를 벗어나도 유지)
-        if (_isMerged)
-        {
-            if (_isMergeAbsorber && _absorbedPlayer != null)
-            {
-                // 내가 흡수하는 쪽: 내 앵커 위치 유지
-                targetPlayer = null;
-                shouldAbsorb = false;
-            }
-            else if (!_isMergeAbsorber && _collidingPlayer != null)
-            {
-                // 내가 흡수되는 쪽: 상대방 위치로 따라가기
-                targetPlayer = _collidingPlayer;
-                shouldAbsorb = true;
-            }
-        }
-        // 충돌 중일 경우 (아직 머지 시작 전)
-        else if (_isPlayerColliding && _collidingPlayer != null && _collidingPlayer.MagicController != null)
-        {
-            targetPlayer = _collidingPlayer;
-
-            // 두 플레이어 중 누가 먼저 마법을 활성화했는지 확인
-            float myActivationTime = _magicActivationTime;
-            float otherActivationTime = _collidingPlayer.MagicController.MagicActivationTime;
-
-            // 시간 비교
-            if (otherActivationTime > 0 && myActivationTime > 0)
-            {
-                float timeDiff = Mathf.Abs(myActivationTime - otherActivationTime);
-
-                if (timeDiff > 0.01f) // 0.01초 이상 차이나면
-                {
-                    if (otherActivationTime < myActivationTime)
-                    {
-                        // 상대방이 먼저 활성화
-                        shouldAbsorb = true;
-                    }
-                }
-                else // 거의 동시면 캐릭터 인덱스로 결정
-                {
-                    int myCharIndex = _controller.CharacterIndex;
-                    int otherCharIndex = _collidingPlayer.CharacterIndex;
-
-                    if (myCharIndex != otherCharIndex)
-                    {
-                        // 캐릭터 인덱스가 큰 쪽이 흡수됨
-                        if (myCharIndex > otherCharIndex)
-                        {
-                            shouldAbsorb = true;
-                        }
-                    }
-                    else
-                    {
-                        // 캐릭터도 같으면 Object ID로 결정 (결정론적)
-                        if (_controller.Object.Id.Raw > _collidingPlayer.Object.Id.Raw)
-                        {
-                            shouldAbsorb = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        // 위치 업데이트
-        if (shouldAbsorb && targetPlayer != null && targetPlayer.MagicController != null)
-        {
-            // 상대방의 MagicViewObj 위치로 이동
-            if (targetPlayer.MagicController.MagicViewObj != null)
-            {
-                Vector3 targetPos = targetPlayer.MagicController.MagicViewObj.transform.position;
-                _magicViewObj.transform.position = targetPos;
-            }
-        }
-        else
-        {
-            // 내가 먼저 활성화했거나 일반 모드: 네트워크 동기화된 앵커 위치 사용
-            if (_magicAnchor != null)
-            {
-                // MagicAnchorLocalPosition을 사용하여 정확한 위치 계산
-                Vector3 worldAnchorPos = _controller.transform.position + _controller.MagicAnchorLocalPosition;
-                _magicViewObj.transform.position = worldAnchorPos;
-            }
-        }
-
-        // 머지 상태 판단 (둘 다 마법이 활성화되어 있어야 함)
-        bool bothActive = _controller.MagicActive
-                  && _collidingPlayer != null
-                  && _collidingPlayer.MagicController != null
-                  && _collidingPlayer.MagicController.IsMagicUIActive;
-    }
 
     /// <summary>
     /// IdleSecondFloor를 AbsorbedMagicCode에 따라 업데이트합니다.
@@ -514,19 +394,69 @@ public class PlayerMagicController : MonoBehaviour
 
     /// <summary>
     /// MagicAnchorCollision에서 호출: 다른 마법 앵커와의 충돌 시작
+    /// 충돌 시 즉시 흡수 처리
     /// </summary>
     public void OnPlayerCollisionEnter(PlayerController otherPlayer)
     {
         // 자기 자신이 아닌 다른 플레이어와 충돌했을 때만
-        if (otherPlayer != _controller)
+        if (otherPlayer == _controller || otherPlayer == null) return;
+        if (otherPlayer.MagicController == null) return;
+
+        // 둘 다 마법이 활성화되어 있어야 함
+        if (!_controller.MagicActive || !otherPlayer.MagicActive) return;
+
+        _isPlayerColliding = true;
+        _collidingPlayer = otherPlayer;
+
+        // 누가 먼저 마법을 활성화했는지 확인
+        int myActivationTick = _controller.MagicActivationTick;
+        int otherActivationTick = otherPlayer.MagicActivationTick;
+
+        bool shouldBeAbsorbed = false;
+
+        // 틱으로 비교 (더 정확함)
+        if (otherActivationTick > 0 && myActivationTick > 0)
         {
-            _isPlayerColliding = true;
-            _collidingPlayer = otherPlayer;
-            
-            // 충돌한 다른 마법 앵커의 마법 코드를 AbsorbedMagicCode에 설정
-            if (otherPlayer.MagicController != null)
+            if (otherActivationTick < myActivationTick)
             {
-                _controller.AbsorbedMagicCode = otherPlayer.ActivatedMagicCode;
+                // 상대방이 먼저 활성화 -> 내가 흡수당함
+                shouldBeAbsorbed = true;
+            }
+            else if (otherActivationTick == myActivationTick)
+            {
+                // 동시 활성화 -> 캐릭터 인덱스로 결정
+                int myCharIndex = _controller.CharacterIndex;
+                int otherCharIndex = otherPlayer.CharacterIndex;
+
+                if (myCharIndex > otherCharIndex)
+                {
+                    shouldBeAbsorbed = true;
+                }
+                else if (myCharIndex == otherCharIndex)
+                {
+                    // 캐릭터도 같으면 Object ID로 결정 (결정론적)
+                    if (_controller.Object.Id.Raw > otherPlayer.Object.Id.Raw)
+                    {
+                        shouldBeAbsorbed = true;
+                    }
+                }
+            }
+        }
+
+        if (shouldBeAbsorbed)
+        {
+            // 내가 흡수당함 -> 상대방에게 흡수 요청
+            if (_controller.Object.HasInputAuthority)
+            {
+                otherPlayer.RPC_AbsorbMagic(_controller.Id);
+            }
+        }
+        else
+        {
+            // 내가 흡수함 -> 상대방의 마법 코드를 저장
+            if (_controller.Object.HasInputAuthority)
+            {
+                _controller.RPC_AbsorbMagic(otherPlayer.Id);
             }
         }
     }

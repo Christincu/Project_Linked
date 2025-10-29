@@ -149,11 +149,42 @@ public class MainGameManager : MonoBehaviour
     {
         if (_runner == null || !_runner.IsServer) return;
         
+        // 테스트 모드에서는 모든 플레이어가 localPlayer를 InputAuthority로 사용
         var localPlayer = _runner.LocalPlayer;
+        
+        // 가상 PlayerRef 생성 (PlayerData 식별용)
+        PlayerRef player1Ref = PlayerRef.FromIndex(0);
+        PlayerRef player2Ref = PlayerRef.FromIndex(1);
         
         Vector3 spawnPos0 = GetSceneSpawnPosition(0);
         Vector3 spawnPos1 = GetSceneSpawnPosition(1);
         
+        // PlayerData 먼저 생성 (실제 멀티 환경과 동일한 순서)
+        NetworkObject playerData1 = null;
+        NetworkObject playerData2 = null;
+        
+        if (FusionManager.Instance != null && FusionManager.Instance.PlayerDataPrefab != null)
+        {
+            playerData1 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, player1Ref, (runner, obj) =>
+            {
+                if (obj.TryGetComponent(out PlayerData pd))
+                {
+                    pd.CharacterIndex = firstCharacterIndex;
+                    Debug.Log($"[TestMode] PlayerData1 created for PlayerRef: {player1Ref}");
+                }
+            });
+            
+            playerData2 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, player2Ref, (runner, obj) =>
+            {
+                if (obj.TryGetComponent(out PlayerData pd))
+                {
+                    pd.CharacterIndex = secondCharacterIndex;
+                    Debug.Log($"[TestMode] PlayerData2 created for PlayerRef: {player2Ref}");
+                }
+            });
+        }
+        
+        // Player 1 스폰 (InputAuthority는 localPlayer)
         _playerObj1 = _runner.Spawn(PlayerPrefab, spawnPos0, Quaternion.identity, localPlayer, (runner, obj) => 
         {
             var controller = obj.GetComponent<PlayerController>();
@@ -161,6 +192,7 @@ public class MainGameManager : MonoBehaviour
             controller.PlayerSlot = 0;
         });
         
+        // Player 2 스폰 (InputAuthority는 localPlayer)
         _playerObj2 = _runner.Spawn(PlayerPrefab, spawnPos1, Quaternion.identity, localPlayer, (runner, obj) => 
         {
             var controller = obj.GetComponent<PlayerController>();
@@ -168,6 +200,20 @@ public class MainGameManager : MonoBehaviour
             controller.PlayerSlot = 1;
         });
         
+        // PlayerData에 PlayerInstance 연결
+        if (playerData1 != null && playerData1.TryGetComponent(out PlayerData pd1))
+        {
+            pd1.PlayerInstance = _playerObj1;
+            Debug.Log($"[TestMode] PlayerData1 linked to Player1");
+        }
+        
+        if (playerData2 != null && playerData2.TryGetComponent(out PlayerData pd2))
+        {
+            pd2.PlayerInstance = _playerObj2;
+            Debug.Log($"[TestMode] PlayerData2 linked to Player2");
+        }
+        
+        // 첫 번째 플레이어를 딕셔너리에 추가
         if (_playerObj1 != null) _spawnedPlayers[localPlayer] = _playerObj1; 
 
         if (GameManager.Instance?.Canvas is MainCanvas canvas)

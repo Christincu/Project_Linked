@@ -1291,13 +1291,6 @@
       <Project>{91D080ED-21E9-B52E-B983-64B275219AC6}</Project>
       <Name>Fusion.Addons.Physics</Name>
     </ProjectReference>
-<<<<<<< HEAD
-    <ProjectReference Include="Fusion.Unity.csproj">
-      <Project>{BC810780-3FD1-C012-CA48-E9E2F497668F}</Project>
-      <Name>Fusion.Unity</Name>
-    </ProjectReference>
-=======
->>>>>>> 1bd8fa618e1048104f3ec21b27f62bf2b24d11b0
     <ProjectReference Include="Fusion.Addons.Physics.Editor.csproj">
       <Project>{E0A59550-11B0-30BE-2C1D-114354C458C4}</Project>
       <Name>Fusion.Addons.Physics.Editor</Name>
@@ -1306,13 +1299,10 @@
       <Project>{35FC471A-6B7C-6755-5240-26709DE91946}</Project>
       <Name>Fusion.Unity.Editor</Name>
     </ProjectReference>
-<<<<<<< HEAD
-=======
     <ProjectReference Include="Fusion.Unity.csproj">
       <Project>{BC810780-3FD1-C012-CA48-E9E2F497668F}</Project>
       <Name>Fusion.Unity</Name>
     </ProjectReference>
->>>>>>> 1bd8fa618e1048104f3ec21b27f62bf2b24d11b0
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="GenerateTargetFrameworkMonikerAttribute" />

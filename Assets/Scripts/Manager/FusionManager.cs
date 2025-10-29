@@ -53,8 +53,9 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
             Debug.Log($"LocalRunner set to: {LocalRunner}");
         }
 
-        // 서버에서만 플레이어 데이터 생성
-        if (runner.IsServer)
+        // 서버에서만 플레이어 데이터 생성 (테스트 모드 제외)
+        bool isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
+        if (runner.IsServer && !isTestMode)
         {
             // 플레이어 데이터 오브젝트 생성
             if (PlayerDataPrefab != null)

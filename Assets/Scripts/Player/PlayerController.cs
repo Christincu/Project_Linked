@@ -328,18 +328,16 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
     /// <summary>
     /// 특정 플레이어의 마법을 흡수합니다. (Input Authority → State Authority → Target Player)
+    /// NetworkBehaviourId로 직접 PlayerController를 찾습니다.
     /// </summary>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_AbsorbMagic(PlayerRef targetPlayer)
+    public void RPC_AbsorbMagic(NetworkBehaviourId targetPlayerId)
     {
-        // 서버에서 타겟 플레이어에게 흡수당했다고 알림
-        if (Runner.TryGetPlayerObject(targetPlayer, out NetworkObject targetObj))
+        // NetworkBehaviourId로 직접 플레이어 찾기
+        if (Runner.TryFindBehaviour(targetPlayerId, out PlayerController targetController))
         {
-            if (targetObj.TryGetComponent(out PlayerController targetController))
-            {
-                AbsorbedMagicCode = targetController.ActivatedMagicCode;
-                targetController.RPC_NotifyAbsorbed(ActivatedMagicCode);
-            }
+            AbsorbedMagicCode = targetController.ActivatedMagicCode;
+            targetController.RPC_NotifyAbsorbed(ActivatedMagicCode);
         }
     }
 
