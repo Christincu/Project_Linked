@@ -13,7 +13,6 @@ using UnityEngine.SceneManagement;
 public class MainGameManager : MonoBehaviour
 {
     [Header("Mode & Settings")]
-    [Tooltip("체크 시, 로컬에서 여러 플레이어를 스폰하고 1/2 키로 조작 대상을 전환합니다.")]
     [SerializeField] private bool _isTestMode = false;
     
     [Header("Player Prefabs & Data")]
@@ -117,7 +116,6 @@ public class MainGameManager : MonoBehaviour
             _runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
             _runner.gameObject.AddComponent<NetworkObjectProviderDefault>();
             
-            // ✅ Physics2D 시뮬레이션을 위한 컴포넌트 추가 (필수!)
             if (_runner.gameObject.GetComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>() == null)
             {
                 _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
@@ -127,7 +125,7 @@ public class MainGameManager : MonoBehaviour
             await _runner.StartGame(new StartGameArgs
             {
                 GameMode = GameMode.Host,
-                SessionName = "LocalTestSession",
+                SessionName = "EditorTestSession",
                 SceneManager = _runner.GetComponent<NetworkSceneManagerDefault>(),
                 ObjectProvider = _runner.GetComponent<NetworkObjectProviderDefault>()
             });
@@ -442,6 +440,13 @@ public class MainGameManager : MonoBehaviour
     {
         Debug.Log($"[MainGameManager] OnPlayerLeft - Player {player}, IsServer: {runner.IsServer}");
         
+        // 이미 처리된 플레이어인지 확인 (중복 호출 방지)
+        if (!_spawnedPlayers.ContainsKey(player))
+        {
+            Debug.Log($"[MainGameManager] Player {player} already processed, skipping duplicate call");
+            return;
+        }
+        
         // PlayerData 가져오기 및 제거 (서버만) - 먼저 처리
         if (runner.IsServer)
         {
@@ -524,8 +529,13 @@ public class MainGameManager : MonoBehaviour
         
         if (_spawnedPlayers.TryGetValue(localPlayerRef, out playerObj))
         {
-            Debug.Log($"[MainGameManager] GetLocalPlayer - Found and registered player {localPlayerRef}");
-            return playerObj?.GetComponent<PlayerController>();
+            // NetworkObject가 파괴되었는지 확인
+            if (playerObj == null || !playerObj.IsValid)
+            {
+                return null;
+            }
+            
+            return playerObj.GetComponent<PlayerController>();
         }
 
         return null;
@@ -537,7 +547,14 @@ public class MainGameManager : MonoBehaviour
     public PlayerController GetSelectedPlayer()
     {
         var playerObj = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
-        return playerObj?.GetComponent<PlayerController>();
+        
+        // NetworkObject가 파괴되었는지 확인
+        if (playerObj == null || !playerObj.IsValid)
+        {
+            return null;
+        }
+        
+        return playerObj.GetComponent<PlayerController>();
     }
 
     /// <summary>

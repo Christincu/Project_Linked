@@ -10,20 +10,20 @@ public class MainCameraController : MonoBehaviour
 {
     #region Serialized Fields
     [Header("Camera Settings")]
-    [Tooltip("카메라 이동 속도 (0-1, 낮을수록 부드럽게 따라감)")]
+    [Tooltip("Camera follow speed (0-1, lower values make smoother following)")]
     [SerializeField] private float _followSpeed = 0.125f;
     
-    [Tooltip("카메라와 플레이어 사이의 Z축 거리")]
+    [Tooltip("Z-axis distance between camera and player")]
     [SerializeField] private float _zOffset = -10f;
     
-    [Tooltip("카메라 이동 데드존 (이 범위 내에서는 카메라가 움직이지 않음)")]
+    [Tooltip("Camera dead zone (camera won't move within this range)")]
     [SerializeField] private float _deadZone = 0.5f;
     
     [Header("Boundary Settings")]
-    [Tooltip("카메라 이동 제한 활성화")]
+    [Tooltip("Enable camera movement boundary")]
     [SerializeField] private bool _useBoundary = false;
     
-    [Tooltip("카메라 이동 가능 범위 (Min X, Min Y, Max X, Max Y)")]
+    [Tooltip("Camera movement bounds (Min X, Min Y, Max X, Max Y)")]
     [SerializeField] private Vector4 _cameraBounds = new Vector4(-50f, -50f, 50f, 50f);
     #endregion
     
@@ -72,7 +72,6 @@ public class MainCameraController : MonoBehaviour
                 if (_targetPlayer != null)
                 {
                     _isInitialized = true;
-                    Debug.Log($"[MainCameraController] Late initialization - Target found: {_targetPlayer.name}");
                 }
             }
             return;
@@ -83,9 +82,10 @@ public class MainCameraController : MonoBehaviour
             HandleTestModeInput();
         }
         
-        // 타겟이 없으면 다시 찾기 시도
-        if (_targetPlayer == null)
+        // 타겟이 없거나 파괴되었으면 다시 찾기 시도
+        if (_targetPlayer == null || _targetPlayer.gameObject == null || !_targetPlayer.gameObject.activeInHierarchy)
         {
+            _targetPlayer = null;
             UpdateTargetPlayer();
             return;
         }
@@ -109,8 +109,6 @@ public class MainCameraController : MonoBehaviour
         
         UpdateTargetPlayer();
         _isInitialized = true;
-        
-        Debug.Log($"[MainCameraController] Initialized - Target: {(_targetPlayer != null ? _targetPlayer.name : "None")}");
     }
     
     /// <summary>
@@ -138,13 +136,15 @@ public class MainCameraController : MonoBehaviour
         
         if (newTarget != null && newTarget != _targetPlayer)
         {
-            _targetPlayer = newTarget;
-            Vector3 targetPos = _targetPlayer.transform.position;
-            targetPos.z = _zOffset;
-            transform.position = targetPos;
-            _lastTargetPosition = _targetPlayer.transform.position;
-            
-            Debug.Log($"[MainCameraController] Target updated to: {_targetPlayer.name} at position {targetPos}");
+            // PlayerController가 유효한지 확인
+            if (newTarget.gameObject != null && newTarget.gameObject.activeInHierarchy)
+            {
+                _targetPlayer = newTarget;
+                Vector3 targetPos = _targetPlayer.transform.position;
+                targetPos.z = _zOffset;
+                transform.position = targetPos;
+                _lastTargetPosition = _targetPlayer.transform.position;
+            }
         }
     }
     
@@ -169,8 +169,6 @@ public class MainCameraController : MonoBehaviour
         
         UpdateTargetPlayer();
         _isInitialized = true;
-        
-        Debug.Log($"[MainCameraController] Camera reset - Target: {(_targetPlayer != null ? _targetPlayer.name : "None")}");
     }
     #endregion
     
@@ -243,14 +241,12 @@ public class MainCameraController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
             UpdateTargetPlayer();
-            Debug.Log($"[MainCameraController] Camera switched to Player 1");
         }
         
         // 2번 키: 플레이어 2 선택
         if (Input.GetKeyDown(KeyCode.Alpha2))
         {
             UpdateTargetPlayer();
-            Debug.Log($"[MainCameraController] Camera switched to Player 2");
         }
     }
     #endregion
@@ -270,8 +266,6 @@ public class MainCameraController : MonoBehaviour
             targetPos.z = _zOffset;
             transform.position = targetPos;
             _lastTargetPosition = _targetPlayer.transform.position;
-            
-            Debug.Log($"[MainCameraController] Target manually set to: {player.name}");
         }
     }
     

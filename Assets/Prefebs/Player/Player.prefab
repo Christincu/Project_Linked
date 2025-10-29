@@ -13,6 +13,8 @@ GameObject:
   - component: {fileID: 4213512067562145536}
   - component: {fileID: 4633555525266518599}
   - component: {fileID: 7420771076577286498}
+  - component: {fileID: 1830659127845173990}
+  - component: {fileID: 4934535057859710826}
   m_Layer: 0
   m_Name: MagicAnchor
   m_TagString: Untagged
@@ -132,7 +134,7 @@ MonoBehaviour:
   _stateAuthorityChangeErrorCorrectionDelta: 0
   SyncScale: 0
   SyncParent: 1
-  _interpolationTarget: {fileID: 1807906658658722316}
+  _interpolationTarget: {fileID: 0}
   UsePreciseRotation: 0
   UseRenderSleepThresholds: 1
   RenderThresholds:
@@ -140,6 +142,41 @@ MonoBehaviour:
     Position: 0.01
     Rotation: 0.01
     Scale: 0.01
+--- !u!114 &1830659127845173990
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 762830782927680907}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1f039fd8af248f418c0a5f62d1f0340, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  flamePrefab: {fileID: 0}
+  anchor: {fileID: 0}
+  owner: {fileID: 0}
+  aimDistance: 1.2
+  segInterval: 0.12
+  segmentLifetime: 0.7
+  totalDurationOnRelease: 5
+  useMouseInput: 1
+--- !u!114 &4934535057859710826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 762830782927680907}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d70c13285bce47d499ea3f89faaf3d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  emitter: {fileID: 1830659127845173990}
+  pmc: {fileID: 5349171466248291276}
+  sustainSeconds: 5
 --- !u!1 &1215593109106226948
 GameObject:
   m_ObjectHideFlags: 0
@@ -185,7 +222,7 @@ GameObject:
   - component: {fileID: 2906999768297968146}
   - component: {fileID: 3973978468496843040}
   m_Layer: 0
-  m_Name: MagicActiveFloor
+  m_Name: MagicInsideFloor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -245,7 +282,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 836987307
-  m_SortingLayer: 4
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -329,7 +366,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 836987307
-  m_SortingLayer: 4
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -356,6 +393,7 @@ GameObject:
   - component: {fileID: 4924376003885490738}
   - component: {fileID: 7212694276323073538}
   - component: {fileID: 7930489244872943270}
+  - component: {fileID: 5349171466248291276}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -402,6 +440,9 @@ MonoBehaviour:
   _MaxHealth: 0
   _IsDead:
     _value: 0
+  _ActiveMagicSlotNetworked: 0
+  _ActivatedMagicCode: 0
+  _AbsorbedMagicCode: 0
   _MagicAnchorLocalPosition: {x: 0, y: 0, z: 0}
   _MagicActive: 0
   _MagicActivationTick: 0
@@ -509,7 +550,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _stateAuthorityChangeErrorCorrectionDelta: 0
   SyncScale: 0
-  SyncParent: 0
+  SyncParent: 1
   _interpolationTarget: {fileID: 0}
   UsePreciseRotation: 0
   UseRenderSleepThresholds: 1
@@ -518,6 +559,19 @@ MonoBehaviour:
     Position: 0.01
     Rotation: 0.01
     Scale: 0.01
+--- !u!114 &5349171466248291276
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4305966876063921749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 994f685904a4fb84794a4080991e075d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  magicProjectilePrefab: {fileID: 1215593109106226948}
 --- !u!1 &8041769154365455347
 GameObject:
   m_ObjectHideFlags: 0
@@ -589,7 +643,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 836987307
-  m_SortingLayer: 4
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}

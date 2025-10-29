@@ -33,9 +33,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
     // Magic
     [Networked] public int ActiveMagicSlotNetworked { get; set; }
+    [Networked] public int ActivatedMagicCode { get; set; }
+    [Networked] public int AbsorbedMagicCode { get; set; }
     [Networked] public Vector3 MagicAnchorLocalPosition { get; set; } // 앵커의 로컬 위치 동기화
     [Networked] public bool MagicActive { get; set; }
-    [Networked] public TickTimer MagicCooldownTimer { get; set; }
     [Networked] public int MagicActivationTick { get; set; }
 
     // Teleporter
@@ -50,6 +51,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [SerializeField] private GameObject _magicIdleSecondFloor;
     [SerializeField] private GameObject _magicActiveFloor;
 
+    private GameDataManager _gameDataManager;
     private GameObject _viewObj;
     private Animator _animator;
     private ChangeDetector _changeDetector;
@@ -68,6 +70,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     #endregion
 
     #region Properties
+    public GameDataManager GameDataManager => _gameDataManager;
     public GameObject ViewObj => _viewObj;
     public PlayerBehavior Behavior => _behavior;
     public PlayerMagicController MagicController => _magicController;
@@ -91,6 +94,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     {
         // MainGameManager의 테스트 모드 확인
         _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
+        _gameDataManager = GameDataManager.Instance;
         _previousPosition = transform.position;
 
         InitializeComponents();
@@ -100,8 +104,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         // 초기화 및 데이터 동기화 대기
         StartCoroutine(InitializeAllComponents());
-
-        Debug.Log($"[PlayerController] Spawned - InputAuth: {Object.HasInputAuthority}, StateAuth: {Object.HasStateAuthority}, TestMode: {_isTestMode}");
     }
 
     /// <summary>
@@ -134,7 +136,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         if (_magicController != null)
         {
-            _magicController.Initialize(this);
+            _magicController.Initialize(this, GameDataManager);
             _magicController.SetMagicUIReferences(_magicViewObj, _magicAnchor, _magicIdleFirstFloor, _magicIdleSecondFloor, _magicActiveFloor);
         }
 
@@ -187,7 +189,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         if (!_state.IsDead)
         {
             _movement.ProcessInput(inputData, _isTestMode, PlayerSlot);
-            _magicController?.ProcessInput(inputData, this, _isTestMode);
+            if (inputData.HasValue)
+            {
+                _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
+            }
             _movement.Move();
         }
 
@@ -279,7 +284,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         _movement?.ResetVelocity();
 
-        Debug.Log($"[PlayerController] Player respawned at {spawnPosition}");
     }
 
     #endregion
@@ -299,17 +303,13 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     /// 서버가 MagicActive를 변경하면 자동으로 모든 클라이언트에 동기화됨
     /// </summary>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_ActivateMagic(int magicSlot)
+    public void RPC_ActivateMagic(int magicSlot, int activatedMagicCode)
     {
-        // 서버에서 MagicActive 변경 (자동으로 브로드캐스트됨)
-        if (!MagicActive)
-        {
-            MagicActive = true;
-            MagicActivationTick = Runner.Tick;
-
-            ActiveMagicSlotNetworked = magicSlot;
-            Debug.Log($"[PlayerController RPC] Magic activated - Slot: {magicSlot}, Tick: {MagicActivationTick}");
-        }
+        MagicActive = true;
+        ActivatedMagicCode = activatedMagicCode;
+        AbsorbedMagicCode = -1;
+        MagicActivationTick = Runner.Tick;
+        ActiveMagicSlotNetworked = magicSlot;
     }
 
     /// <summary>
@@ -319,15 +319,11 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_DeactivateMagic()
     {
-        // 서버에서 MagicActive 변경 (자동으로 브로드캐스트됨)
-        if (MagicActive)
-        {
-            MagicActive = false;
-            MagicActivationTick = 0;
-
-            ActiveMagicSlotNetworked = 0;
-            Debug.Log($"[PlayerController RPC] Magic deactivated");
-        }
+        MagicActive = false;
+        MagicActivationTick = 0;
+        ActivatedMagicCode = -1;
+        AbsorbedMagicCode = -1;
+        ActiveMagicSlotNetworked = 0;
     }
 
     /// <summary>
@@ -341,8 +337,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         {
             if (targetObj.TryGetComponent(out PlayerController targetController))
             {
-                targetController.RPC_NotifyAbsorbed();
-                Debug.Log($"[PlayerController RPC] Player {Object.InputAuthority} absorbed magic from {targetPlayer}");
+                AbsorbedMagicCode = targetController.ActivatedMagicCode;
+                targetController.RPC_NotifyAbsorbed(ActivatedMagicCode);
             }
         }
     }
@@ -351,19 +347,16 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     /// 마법이 흡수당했음을 알립니다. (State Authority → Target Player)
     /// </summary>
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    public void RPC_NotifyAbsorbed()
+    public void RPC_NotifyAbsorbed(int absorbedMagicCode)
     {
         // 흡수당한 플레이어의 마법 비활성화
         if (MagicActive)
         {
             MagicActive = false;
             MagicActivationTick = 0;
-            ActiveMagicSlotNetworked = 0;
-            
-            // MagicController에 흡수당했다고 알림
+            ActiveMagicSlotNetworked = -1;
+            AbsorbedMagicCode = -1;
             _magicController?.OnAbsorbed();
-            
-            Debug.Log($"[PlayerController RPC] Magic was absorbed by another player");
         }
     }
 
@@ -378,7 +371,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         if (Object.HasInputAuthority)
         {
             LoadingPanel.ShowForSeconds(duration);
-            Debug.Log($"[PlayerController RPC] Loading panel shown for {duration}s");
         }
     }
 
@@ -390,7 +382,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public void RPC_ShowLoadingPanelToAll()
     {
         LoadingPanel.Show();
-        Debug.Log($"[PlayerController RPC] Loading panel shown for all");
     }
 
     /// <summary>
@@ -420,7 +411,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _previousPosition = (Vector2)targetPosition;
         DidTeleport = true;
 
-        Debug.Log($"[PlayerController] Teleported to {targetPosition}");
     }
     #endregion
 
@@ -545,7 +535,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     private void DetectNetworkChanges()
     {
         bool magicStateChanged = false;
-        
+
         foreach (var change in _changeDetector.DetectChanges(this))
         {
             switch (change)
@@ -563,24 +553,29 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                     break;
 
                 case nameof(MagicActive):
+                    MagicController.UpdateMagicUIState(MagicActive);
                     magicStateChanged = true;
                     break;
 
                 case nameof(ActiveMagicSlotNetworked):
-                    // MagicActive와 함께 변경될 수 있으므로 플래그만 설정
+                    MagicController.UpdateMagicUIState(MagicActive);
                     magicStateChanged = true;
                     break;
 
                 case nameof(MagicAnchorLocalPosition):
-                    _magicController?.UpdateAnchorPositionFromNetwork(MagicAnchorLocalPosition);
+                    _magicController.UpdateMagicUIState(MagicActive);
+                    break;
+
+                case nameof(AbsorbedMagicCode):
+                    _magicController.UpdateMagicUIState(MagicActive);
                     break;
             }
         }
-        
+
         // 마법 상태가 변경되었을 때만 한 번 호출 (중복 방지)
         if (magicStateChanged)
         {
-            _magicController?.UpdateMagicUIFromNetwork(MagicActive);
+            MagicController.UpdateMagicUIState(MagicActive);
         }
     }
     #endregion

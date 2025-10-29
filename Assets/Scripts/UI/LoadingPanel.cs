@@ -122,8 +122,6 @@ public class LoadingPanel : MonoBehaviour
         {
             _animator.Play("Open");
         }
-
-        Debug.Log("[LoadingPanel] Show");
     }
 
     private void HideInternal()
@@ -134,7 +132,6 @@ public class LoadingPanel : MonoBehaviour
         }
 
         StartCoroutine(DisableAfterAnimation());
-        Debug.Log("[LoadingPanel] Hide");
     }
 
     private void ShowForSecondsInternal(float duration)
@@ -183,8 +180,6 @@ public class LoadingPanel : MonoBehaviour
         {
             _image.raycastTarget = false;
         }
-        
-        Debug.Log("[LoadingPanel] Fully Hidden");
     }
     #endregion
 

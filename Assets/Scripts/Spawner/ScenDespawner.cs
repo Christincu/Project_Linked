@@ -12,22 +12,18 @@ public class ScenDespawner : MonoBehaviour
 {
     #region Serialized Fields
     [Header("Scene Transition Settings")]
-    [Tooltip("이동할 씬 이름")]
+    [Tooltip("Target scene name to transition to")]
     [SerializeField] private string targetSceneName;
 
-    [Tooltip("씬 전환 쿨다운 (초) - 중복 트리거 방지")]
+    [Tooltip("Scene transition cooldown (seconds) - prevents duplicate triggers")]
     [SerializeField] private float cooldown = 2f;
     
-    [Tooltip("씬 로드 실행 전 대기 시간 (로딩 화면 페이드 인)")]
+    [Tooltip("Delay before scene load execution (loading screen fade in)")]
     [SerializeField] private float sceneLoadDelay = 0.3f;
 
     [Header("Visual Settings")]
-    [Tooltip("트리거 영역 표시 색상")]
+    [Tooltip("Trigger area display color")]
     [SerializeField] private Color gizmoColor = new Color(0f, 0.5f, 1f, 0.3f);
-
-    [Header("UI Settings")]
-    [Tooltip("씬 전환 시 표시할 메시지")]
-    [SerializeField] private string transitionMessage = "다음 지역으로 이동 중...";
     #endregion
 
     #region Private Fields
@@ -111,8 +107,6 @@ public class ScenDespawner : MonoBehaviour
         _isOnCooldown = true;
         _cooldownTimer = cooldown;
 
-        Debug.Log($"[ScenDespawner] Scene transition started: {targetSceneName}");
-
         // 모든 플레이어에게 로딩 패널 표시 (PlayerController의 RPC 사용)
         ShowLoadingPanelToAllPlayers();
         
@@ -127,7 +121,7 @@ public class ScenDespawner : MonoBehaviour
         PlayerController[] allPlayers = FindObjectsOfType<PlayerController>();
         foreach (var player in allPlayers)
         {
-            if (player != null && player.Object != null)
+            if (player != null && player.gameObject != null && player.gameObject.activeInHierarchy && player.Object != null)
             {
                 player.RPC_ShowLoadingPanelToAll();
             }

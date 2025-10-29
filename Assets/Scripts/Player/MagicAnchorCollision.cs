@@ -40,28 +40,6 @@ public class MagicAnchorCollision : MonoBehaviour
             }
         }
     }
-    
-    /// <summary>
-    /// 충돌 종료를 감지합니다.
-    /// </summary>
-    private void OnTriggerExit2D(Collider2D other)
-    {
-        if (_magicController == null) return;
-        
-        // 충돌 대상의 MagicAnchorCollision 스크립트 가져오기
-        MagicAnchorCollision otherAnchor = other.GetComponent<MagicAnchorCollision>();
-        
-        if (otherAnchor != null)
-        {
-            PlayerController otherPlayer = otherAnchor.GetOtherPlayerController();
-            
-            if (otherPlayer != null)
-            {
-                // 충돌 종료 로직을 PlayerMagicController로 위임
-                _magicController.OnPlayerCollisionExit(otherPlayer);
-            }
-        }
-    }
 
     /// <summary>
     /// 외부에서 이 충돌 오브젝트의 PlayerController를 안전하게 가져오기 위한 Public 메서드

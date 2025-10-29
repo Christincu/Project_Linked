@@ -76,12 +76,7 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log($"Player {player} has left!");
 
-        // MainGameManager에 플레이어 퇴장 알림 (Main 씬에서만)
-        if (MainGameManager.Instance != null)
-        {
-            MainGameManager.Instance.OnPlayerLeft(player, runner);
-        }
-
+        // 이벤트만 발생시키고, MainGameManager는 이벤트를 구독해서 처리하도록 변경
         OnPlayerLeftEvent?.Invoke(player, runner);
     }
 

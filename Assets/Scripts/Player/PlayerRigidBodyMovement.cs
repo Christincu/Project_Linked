@@ -57,8 +57,6 @@ public class PlayerRigidBodyMovement : MonoBehaviour
         }
 
         ConfigureRigidbody();
-
-        Debug.Log($"[PlayerRigidBodyMovement] Initialized - Speed: {_moveSpeed}, MaxVel: {_maxVelocity}");
     }
 
     /// <summary>
