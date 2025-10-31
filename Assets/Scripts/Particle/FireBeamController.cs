@@ -4,7 +4,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class FireBeamController : MonoBehaviour
 {
-    #region === 인터페이스 정의 ===
+    #region 인터페이스
     /// <summary>
     /// FireBeamController가 외부에서 공격 속도(초당 공격 횟수)를 받아올 수 있게 하는 인터페이스.
     /// </summary>
@@ -18,24 +18,24 @@ public class FireBeamController : MonoBehaviour
     }
     #endregion
 
-    #region === Refs ===
+    #region Refs
     [Header("References")]
     [Tooltip("비워두면 MainCamera 자동 할당")]
     public Camera cam;
 
-    [Tooltip("빔 회전의 기준이 되는 축(필수)")]
+    [Tooltip("빔 회전의 기준이 되는 축")]
     public Transform startPointAnchor;
 
-    [Tooltip("시각용 파티클(회전/이동 건드리지 않음)")]
+    [Tooltip("시각용 파티클")]
     public ParticleSystem vfx;
 
-    [Tooltip("끝점(퍼지는 부분) 콜라이더 (CircleCollider2D, Trigger)")]
+    [Tooltip("끝점 콜라이더 ")]
     public CircleCollider2D aimCollider;
     #endregion
 
-    #region === Options ===
+    #region Options
     [Header("General Options")]
-    [Tooltip("활성 시, 시작 프레임 방향으로 고정 (마우스 추적 안함)")]
+    [Tooltip("활성 시, 시작 프레임 방향으로 고정")]
     public bool lockDirectionOnStart = false;
 
     [Tooltip("시작점과 끝점 사이 거리")]
@@ -44,13 +44,13 @@ public class FireBeamController : MonoBehaviour
     [Tooltip("끝점 콜라이더 반경")]
     public float aimColliderRadius = 0.35f;
 
-    [Tooltip("좌우 반전 기준 (비우면 현재 오브젝트)")]
+    [Tooltip("좌우 반전 기준")]
     public Transform facingPivot;
 
     public bool flipByScaleX = true;
     public int manualFacing = 1;
 
-    [Tooltip("콘 축 보정 (+X=0, +Y=-90 등)")]
+    [Tooltip("콘 축 보정")]
     public float axisOffsetDeg = 0f;
 
     [Tooltip("빔 유지 시간(초)")]
@@ -60,7 +60,7 @@ public class FireBeamController : MonoBehaviour
     public bool debugDraw = false;
     #endregion
 
-    #region === 공격 관련 설정 ===
+    #region 공격 관련 설정
     [Header("Attack Settings")]
     [Tooltip("부채꼴 반각(°)")]
     public float coneAngle = 60f;
@@ -90,14 +90,14 @@ public class FireBeamController : MonoBehaviour
     public float blinkDuration = 0.12f;
     #endregion
 
-    #region === Attack Rate Provider ===
-    [Header("Attack Rate Provider (Optional)")]
-    [Tooltip("공격 속도를 외부에서 제어하고 싶을 때 연결 (IAttackRateProvider 구현체)")]
+    #region Attack Rate Provider
+    [Header("Attack Rate Provider")]
+    [Tooltip("공격 속도를 외부에서 제어하고 싶을 때 연결")]
     public MonoBehaviour attackRateProviderBehaviour;
     private IAttackRateProvider _rateProvider;
     #endregion
 
-    #region === Private Fields ===
+    #region Private Fields
     private Camera _cam;
     private float _endTime;
     private float _nextFireTime;
@@ -107,7 +107,7 @@ public class FireBeamController : MonoBehaviour
     private readonly HashSet<GameObject> _hitThisBurst = new();
     #endregion
 
-    #region === Unity Lifecycle ===
+    #region Unity Lifecycle
     void Awake()
     {
         _cam = cam ? cam : Camera.main;
@@ -179,7 +179,7 @@ public class FireBeamController : MonoBehaviour
     void OnDestroy() { StopAllCoroutines(); }
     #endregion
 
-    #region === Aim / Visual ===
+    #region Aim / Visual
     private void ComputeEndAndDirection(out Vector3 endPos, out float endAngleDeg)
     {
         Vector3 origin = startPointAnchor.position;
@@ -216,7 +216,7 @@ public class FireBeamController : MonoBehaviour
     }
     #endregion
 
-    #region === Attack Rate ===
+    #region Attack Rate
     private float GetCurrentAPS()
     {
         if (_rateProvider != null)
@@ -228,7 +228,7 @@ public class FireBeamController : MonoBehaviour
     }
     #endregion
 
-    #region === Raycast Logic ===
+    #region Raycast Logic
     private void CastConeRaycasts()
     {
         _hitThisBurst.Clear();
@@ -272,7 +272,7 @@ public class FireBeamController : MonoBehaviour
     }
     #endregion
 
-    #region === Blink Effect ===
+    #region Blink Effect
     private System.Collections.IEnumerator Blink(SpriteRenderer sr, float dur)
     {
         if (!sr) yield break;
