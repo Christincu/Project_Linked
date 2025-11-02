@@ -460,7 +460,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         var data = GameDataManager.Instance.CharacterService.GetCharacter(CharacterIndex);
 
-        if (data != null && data.characterAnimator != null)
+        if (data != null)
         {
             if (_viewObj != null) Destroy(_viewObj);
 
@@ -480,15 +480,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                 instance.transform.SetParent(transform, false);
             }
 
-            _viewObj = instance;
-
-            _animator = _viewObj.AddComponent<Animator>();
-            SpriteRenderer _spriteRenderer = _viewObj.AddComponent<SpriteRenderer>();
-
-            _spriteRenderer.sprite = data.characterSprite;
-            _spriteRenderer.material = GameDataManager.Instance.DefaltSpriteMat;
-
-            _animator.runtimeAnimatorController = data.characterAnimator;
+            _viewObj = Instantiate(data.viewObj, instance.transform);
+            _animator = _viewObj.GetComponent<Animator>();
         }
     }
     #endregion

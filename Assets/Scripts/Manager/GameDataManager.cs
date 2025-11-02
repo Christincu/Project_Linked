@@ -17,6 +17,7 @@ public class GameDataManager : MonoBehaviour
     [Header("Services")]
     [SerializeField] private CharacterService _characterService = new CharacterService();
     [SerializeField] private MagicService _magicService = new MagicService();
+    [SerializeField] private EnemyService _enemyService = new EnemyService();
 
     #region Properties
     public Material DefaltSpriteMat => _defaltSpriteMat;
@@ -35,6 +36,11 @@ public class GameDataManager : MonoBehaviour
     /// 마법 서비스에 대한 접근을 제공합니다.
     /// </summary>
     public MagicService MagicService => _magicService;
+    
+    /// <summary>
+    /// 적 서비스에 대한 접근을 제공합니다.
+    /// </summary>
+    public EnemyService EnemyService => _enemyService;
     #endregion
 
     #region Singleton
