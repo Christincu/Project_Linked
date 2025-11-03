@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Fusion;
-using Fusion.Addons.Physics;
+using UnityEngine.AI;
 
 /// <summary>
 /// 적의 물리 기반 이동을 처리합니다. (NetworkRigidbody2D 필수)
@@ -10,8 +10,7 @@ using Fusion.Addons.Physics;
 public class EnemyMovement : MonoBehaviour
 {
     #region Private Fields
-    private NetworkRigidbody2D _networkRb;
-    private Rigidbody2D _rigidbody;
+    private NavMeshAgent _navMeshAgent;
     private EnemyController _controller;
     private Vector2 _targetDirection;
 
@@ -24,11 +23,20 @@ public class EnemyMovement : MonoBehaviour
     #endregion
 
     #region Properties
-    public NetworkRigidbody2D NetworkRigidbody2D => _networkRb;
-    public Rigidbody2D Rigidbody => _rigidbody;
     public Vector2 TargetDirection => _targetDirection;
     public bool IsMoving => _isMovingToTarget;
     #endregion
+
+    private void Awake()
+    {
+        var agent = GetComponent<NavMeshAgent>();
+        if (agent != null)
+        {
+            // 2D 평면 고정을 위한 기본 설정
+            agent.updateRotation = false;
+            agent.updateUpAxis = false;
+        }
+    }
 
     #region Initialization
     /// <summary>
@@ -39,36 +47,36 @@ public class EnemyMovement : MonoBehaviour
         _controller = controller;
         _enemyData = data;
 
-        // NetworkRigidbody2D 컴포넌트 가져오기 (필수)
-        _networkRb = GetComponent<NetworkRigidbody2D>();
-
-        if (_networkRb != null)
+        // NavMeshAgent 컴포넌트 확보 (없으면 추가)
+        _navMeshAgent = GetComponent<NavMeshAgent>();
+        if (_navMeshAgent == null)
         {
-            _rigidbody = _networkRb.Rigidbody;
-        }
-        else
-        {
-            // NetworkRigidbody2D가 없으면 경고 후 Rigidbody만 사용
-            Debug.LogError("[EnemyMovement] NetworkRigidbody2D is missing! Movement will not be networked.");
-            _rigidbody = GetComponent<Rigidbody2D>() ?? gameObject.AddComponent<Rigidbody2D>();
+            _navMeshAgent = gameObject.AddComponent<NavMeshAgent>();
         }
 
-        ConfigureRigidbody();
+        ConfigureNavMeshAgent();
     }
 
     /// <summary>
-    /// Rigidbody2D를 2D 탑다운 게임에 맞게 설정합니다.
+    /// NavMeshAgent를 2D 탑다운에 맞게 설정합니다.
     /// </summary>
-    private void ConfigureRigidbody()
+    private void ConfigureNavMeshAgent()
     {
-        if (_rigidbody == null) return;
+        if (_navMeshAgent == null) return;
 
-        _rigidbody.freezeRotation = true;
-        _rigidbody.gravityScale = 0f;
-        _rigidbody.drag = 0f;
-        _rigidbody.angularDrag = 0f;
-        _rigidbody.interpolation = RigidbodyInterpolation2D.None;
-        _rigidbody.sleepMode = RigidbodySleepMode2D.NeverSleep;
+        // 2D 전개 설정 (NavMeshComponents 2D 설정과 호환)
+        _navMeshAgent.updateRotation = false;
+        _navMeshAgent.updateUpAxis = false;
+        _navMeshAgent.angularSpeed = 0f;
+        _navMeshAgent.autoBraking = true;
+
+        if (_enemyData != null)
+        {
+            _navMeshAgent.speed = _enemyData.moveSpeed;
+            // NavMeshAgent.acceleration은 유닛/초^2 기준
+            _navMeshAgent.acceleration = Mathf.Max(0.1f, _enemyData.acceleration * 10f);
+            _navMeshAgent.stoppingDistance = Mathf.Max(0f, _enemyData.stopDistance);
+        }
     }
     #endregion
 
@@ -80,6 +88,11 @@ public class EnemyMovement : MonoBehaviour
     {
         _targetPosition = targetPosition;
         _isMovingToTarget = true;
+        if (_navMeshAgent != null)
+        {
+            _navMeshAgent.isStopped = false;
+            _navMeshAgent.SetDestination(_targetPosition);
+        }
     }
 
     /// <summary>
@@ -89,9 +102,11 @@ public class EnemyMovement : MonoBehaviour
     {
         _isMovingToTarget = false;
         _targetDirection = Vector2.zero;
-        if (_rigidbody != null)
+        if (_navMeshAgent != null)
         {
-            _rigidbody.velocity = Vector2.zero;
+            _navMeshAgent.isStopped = true;
+            _navMeshAgent.ResetPath();
+            _navMeshAgent.velocity = Vector3.zero;
         }
     }
 
@@ -100,7 +115,7 @@ public class EnemyMovement : MonoBehaviour
     /// </summary>
     public void UpdateMovement()
     {
-        if (_rigidbody == null || _controller == null || _enemyData == null) return;
+        if (_navMeshAgent == null || _controller == null || _enemyData == null) return;
 
         // 사망 상태면 이동 불가
         if (_controller.IsDead)
@@ -112,75 +127,26 @@ public class EnemyMovement : MonoBehaviour
         // 이동 중이면 목표 위치로 이동
         if (_isMovingToTarget)
         {
-            Vector2 currentPos = transform.position;
-            Vector2 direction = _targetPosition - currentPos;
-            float distance = direction.magnitude;
-
-            // 목표 위치 도착
-            if (distance <= _enemyData.stopDistance)
+            // 경로 계산이 끝났고, 목적지에 충분히 근접하면 정지
+            if (!_navMeshAgent.pathPending)
             {
-                Stop();
-                return;
+                if (_navMeshAgent.remainingDistance <= _navMeshAgent.stoppingDistance)
+                {
+                    if (!_navMeshAgent.hasPath || _navMeshAgent.velocity.sqrMagnitude <= 0.001f)
+                    {
+                        Stop();
+                        return;
+                    }
+                }
             }
 
-            _targetDirection = direction.normalized;
+            // 애니메이션 방향용
+            Vector3 desired = _navMeshAgent.desiredVelocity;
+            _targetDirection = new Vector2(desired.x, desired.y).normalized;
         }
         else
         {
             _targetDirection = Vector2.zero;
-        }
-
-        // 이동 처리
-        ApplyMovement();
-    }
-
-    /// <summary>
-    /// 목표 방향으로 이동을 적용합니다.
-    /// </summary>
-    private void ApplyMovement()
-    {
-        if (_rigidbody == null) return;
-
-        // 틱 시간 가져오기
-        float deltaTime = _controller.Runner != null ? _controller.Runner.DeltaTime : Time.fixedDeltaTime;
-
-        if (_targetDirection.magnitude > 0 && _enemyData != null)
-        {
-            // 목표 속도 계산
-            Vector2 targetVelocity = _targetDirection * _enemyData.moveSpeed;
-
-            // 가속도 적용 (Lerp 방식)
-            if (_enemyData.acceleration >= 1f)
-            {
-                // 즉시 이동
-                _rigidbody.velocity = targetVelocity;
-            }
-            else
-            {
-                // 부드러운 가속
-                float lerpRatio = _enemyData.acceleration * deltaTime * 10f;
-                _rigidbody.velocity = Vector2.Lerp(_rigidbody.velocity, targetVelocity, lerpRatio);
-            }
-        }
-        else
-        {
-            // 목표 방향이 없으면 즉시 정지
-            _rigidbody.velocity = Vector2.zero;
-        }
-
-        LimitSpeed();
-    }
-
-    /// <summary>
-    /// 최대 속도를 제한합니다.
-    /// </summary>
-    private void LimitSpeed()
-    {
-        if (_rigidbody == null || _enemyData == null || _enemyData.maxVelocity <= 0) return;
-
-        if (_rigidbody.velocity.magnitude > _enemyData.maxVelocity)
-        {
-            _rigidbody.velocity = _rigidbody.velocity.normalized * _enemyData.maxVelocity;
         }
     }
 
@@ -189,17 +155,16 @@ public class EnemyMovement : MonoBehaviour
     /// </summary>
     public void ResetVelocity()
     {
-        if (_rigidbody != null)
+        if (_navMeshAgent != null)
         {
-            _rigidbody.velocity = Vector2.zero;
+            _navMeshAgent.velocity = Vector3.zero;
         }
     }
     #endregion
 
     #region Public Getters
-    public Vector2 GetVelocity() => _rigidbody != null ? _rigidbody.velocity : Vector2.zero;
-    public float GetMoveSpeed() => _enemyData != null ? _enemyData.moveSpeed : 0f;
-    public bool HasNetworkRigidbody() => _networkRb != null;
+    public Vector2 GetVelocity() => _navMeshAgent != null ? (Vector2)_navMeshAgent.velocity : Vector2.zero;
+    public float GetMoveSpeed() => _navMeshAgent != null ? _navMeshAgent.speed : (_enemyData != null ? _enemyData.moveSpeed : 0f);
     #endregion
 }
 

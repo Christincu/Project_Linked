@@ -32,7 +32,7 @@ public class PlayerMagicController : MonoBehaviour
     private SpriteRenderer _idleSecondFloorRenderer;
     private SpriteRenderer _activeInsideRenderer;
 
-    private bool _isPlayerColliding = false; // 다른 플레이어와 충돌 중인지
+    //private bool _isPlayerColliding = false; // 다른 플레이어와 충돌 중인지
     private PlayerController _collidingPlayer = null; // 충돌 중인 플레이어
 
     private bool _magicUIToggleActive = false; // 토글 상태: 마법 UI가 활성화되어 있는지
@@ -404,7 +404,6 @@ public class PlayerMagicController : MonoBehaviour
         if (_controller.Object.Id.Raw > otherPlayer.Object.Id.Raw) return; // 중복 처리 방지
         if (!_controller.MagicActive || !otherPlayer.MagicActive) return;
 
-        _isPlayerColliding = true;
         _collidingPlayer = otherPlayer;
         
         // 양쪽 플레이어 정보 캡처

@@ -66,9 +66,11 @@ public class EnemyDetector : MonoBehaviour
         {
             allPlayers = MainGameManager.Instance.GetAllPlayers();
         }
-        else
+        
+        // 보조 안전망: 리스트가 비면 씬에서 직접 검색
+        if (allPlayers == null || allPlayers.Count == 0)
         {
-            allPlayers.AddRange(FindObjectsOfType<PlayerController>());
+            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
         }
 
         foreach (var player in allPlayers)
@@ -83,10 +85,7 @@ public class EnemyDetector : MonoBehaviour
             // 1. 거리 체크
             if (distance > _enemyData.detectionRange) continue;
 
-            // 2. 각도 체크 (시야각)
-            Vector2 enemyForward = GetEnemyForward();
-            float angle = Vector2.Angle(direction.normalized, enemyForward);
-            if (angle > _enemyData.detectionAngle * 0.5f) continue;
+            // 2. 각도 체크 제거 (360도 전방위 탐지)
 
             // 3. 시야 체크 (레이캐스트로 장애물 확인)
             if (!HasLineOfSight(enemyPos, playerPos)) continue;
@@ -101,14 +100,7 @@ public class EnemyDetector : MonoBehaviour
         return false;
     }
 
-    /// <summary>
-    /// 적의 앞 방향을 반환합니다 (위쪽 기본).
-    /// </summary>
-    private Vector2 GetEnemyForward()
-    {
-        // 탑뷰 게임이므로 기본적으로 위쪽 방향
-        return Vector2.up;
-    }
+    // 전방위 탐지이므로 전방 계산 함수는 불필요
 
     /// <summary>
     /// 두 지점 사이에 시야가 있는지 확인합니다 (벽 체크).

@@ -144,8 +144,16 @@ public class EnemySpawner : MonoBehaviour
     /// </summary>
     void OnDrawGizmos()
     {
+        // 스폰 포인트 표시
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, 0.5f);
+
+        // 시야 범위 표시 (enemyData가 있으면)
+        if (enemyData != null)
+        {
+            Gizmos.color = new Color(0f, 1f, 0f, 0.6f);
+            Gizmos.DrawWireSphere(transform.position, enemyData.detectionRange);
+        }
     }
     #endif
 }
