@@ -620,8 +620,26 @@ public class MainGameManager : MonoBehaviour
     /// </summary>
     public List<PlayerController> GetAllPlayers()
     {
+        // 테스트 모드: 로컬에서 생성한 두 플레이어를 모두 반환
+        if (_isTestMode)
+        {
+            var result = new List<PlayerController>();
+            if (_playerObj1 != null && _playerObj1.IsValid)
+            {
+                var c1 = _playerObj1.GetComponent<PlayerController>();
+                if (c1 != null) result.Add(c1);
+            }
+            if (_playerObj2 != null && _playerObj2.IsValid)
+            {
+                var c2 = _playerObj2.GetComponent<PlayerController>();
+                if (c2 != null) result.Add(c2);
+            }
+            return result;
+        }
+
+        // 네트워크 모드: 서버/클라이언트가 등록한 맵을 기준으로 반환
         return _spawnedPlayers.Values
-            .Select(obj => obj.GetComponent<PlayerController>())
+            .Select(obj => obj != null ? obj.GetComponent<PlayerController>() : null)
             .Where(controller => controller != null)
             .ToList();
     }
