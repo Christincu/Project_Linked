@@ -41,6 +41,10 @@ public class EnemyData : ScriptableObject
     
     [Tooltip("시야 각도 (0 ~ 180도)")]
     [Range(0f, 180f)] public float detectionAngle = 120f;
+    
+    [Header("Visualization Settings")]
+    [Tooltip("시야 범위 표시 트리거 범위 (플레이어가 이 범위 안에 들어가면 시야 범위 표시, 0이면 항상 표시)")]
+    public float visualizationTriggerRange = 10f;
 
     [Header("Behavior Settings")]
     [Tooltip("탐지 후 대기 시간 (초)")]
