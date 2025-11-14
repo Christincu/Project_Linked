@@ -281,6 +281,11 @@ Transform:
   - {fileID: 1773423237}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!320 &472177101 stripped
+PlayableDirector:
+  m_CorrespondingSourceObject: {fileID: 5365930625993193416, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+  m_PrefabInstance: {fileID: 1992460748216314055}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &680381371
 GameObject:
   m_ObjectHideFlags: 0
@@ -452,6 +457,11 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &790227259 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5258773692978159340, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+  m_PrefabInstance: {fileID: 1992460748216314055}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &915306676
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1544,9 +1554,37 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1518421694}
     - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: cutscene2
+      value: 
+      objectReference: {fileID: 472177101}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: obstacleToDisable
+      value: 
+      objectReference: {fileID: 790227259}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: enemiesToWatch.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: controlsToDisable.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: enemiesToWatch.Array.data[0]
+      value: 
+      objectReference: {fileID: 942893984}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: gameplayUIRoots.Array.data[0]
       value: 
       objectReference: {fileID: 1518421694}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: useEnemyClearForSecondCutscene
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: controlsToDisable.Array.data[0]
+      value: 
+      objectReference: {fileID: 4600561303719498630, guid: 8c37017ae471a3245bf694d928af1960, type: 3}
     - target: {fileID: 5365930625993193416, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: m_SceneBindings.Array.data[0].value
       value: 
