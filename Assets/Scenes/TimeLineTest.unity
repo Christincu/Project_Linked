@@ -247,6 +247,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac0b09e7857660247b1477e93731de29, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &119905833 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8704030826150756304, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+  m_PrefabInstance: {fileID: 1992460748216314055}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3207132510ada2e438183f7c93cce5cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &454849220
 GameObject:
   m_ObjectHideFlags: 0
@@ -625,6 +636,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ac0b09e7857660247b1477e93731de29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1140824779 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 129274288709789440, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+  m_PrefabInstance: {fileID: 1992460748216314055}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3207132510ada2e438183f7c93cce5cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1169034970
@@ -1554,6 +1576,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1518421694}
     - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: dialogue
+      value: 
+      objectReference: {fileID: 1140824779}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: cutscene2
       value: 
       objectReference: {fileID: 472177101}
@@ -1601,6 +1627,18 @@ PrefabInstance:
       propertyPath: m_ExposedReferences.m_References.Array.data[2].second
       value: 
       objectReference: {fileID: 1293661886}
+    - target: {fileID: 5800478143706987336, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: dialogue
+      value: 
+      objectReference: {fileID: 119905833}
+    - target: {fileID: 5800478143706987336, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: controlsToDisable.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5800478143706987336, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: controlsToDisable.Array.data[0]
+      value: 
+      objectReference: {fileID: 4600561303719498630, guid: 8c37017ae471a3245bf694d928af1960, type: 3}
     - target: {fileID: 6219243444645000994, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: m_Name
       value: CutScene_1
