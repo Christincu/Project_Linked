@@ -257,7 +257,7 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 6431306353047114052, guid: 2bed9429d78ddb141828843b72e8885a, type: 3}
   m_PrefabInstance: {fileID: 1496281600}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &555064454
+--- !u!114 &555064458
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -272,16 +272,20 @@ MonoBehaviour:
   mode: 2
   startDelaySeconds: 3
   playerTag: Player
-  requiredPlayersInZone: 1
+  requiredPlayersInZone: 2
   useFirstEnteredAsLeader: 1
   controlsToDisable:
-  - {fileID: 4600561303719498630, guid: 8c37017ae471a3245bf694d928af1960, type: 3}
-  leaderMoveComponent: {fileID: 4600561303719498630, guid: 8c37017ae471a3245bf694d928af1960, type: 3}
-  gameplayUIRoots: []
+  - {fileID: 0}
+  gameplayUIRoots:
+  - {fileID: 1518421694}
   dialogue: {fileID: 892967036}
   dialogueCategory: 1ch_Test1
   cutscene1: {fileID: 418315332}
   cutscene2: {fileID: 0}
+  syncCutsceneForAllPlayers: 0
+  onRequestSyncStart:
+    m_PersistentCalls:
+      m_Calls: []
   onSequenceFinished:
     m_PersistentCalls:
       m_Calls: []
@@ -456,49 +460,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &769229853 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 6709361214498535975, guid: 2bed9429d78ddb141828843b72e8885a, type: 3}
-  m_PrefabInstance: {fileID: 1496281600}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &769229858
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 769229853}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f6c2dc0ecc53ed4eb43af60b57ed95d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mode: 0
-  startDelaySeconds: 3
-  playerTag: Player
-  requiredPlayersInZone: 1
-  useFirstEnteredAsLeader: 1
-  controlsToDisable: []
-  leaderMoveComponent: {fileID: 0}
-  gameplayUIRoots: []
-  dialogue: {fileID: 780595583}
-  dialogueCategory: 1ch_Test1
-  cutscene1: {fileID: 0}
-  cutscene2: {fileID: 0}
-  onSequenceFinished:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!114 &780595583 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5766374045355373022, guid: 2bed9429d78ddb141828843b72e8885a, type: 3}
-  m_PrefabInstance: {fileID: 1496281600}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3207132510ada2e438183f7c93cce5cb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &892967036 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2467241593725243784, guid: 2bed9429d78ddb141828843b72e8885a, type: 3}
@@ -1105,11 +1066,13 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 6431306353047114052, guid: 2bed9429d78ddb141828843b72e8885a, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 555064454}
-    - targetCorrespondingSourceObject: {fileID: 6709361214498535975, guid: 2bed9429d78ddb141828843b72e8885a, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 769229858}
+      addedObject: {fileID: 555064458}
   m_SourcePrefab: {fileID: 100100000, guid: 2bed9429d78ddb141828843b72e8885a, type: 3}
+--- !u!1 &1518421694 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6663652681012781032, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+  m_PrefabInstance: {fileID: 2996448766545788971}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1540077151
 GameObject:
   m_ObjectHideFlags: 0
