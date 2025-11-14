@@ -1636,7 +1636,7 @@ PrefabInstance:
       objectReference: {fileID: 790227259}
     - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: enemiesToWatch.Array.size
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: controlsToDisable.Array.size
@@ -1645,7 +1645,11 @@ PrefabInstance:
     - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: enemiesToWatch.Array.data[0]
       value: 
-      objectReference: {fileID: 942893984}
+      objectReference: {fileID: 1809895961}
+    - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: enemiesToWatch.Array.data[1]
+      value: 
+      objectReference: {fileID: 915306677}
     - target: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: gameplayUIRoots.Array.data[0]
       value: 
