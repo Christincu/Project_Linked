@@ -4,18 +4,17 @@ using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Events;
 
-
 [DisallowMultipleComponent]
-[RequireComponent(typeof(Collider2D))] 
+[RequireComponent(typeof(Collider2D))]
 public class CutsceneZoneTimeline : MonoBehaviour
 {
-    #region Mode
+    #region ▣ Mode
     public enum FlowMode
     {
-        DialogueOnly,
-        TimelineOnly,
-        DialogueThenTimeline,
-        TimelineThenDialogue
+        DialogueOnly,          // 존 진입 → 대사만
+        TimelineOnly,          // 존 진입 → 타임라인만
+        DialogueThenTimeline,  // 존 진입 → 대사 → 타임라인
+        TimelineThenDialogue   // 존 진입 → 타임라인 → 대사
     }
 
     [Header("Flow")]
@@ -45,9 +44,9 @@ public class CutsceneZoneTimeline : MonoBehaviour
     #endregion
 
     #region Control Lock
-    [Header("Control Lock")]
-    [Tooltip("컷신/대사 중 비활성화할 플레이어 컨트롤 스크립트들만 넣어두기")]
-    public List<Behaviour> controlsToDisable = new();
+    [Header("Control Lock (Optional)")]
+    [Tooltip("컷신/대사 중 끄고 싶은 추가 스크립트들(필요할 때만 넣기)")]
+    public List<Behaviour> extraControlsToDisable = new();
     #endregion
 
     #region Gameplay UI
@@ -76,16 +75,16 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     #region Multiplayer Sync
     [Header("Multiplayer Sync")]
-    [Tooltip("체크하면 '모든 플레이어에게 동시에 컷신' 모드로 동작")]
+    [Tooltip("체크하면 '모든 플레이어 동시에 컷신' 모드로 동작")]
     public bool syncCutsceneForAllPlayers = false;
 
-    [Tooltip("syncCutsceneForAllPlayers=true 일 때, 트리거에 들어온 쪽에서 한 번만 호출되는 이벤트.\n")]
+    [Tooltip("syncCutsceneForAllPlayers=true 일 때, 트리거에 들어온 쪽에서 한 번만 호출되는 이벤트.\n" )]
     public UnityEvent onRequestSyncStart;
     #endregion
 
     #region Events
     [Header("Events (Optional)")]
-    [Tooltip("전체 시퀀스 끝났을 때 호출되는 이벤트")]
+    [Tooltip("전체 시퀀스(Dialogue+Timeline) 끝났을 때 호출되는 이벤트")]
     public UnityEvent onSequenceFinished;
     #endregion
 
@@ -122,7 +121,6 @@ public class CutsceneZoneTimeline : MonoBehaviour
     #endregion
 
     #region Flow 진입부
-
     private void TryStart()
     {
         if (_started) return;
@@ -144,14 +142,8 @@ public class CutsceneZoneTimeline : MonoBehaviour
             StartCoroutine(RunFlowWithDelay());
         }
     }
-
     public void StartSequenceForAll()
     {
-        if (_started && !syncCutsceneForAllPlayers)
-        {
-            return;
-        }
-
         StartCoroutine(RunFlowWithDelay());
     }
 
@@ -165,8 +157,10 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     private IEnumerator RunFlow()
     {
+        // HUD/조작 UI 숨기기
         ToggleGameplayUI(false);
 
+        // 시작할 때 조작 잠금
         LockControls(true);
 
         switch (mode)
@@ -190,6 +184,7 @@ public class CutsceneZoneTimeline : MonoBehaviour
                 break;
         }
 
+        // 전체 시퀀스 끝 → 조작 해제 + HUD 복구
         LockControls(false, forceAll: true);
         ToggleGameplayUI(true);
 
@@ -258,12 +253,27 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     private void LockControls(bool on, bool forceAll = false)
     {
-        if (controlsToDisable == null) return;
-
-        foreach (var comp in controlsToDisable)
+        // 플레이어들의 이동/마법 스크립트 끄기
+        var players = GameObject.FindGameObjectsWithTag(playerTag);
+        foreach (var p in players)
         {
-            if (!comp) continue;
-            comp.enabled = !on;
+            if (!p) continue;
+
+            var movement = p.GetComponent<PlayerRigidBodyMovement>();
+            if (movement) movement.enabled = !on;
+
+            var magic = p.GetComponent<PlayerMagicController>();
+            if (magic) magic.enabled = !on;
+        }
+
+        // 추가로 끄고 싶은 스크립트들
+        if (extraControlsToDisable != null)
+        {
+            foreach (var comp in extraControlsToDisable)
+            {
+                if (!comp) continue;
+                comp.enabled = !on;
+            }
         }
     }
 
@@ -278,6 +288,7 @@ public class CutsceneZoneTimeline : MonoBehaviour
         }
     }
 
+    // 타임라인 Signal에서 직접 호출할 수 있는 헬퍼들
 
     public void LockPlayerControlFromSignal()
     {

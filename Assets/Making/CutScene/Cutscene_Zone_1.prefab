@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 3463433748348070300}
   - component: {fileID: 4282282437513074879}
-  - component: {fileID: 544970465160680190}
   - component: {fileID: 8238378388942181490}
+  - component: {fileID: 4347696998924687154}
   m_Layer: 0
   m_Name: Cutscene_Zone_1
   m_TagString: Untagged
@@ -27,7 +27,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1457150915210642296}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -8.724573, y: -1.3534228, z: 0.081370085}
   m_LocalScale: {x: 3, y: 3, z: 1}
   m_ConstrainProportionsScale: 0
@@ -79,65 +79,6 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
---- !u!114 &544970465160680190
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1457150915210642296}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe8b643e9d3035b438e57cba4d70dc35, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mode: 2
-  startDelaySeconds: 3
-  playerTag: Player
-  requiredPlayersInZone: 2
-  useFirstEnteredAsLeader: 1
-  controlsToDisable:
-  - {fileID: 4600561303719498630, guid: 8c37017ae471a3245bf694d928af1960, type: 3}
-  leaderMoveComponent: {fileID: 4600561303719498630, guid: 8c37017ae471a3245bf694d928af1960, type: 3}
-  nextTimelineOnBattleClear: {fileID: 0}
-  autoPlayNextTimelineOnClear: 1
-  onBattleCleared:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  dialogue: {fileID: 0}
-  dialogueCategory: 1ch_Test1
-  cutscene1: {fileID: 0}
-  cutscene2: {fileID: 0}
-  cameraMoveBeforeClear: {fileID: 0}
-  cameraFocusDirector: {fileID: 0}
-  cameraFocusTargetOverride: {fileID: 0}
-  focusPanSeconds: 5
-  preDestroyDelaySeconds: 2
-  postDestroyHoldSeconds: 2
-  focusBackSeconds: 4
-  focusZoomSize: 4.5
-  enemyPrefab: {fileID: 8410770669254631667, guid: 6c093c94a176f4046a4fc6de82448d31, type: 3}
-  spawnPointsOffScreen:
-  - {fileID: 0}
-  - {fileID: 0}
-  enterSpots:
-  - {fileID: 0}
-  - {fileID: 0}
-  runSpeed: 3
-  additionalEnemiesToTrack: []
-  obstacleToDisable: {fileID: 0}
 --- !u!212 &8238378388942181490
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -190,3 +131,34 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!114 &4347696998924687154
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1457150915210642296}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f6c2dc0ecc53ed4eb43af60b57ed95d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 2
+  startDelaySeconds: 2
+  playerTag: Player
+  requiredPlayersInZone: 2
+  useFirstEnteredAsLeader: 1
+  extraControlsToDisable: []
+  gameplayUIRoots:
+  - {fileID: 0}
+  dialogue: {fileID: 0}
+  dialogueCategory: 1ch_Test1
+  cutscene1: {fileID: 0}
+  cutscene2: {fileID: 0}
+  syncCutsceneForAllPlayers: 0
+  onRequestSyncStart:
+    m_PersistentCalls:
+      m_Calls: []
+  onSequenceFinished:
+    m_PersistentCalls:
+      m_Calls: []
