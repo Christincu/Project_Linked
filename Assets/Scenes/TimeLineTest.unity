@@ -258,6 +258,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3207132510ada2e438183f7c93cce5cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &388097599 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3212663760069638301, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+  m_PrefabInstance: {fileID: 1992460748216314055}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f6c2dc0ecc53ed4eb43af60b57ed95d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &454849220
 GameObject:
   m_ObjectHideFlags: 0
@@ -528,7 +539,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1971005420975565235, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 915306681}
   m_SourcePrefab: {fileID: 100100000, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
 --- !u!1 &915306677 stripped
 GameObject:
@@ -545,6 +559,21 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 564450141967167653, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
   m_PrefabInstance: {fileID: 915306676}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &915306681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 915306677}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ca32aa29eb925246a61725a0b48161c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHP: 60
+  startAutoDamageAfter: 7
+  damagePerSecond: 20
 --- !u!1 &942893984
 GameObject:
   m_ObjectHideFlags: 0
@@ -1339,6 +1368,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1971005420975565235, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1809895962}
+    - targetCorrespondingSourceObject: {fileID: 1971005420975565235, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1809895965}
   m_SourcePrefab: {fileID: 100100000, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
 --- !u!1 &1809895961 stripped
 GameObject:
@@ -1371,6 +1403,21 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 564450141967167653, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
   m_PrefabInstance: {fileID: 1809895960}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1809895965
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1809895961}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ca32aa29eb925246a61725a0b48161c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHP: 60
+  startAutoDamageAfter: 7
+  damagePerSecond: 20
 --- !u!4 &1886305127 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 695390244265830638, guid: e9283f047bef3754ca2fde9b919be557, type: 3}
@@ -1642,6 +1689,22 @@ PrefabInstance:
     - target: {fileID: 6219243444645000994, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: m_Name
       value: CutScene_1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7176836371298451840, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: m_Events.m_Events.Array.data[0].m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 388097599}
+    - target: {fileID: 7176836371298451840, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: m_Events.m_Events.Array.data[0].m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: DisableObstacleFromSignal
+      objectReference: {fileID: 0}
+    - target: {fileID: 7176836371298451840, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: m_Events.m_Events.Array.data[0].m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: CutsceneZoneTimeline, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 7176836371298451840, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
+      propertyPath: m_Events.m_Events.Array.data[0].m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 8040665033443422874, guid: adc3756377d4cc04da16658bb76097e4, type: 3}
       propertyPath: m_LocalPosition.x
