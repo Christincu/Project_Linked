@@ -5,16 +5,16 @@ using UnityEngine.Playables;
 using UnityEngine.Events;
 
 [DisallowMultipleComponent]
-[RequireComponent(typeof(Collider2D))] // IsTrigger = true
+[RequireComponent(typeof(Collider2D))]
 public class CutsceneZoneTimeline : MonoBehaviour
 {
     #region Mode
     public enum FlowMode
     {
-        DialogueOnly,          // 존 진입 → 대사만
-        TimelineOnly,          // 존 진입 → 타임라인만
-        DialogueThenTimeline,  // 존 진입 → 대사 → 타임라인(= cutscene1 → 전투 → cutscene2 가능)
-        TimelineThenDialogue   // 존 진입 → 타임라인 → 대사
+        DialogueOnly,
+        TimelineOnly,
+        DialogueThenTimeline,
+        TimelineThenDialogue
     }
 
     [Header("Flow")]
@@ -63,6 +63,12 @@ public class CutsceneZoneTimeline : MonoBehaviour
     [Header("Gameplay UI (Optional)")]
     [Tooltip("컷신/대사 진행 중 숨길 HUD, 조작 UI 루트들")]
     public List<GameObject> gameplayUIRoots = new List<GameObject>();
+    #endregion
+
+    #region Timeline UI
+    [Header("Timeline UI (Optional)")]
+    [Tooltip("타임라인 재생 중에만 켤 UI 루트(TL_UI 등)")]
+    public GameObject timelineUIRoot;
     #endregion
 
     #region Dialogue
@@ -165,10 +171,8 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     private IEnumerator RunFlow()
     {
-        // 0) HUD/조작 UI 숨기기
+        // 존 시퀀스 시작: HUD 끄고 조작 잠금
         ToggleGameplayUI(false);
-
-        // 1) 시작할 때 조작 잠금 (인트로 컷신 / 대사용)
         LockControls(true);
 
         switch (mode)
@@ -192,9 +196,11 @@ public class CutsceneZoneTimeline : MonoBehaviour
                 break;
         }
 
-        // 2) 전체 시퀀스 끝 → 조작 해제 + HUD 복구
+        // 존 시퀀스 끝: HUD 복구 + 조작 해제
         LockControls(false, forceAll: true);
         ToggleGameplayUI(true);
+
+        SetTimelineUI(false);
 
         onSequenceFinished?.Invoke();
     }
@@ -211,11 +217,9 @@ public class CutsceneZoneTimeline : MonoBehaviour
         bool closed = false;
         void OnDlgClosed() => closed = true;
 
-        // 중복 구독 방지 후 등록
         dialogue.OnClosed -= OnDlgClosed;
         dialogue.OnClosed += OnDlgClosed;
 
-        // 대사 시작 
         if (showCutsceneForAllLocalPlayers)
         {
             var allDialogues = FindObjectsOfType<CutSceneDialogue>();
@@ -231,19 +235,15 @@ public class CutsceneZoneTimeline : MonoBehaviour
             dialogue.StartCutscene(dialogue.defaultCategory);
         }
 
-        // 내부 재생 끝날 때까지 대기
         while (dialogue && dialogue.IsPlaying)
             yield return null;
 
-        // 혹시 안 꺼져 있으면 안전하게 종료 호출
         if (dialogue)
             dialogue.EndCutscene();
 
-        // UI 완전 비활까지 대기
         while (!closed)
             yield return null;
 
-        // 한 프레임 버퍼 
         yield return null;
 
         dialogue.OnClosed -= OnDlgClosed;
@@ -253,34 +253,57 @@ public class CutsceneZoneTimeline : MonoBehaviour
     #region Timeline + Battle
     private IEnumerator RunTimelineSequence()
     {
-        // cutscene1 : 인트로 컷신 (적 등장/카메라 연출)
+        // cutscene1: 인트로 컷신
         if (cutscene1)
         {
-            cutscene1.Play();
-            while (cutscene1.state == PlayState.Playing)
-                yield return null;
+            yield return PlayTimelineWithUI(cutscene1);
         }
 
-        // 전투 파트 : 적이 모두 사라질 때까지 플레이어 조작 허용
+        // 전투 구간
         if (useEnemyClearForSecondCutscene && HasEnemyToWatch())
         {
-            // 전투 시작 → 조작 허용
+            // 전투 시작: 조작 허용 + HUD 켜기
             LockControls(false, forceAll: true);
+            ToggleGameplayUI(true);
+            SetTimelineUI(false);
 
-            // 적이 모두 사라질 때까지 대기
             yield return WaitEnemiesCleared();
 
-            // 전투 종료 → 두 번째 컷신을 위해 다시 잠금
+            // 전투 끝: 다시 HUD 끄고 조작 잠금 (다음 컷신 대비)
+            ToggleGameplayUI(false);
             LockControls(true, forceAll: true);
         }
 
-        // cutscene2 : 엔딩 컷신
+        // cutscene2: 엔딩 컷신
         if (cutscene2)
         {
-            cutscene2.Play();
-            while (cutscene2.state == PlayState.Playing)
-                yield return null;
+            yield return PlayTimelineWithUI(cutscene2);
         }
+    }
+
+    // 타임라인 하나를 재생하는 동안:
+    // - GameplayUIRoots는 계속 꺼져 있고
+    // - timelineUIRoot(TL_UI)는 계속 켜져 있게 유지
+    private IEnumerator PlayTimelineWithUI(PlayableDirector director)
+    {
+        if (!director) yield break;
+
+        // 타임라인 진입 시점
+        ToggleGameplayUI(false);
+        SetTimelineUI(true);
+
+        director.Play();
+
+        while (director.state == PlayState.Playing)
+        {
+            // 혹시 다른 곳에서 켰더라도 여기서 다시 강제
+            ToggleGameplayUI(false);
+            SetTimelineUI(true);
+            yield return null;
+        }
+
+        // 타임라인 종료 시점
+        SetTimelineUI(false);
     }
 
     private bool HasEnemyToWatch()
@@ -296,7 +319,6 @@ public class CutsceneZoneTimeline : MonoBehaviour
         {
             CleanupEnemiesList(enemiesToWatch);
 
-            // 모든 적이 Destroy 되거나 SetActive(false) 상태면 종료
             if (enemiesToWatch.Count == 0)
                 break;
 
@@ -311,7 +333,6 @@ public class CutsceneZoneTimeline : MonoBehaviour
         for (int i = list.Count - 1; i >= 0; i--)
         {
             var go = list[i];
-            // null 이거나 비활성화된 Enemy는 "사라진 것"으로 판정
             if (!go || !go.activeInHierarchy)
                 list.RemoveAt(i);
         }
@@ -321,11 +342,9 @@ public class CutsceneZoneTimeline : MonoBehaviour
     #region Control & UI helpers
     private void LockControls(bool on, bool forceAll = false)
     {
-        // 인스펙터에 수동으로 넣어준 컨트롤 스크립트 on/off
         foreach (var b in controlsToDisable)
             if (b) b.enabled = !on;
 
-        // 타입 하나로 일괄 on/off (예: PlayerRigidBodyMovement 같은 것)
         if (leaderMoveComponent)
         {
             var type = leaderMoveComponent.GetType();
@@ -335,11 +354,9 @@ public class CutsceneZoneTimeline : MonoBehaviour
             {
                 if (on)
                 {
-                    // 전체 비활성
                     foreach (var comp in found)
                         comp.enabled = false;
 
-                    // 리더만 예외적으로 다시 켜기 
                     if (!forceAll && _leader)
                     {
                         var keep = _leader.GetComponent(type) as Behaviour;
@@ -348,14 +365,12 @@ public class CutsceneZoneTimeline : MonoBehaviour
                 }
                 else
                 {
-                    // 전체 활성
                     foreach (var c in found)
                         c.enabled = true;
                 }
             }
         }
 
-        // Fusion PlayerController 자체를 on/off 해서 네트워크 입력까지 끊기
         if (lockFusionPlayerControllers)
         {
             var players = FindObjectsOfType<PlayerController>();
@@ -363,7 +378,6 @@ public class CutsceneZoneTimeline : MonoBehaviour
             {
                 if (!pc) continue;
 
-                // 리더만 잠그고 싶으면 여기서 필터링 가능
                 if (!lockAllPlayersOnThisClient && _leader != null && pc.gameObject != _leader)
                     continue;
 
@@ -383,34 +397,33 @@ public class CutsceneZoneTimeline : MonoBehaviour
         }
     }
 
-    /// <summary>타임라인 Signal에서 호출해서 "조작 잠금"</summary>
+    private void SetTimelineUI(bool on)
+    {
+        if (timelineUIRoot)
+            timelineUIRoot.SetActive(on);
+    }
+
+    // 기존 타임라인 Signal에서 쓰던 함수들 
     public void LockPlayerControlFromSignal()
     {
         LockControls(true, forceAll: true);
     }
 
-    /// <summary>타임라인 Signal에서 호출해서 "조작 해제"</summary>
     public void UnlockPlayerControlFromSignal()
     {
         LockControls(false, forceAll: true);
     }
 
-    /// <summary>타임라인 Signal에서 호출해서 HUD/조작 UI 숨김</summary>
     public void HideGameplayUIFromSignal()
     {
         ToggleGameplayUI(false);
     }
 
-    /// <summary>타임라인 Signal에서 호출해서 HUD/조작 UI 복구</summary>
     public void ShowGameplayUIFromSignal()
     {
         ToggleGameplayUI(true);
     }
 
-    /// <summary>
-    /// cutscene2 안의 Signal Emitter에서 호출해서
-    /// obstacleToDisable을 비활성화(문/장애물 제거 연출) 한다.
-    /// </summary>
     public void DisableObstacleFromSignal()
     {
         if (obstacleToDisable && obstacleToDisable.activeSelf)

@@ -659,7 +659,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1920, y: 200}
+  m_SizeDelta: {x: 1920, y: 150}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &389179378
 MonoBehaviour:
@@ -37599,6 +37599,7 @@ MonoBehaviour:
   lockAllPlayersOnThisClient: 1
   gameplayUIRoots:
   - {fileID: 417458109}
+  timelineUIRoot: {fileID: 695689566}
   dialogue: {fileID: 2067302044}
   dialogueCategory: 1ch_Test1
   showCutsceneForAllLocalPlayers: 1
@@ -37714,6 +37715,7 @@ MonoBehaviour:
   lockFusionPlayerControllers: 1
   lockAllPlayersOnThisClient: 1
   gameplayUIRoots: []
+  timelineUIRoot: {fileID: 0}
   dialogue: {fileID: 1574673069}
   dialogueCategory: 1ch_Test1
   showCutsceneForAllLocalPlayers: 1
@@ -39026,7 +39028,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1920, y: 200}
+  m_SizeDelta: {x: 1920, y: 150}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!114 &1586499401
 MonoBehaviour:
