@@ -2,15 +2,7 @@
 using UnityEngine;
 using Cinemachine;
 
-/// <summary>
-/// 메인 테스트 구조(MainCameraController)의 원리를 유지하면서
-/// Cinemachine Virtual Camera를 통해 플레이어를 따라다니도록 만든다.
-/// 
-/// - 씬에는 CinemachineVirtualCamera 1개만 두면 된다.
-/// - 테스트 모드에서는 1/2 키로 조작 플레이어를 바꾸면 카메라도 즉시 변경.
-/// - 일반 모드에서는 MainGameManager.GetLocalPlayer()를 따라감.
-/// 
-/// </summary>
+
 public class CinemachineCameraController : MonoBehaviour
 {
     [Header("VCam Settings")]
@@ -18,7 +10,7 @@ public class CinemachineCameraController : MonoBehaviour
     public string vcamName = "VC_PlayerFollow";
 
     private CinemachineVirtualCamera _vcam;
-    private Transform _currentTarget;     // 따라갈 플레이어 Transform
+    private Transform _currentTarget;    
     private bool _initialized = false;
     private Camera _mainCamera;
 
@@ -30,7 +22,6 @@ public class CinemachineCameraController : MonoBehaviour
 
     IEnumerator InitializeCoroutine()
     {
-        // MainGameManager가 존재할 때까지 대기
         while (MainGameManager.Instance == null)
             yield return null;
 
@@ -65,7 +56,6 @@ public class CinemachineCameraController : MonoBehaviour
         }
     }
 
-    // ──────────────────────────────────────────────
     // VCam 찾기
     void FindOrAssignVCam()
     {
@@ -80,7 +70,6 @@ public class CinemachineCameraController : MonoBehaviour
 
         if (_vcam == null)
         {
-            // 이름으로 못 찾으면 아무 VCam이나 할당
             _vcam = FindObjectOfType<CinemachineVirtualCamera>();
         }
 
@@ -90,8 +79,6 @@ public class CinemachineCameraController : MonoBehaviour
         }
     }
 
-    // ──────────────────────────────────────────────
-    // 카메라 타겟 갱신 (MainCameraController 방식 그대로)
     void UpdateCameraTarget()
     {
         if (MainGameManager.Instance == null)
