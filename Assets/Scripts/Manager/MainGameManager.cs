@@ -249,13 +249,38 @@ public class MainGameManager : MonoBehaviour
     private void HandleTestModeInput()
     {
         // 1/2 키로 조작 대상 전환
-        if (Input.GetKeyDown(KeyCode.Alpha1)) { SelectedSlot = 0; Debug.Log($"Switched to Player 1 (Slot: {SelectedSlot})"); }
-        if (Input.GetKeyDown(KeyCode.Alpha2)) { SelectedSlot = 1; Debug.Log($"Switched to Player 2 (Slot: {SelectedSlot})"); }
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            SelectedSlot = 0;
+            Debug.Log($"Switched to Player 1 (Slot: {SelectedSlot})");
+            UpdateCanvasForSelectedPlayer();
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            SelectedSlot = 1;
+            Debug.Log($"Switched to Player 2 (Slot: {SelectedSlot})");
+            UpdateCanvasForSelectedPlayer();
+        }
 
         // T/Y/U 키로 데미지/힐 테스트
         if (Input.GetKeyDown(KeyCode.T)) ApplyTestHealthChange(-1f, "Damage");
         if (Input.GetKeyDown(KeyCode.Y)) ApplyTestHealthChange(1f, "Heal");
         if (Input.GetKeyDown(KeyCode.U)) ApplyTestHealthChange(999f, "Full Heal");
+    }
+    
+    /// <summary>
+    /// 테스트 모드에서 선택된 플레이어에 맞춰 Canvas를 업데이트합니다.
+    /// </summary>
+    private void UpdateCanvasForSelectedPlayer()
+    {
+        if (!_isTestMode) return;
+        
+        PlayerController selectedPlayer = GetSelectedPlayer();
+        if (selectedPlayer != null && GameManager.Instance?.Canvas is MainCanvas canvas)
+        {
+            canvas.RegisterPlayer(selectedPlayer);
+            Debug.Log($"[MainGameManager] Canvas updated for selected player (Slot: {SelectedSlot})");
+        }
     }
 
     private void ApplyTestHealthChange(float amount, string type)

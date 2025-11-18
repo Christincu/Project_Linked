@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bd59c6076f7662e4c9722255dde6b9ad, type: 3}
-  m_Name: 0
+  m_Name: 3
   m_EditorClassIdentifier: 
-  magicCode: 0
-  magicName: Fire
-  magicIdleSprite: {fileID: 21300000, guid: 62940c93c4da45d45b53e74491c45a21, type: 3}
-  magicInsideSprite: {fileID: 21300000, guid: 46b9d874d3df11143afdee5a7117c03d, type: 3}
+  magicCode: 3
+  magicName: Soil
+  magicIdleSprite: {fileID: 21300000, guid: 604f27d227e3caa44a1d6626d599fbdb, type: 3}
+  magicInsideSprite: {fileID: 21300000, guid: 5853bc00e6bfda84ea9030e0486a1c44, type: 3}
   cooldown: 1
   damage: 15
   speed: 10

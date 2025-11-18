@@ -331,7 +331,6 @@ GameObject:
   - component: {fileID: 4924376003885490738}
   - component: {fileID: 7212694276323073538}
   - component: {fileID: 7930489244872943270}
-  - component: {fileID: 5349171466248291276}
   m_Layer: 0
   m_Name: PlayerPrefab
   m_TagString: Untagged
@@ -386,11 +385,15 @@ MonoBehaviour:
   _MagicActivationTick: 0
   _DidTeleport:
     _value: 0
+  _HasBarrier: 0
   _magicViewObj: {fileID: 1215593109106226948}
   _magicAnchor: {fileID: 762830782927680907}
   _magicIdleFirstFloor: {fileID: 3898121682051865299}
   _magicIdleSecondFloor: {fileID: 8041769154365455347}
   _magicActiveFloor: {fileID: 2424664468900087719}
+  _magicProjectilePrefab: {fileID: 495353710250101849, guid: 42ca306a686a8024a996cbe404f0a01f, type: 3}
+  _barrierMagicObjectPrefab:
+    RawGuidValue: 42ca306a686a8024a996cbe404f0a01f
 --- !u!70 &7159770031046681830
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -497,19 +500,6 @@ MonoBehaviour:
     Position: 0.01
     Rotation: 0.01
     Scale: 0.01
---- !u!114 &5349171466248291276
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4305966876063921749}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 994f685904a4fb84794a4080991e075d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  magicProjectilePrefab: {fileID: 1215593109106226948}
 --- !u!1 &8041769154365455347
 GameObject:
   m_ObjectHideFlags: 0

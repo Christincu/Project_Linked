@@ -61,9 +61,6 @@ public class EnemyDetector : MonoBehaviour
     [Tooltip("트리거 범위 표시 색상 (선택 시 표시)")]
     [SerializeField] private Color _triggerRangeColor = new Color(0f, 1f, 0f, 0.2f);
     
-    [Tooltip("LineRenderer 선 두께")]
-    [SerializeField] private float _lineWidth = 0.05f;
-    
     [Tooltip("원형 범위를 그릴 세그먼트 수 (유휴 상태)")]
     [SerializeField] private int _segmentsWhenIdle = 24;
     [Tooltip("원형 범위를 그릴 세그먼트 수 (탐지 중)")]

@@ -10,9 +10,6 @@ using Fusion.Addons.Physics;
 /// </summary>
 public class PlayerController : NetworkBehaviour, IPlayerLeft
 {
-    #region Constants
-    private const float MIN_MOVEMENT_SPEED = 0.1f; // Wall collision detection threshold
-    #endregion
 
     #region Networked Properties
     // Animation
@@ -42,6 +39,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     // Teleporter
     [Networked] public TickTimer TeleportCooldownTimer { get; set; }
     [Networked] public NetworkBool DidTeleport { get; set; }
+    
+    // Barrier (보호막)
+    [Networked] public TickTimer BarrierTimer { get; set; }
+    [Networked] public bool HasBarrier { get; set; }
     #endregion
 
     #region Private Fields - Components
@@ -50,10 +51,12 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [SerializeField] private GameObject _magicIdleFirstFloor;
     [SerializeField] private GameObject _magicIdleSecondFloor;
     [SerializeField] private GameObject _magicActiveFloor;
+    
+    [Header("Magic Prefabs")]
+    [SerializeField] private GameObject _magicProjectilePrefab;
+    [SerializeField] private NetworkPrefabRef _barrierMagicObjectPrefab; // 보호막 마법 오브젝트 프리팹
 
     private GameDataManager _gameDataManager;
-    private GameObject _viewObj;
-    private Animator _animator;
     private ChangeDetector _changeDetector;
 
     // Player Components
@@ -61,27 +64,27 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     private PlayerMagicController _magicController;
     private PlayerState _state;
     private PlayerRigidBodyMovement _movement;
+    private PlayerAnimationController _animationController;
+    private PlayerBarrierVisual _barrierVisual;
+    private PlayerViewManager _viewManager;
+    private PlayerDetectionManager _detectionManager;
     #endregion
 
     #region Private Fields - State
-    private Vector2 _previousPosition;
-    private string _lastAnimationState = "";
     private bool _isTestMode;
-    
-    // 적 감시 범위 트리거 관련
-    private HashSet<EnemyDetector> _nearbyEnemies = new HashSet<EnemyDetector>();
-    private GameObject _detectionTriggerObj;
-    private CircleCollider2D _detectionTriggerCollider;
-    private float _detectionTriggerRange = 10f;
     #endregion
 
     #region Properties
     public GameDataManager GameDataManager => _gameDataManager;
-    public GameObject ViewObj => _viewObj;
+    public GameObject ViewObj => _viewManager != null ? _viewManager.ViewObj : null;
     public PlayerBehavior Behavior => _behavior;
     public PlayerMagicController MagicController => _magicController;
     public PlayerState State => _state;
     public PlayerRigidBodyMovement Movement => _movement;
+    public PlayerAnimationController AnimationController => _animationController;
+    public PlayerBarrierVisual BarrierVisual => _barrierVisual;
+    public PlayerViewManager ViewManager => _viewManager;
+    public PlayerDetectionManager DetectionManager => _detectionManager;
     public float MoveSpeed => _movement != null ? _movement.GetMoveSpeed() : 0f;
 
     // Health Properties
@@ -101,15 +104,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         // MainGameManager의 테스트 모드 확인
         _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
         _gameDataManager = GameDataManager.Instance;
-        _previousPosition = transform.position;
 
         InitializeComponents();
         InitializeNetworkState();
-
-        // ViewObjParent 생성 및 Interpolation Target 설정
-        EnsureViewObjParentExists();
-
-        TryCreateView();
 
         // 초기화 및 데이터 동기화 대기
         StartCoroutine(InitializeAllComponents());
@@ -142,15 +139,19 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _state?.Initialize(this, initialData);
         _movement?.Initialize(this, initialData);
         _behavior?.Initialize(this);
+        _viewManager?.Initialize(this, _gameDataManager);
+        _detectionManager?.Initialize(this, _gameDataManager);
+        _animationController?.Initialize(this);
+        _barrierVisual?.Initialize(this);
 
         if (_magicController != null)
         {
-            _magicController.Initialize(this, GameDataManager);
+            _magicController.Initialize(this, GameDataManager, _magicProjectilePrefab, _barrierMagicObjectPrefab);
             _magicController.SetMagicUIReferences(_magicViewObj, _magicAnchor, _magicIdleFirstFloor, _magicIdleSecondFloor, _magicActiveFloor);
         }
 
-        // 적 감시 범위 트리거 범위 설정 (모든 적의 트리거 범위 중 최대값 사용)
-        UpdateDetectionTriggerRange();
+        // ViewObj 생성
+        _viewManager?.TryCreateView();
         
         // Canvas 등록
         if (Object.HasStateAuthority)
@@ -218,7 +219,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         if (Object.HasStateAuthority)
         {
-            UpdateAnimation();
+            _animationController?.UpdateAnimation();
         }
 
         if (Object.HasStateAuthority && DidTeleport)
@@ -226,18 +227,33 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             DidTeleport = false;
         }
 
-        _previousPosition = transform.position;
+        // 보호막 타이머 체크
+        if (Object.HasStateAuthority && HasBarrier)
+        {
+            // 타이머가 실행 중이고 만료되었는지 확인
+            if (BarrierTimer.IsRunning && BarrierTimer.Expired(Runner))
+            {
+                // 보호막 만료: 모든 플레이어의 HP를 3으로 회복
+                RestoreAllPlayersHealthOnBarrierExpire();
+                
+                HasBarrier = false;
+                BarrierTimer = TickTimer.None;
+                Debug.Log($"[BarrierMagic] {name} barrier expired - all players HP restored to 3");
+            }
+            else if (!BarrierTimer.IsRunning)
+            {
+                // 타이머가 실행되지 않으면 보호막 제거 (초기화 문제)
+                HasBarrier = false;
+                Debug.LogWarning($"[BarrierMagic] {name} barrier timer not running, removing barrier");
+            }
+        }
     }
 
     public override void Render()
     {
         DetectNetworkChanges();
-
-        // ViewObj를 root 위치와 동기화
-        if (_viewObj != null)
-        {
-            _viewObj.transform.localPosition = Vector3.zero;
-        }
+        _viewManager?.SyncViewObjPosition();
+        _barrierVisual?.CheckBarrierState();
     }
     #endregion
 
@@ -273,7 +289,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public void SetCharacterIndex(int characterIndex)
     {
         CharacterIndex = characterIndex;
-        TryCreateView();
+        _viewManager?.TryCreateView();
     }
 
     /// <summary>
@@ -291,10 +307,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             transform.position = spawnPosition;
         }
 
-        _previousPosition = spawnPosition;
         AnimationState = "idle";
 
         _movement?.ResetVelocity();
+        _animationController?.Initialize(this); // 위치 초기화를 위해 재초기화
 
     }
 
@@ -336,6 +352,52 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         ActivatedMagicCode = -1;
         AbsorbedMagicCode = -1;
         ActiveMagicSlotNetworked = 0;
+    }
+
+    /// <summary>
+    /// 마법을 시전합니다. (Input Authority → State Authority)
+    /// </summary>
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_CastMagic(Vector3 targetPosition)
+    {
+        if (_magicController != null)
+        {
+            // CastMagic에서 마법 코드를 결정하므로 여기서는 바로 호출
+            _magicController.CastMagic(targetPosition);
+            
+            // CastMagic에서 결정된 마법 코드를 확인하여 보호막 마법이 아닌 경우에만 비활성화
+            // 보호막 마법은 선택 후에 비활성화됨
+            int magicCodeToCast = GetCurrentMagicCodeToCast();
+            if (magicCodeToCast != 10)
+            {
+                RPC_DeactivateMagic();
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 현재 시전할 마법 코드를 가져옵니다.
+    /// </summary>
+    private int GetCurrentMagicCodeToCast()
+    {
+        if (AbsorbedMagicCode != -1 && ActivatedMagicCode != -1)
+        {
+            int combinedMagicCode = _gameDataManager.MagicService.GetCombinedMagic(
+                ActivatedMagicCode, 
+                AbsorbedMagicCode
+            );
+            if (combinedMagicCode != -1)
+            {
+                return combinedMagicCode;
+            }
+        }
+        
+        if (ActivatedMagicCode != -1)
+        {
+            return ActivatedMagicCode;
+        }
+        
+        return -1;
     }
 
     /// <summary>
@@ -386,8 +448,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         }
 
         Movement?.ResetVelocity();
-        _previousPosition = (Vector2)targetPosition;
         DidTeleport = true;
+        _animationController?.Initialize(this); // 위치 초기화를 위해 재초기화
 
     }
     #endregion
@@ -402,114 +464,14 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _behavior = GetComponent<PlayerBehavior>() ?? gameObject.AddComponent<PlayerBehavior>();
         _magicController = GetComponent<PlayerMagicController>() ?? gameObject.AddComponent<PlayerMagicController>();
         _movement = GetComponent<PlayerRigidBodyMovement>() ?? gameObject.AddComponent<PlayerRigidBodyMovement>();
+        _animationController = GetComponent<PlayerAnimationController>() ?? gameObject.AddComponent<PlayerAnimationController>();
+        _barrierVisual = GetComponent<PlayerBarrierVisual>() ?? gameObject.AddComponent<PlayerBarrierVisual>();
+        _viewManager = GetComponent<PlayerViewManager>() ?? gameObject.AddComponent<PlayerViewManager>();
+        _detectionManager = GetComponent<PlayerDetectionManager>() ?? gameObject.AddComponent<PlayerDetectionManager>();
 
         _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
-        
-        // 적 감시 범위 트리거 콜리더 초기화
-        InitializeDetectionTrigger();
     }
     
-    /// <summary>
-    /// 적 감시 범위 트리거 콜리더를 초기화합니다.
-    /// </summary>
-    private void InitializeDetectionTrigger()
-    {
-        // 별도의 자식 GameObject 생성
-        if (_detectionTriggerObj == null)
-        {
-            _detectionTriggerObj = new GameObject("DetectionTrigger");
-            _detectionTriggerObj.transform.SetParent(transform);
-            _detectionTriggerObj.transform.localPosition = Vector3.zero;
-            _detectionTriggerObj.transform.localRotation = Quaternion.identity;
-            _detectionTriggerObj.transform.localScale = Vector3.one;
-            
-            // 별도의 레이어로 설정 (기본 레이어 사용, Physics2D 설정에서 충돌 제어)
-            // 적 콜리더만 감지하도록 콜리더 체크에서 필터링
-            _detectionTriggerObj.layer = gameObject.layer; // 플레이어와 같은 레이어 사용
-            
-            // CircleCollider2D 추가
-            _detectionTriggerCollider = _detectionTriggerObj.AddComponent<CircleCollider2D>();
-            _detectionTriggerCollider.isTrigger = true;
-            _detectionTriggerCollider.radius = _detectionTriggerRange;
-            
-            // Rigidbody2D 추가 (트리거 작동을 위해 필요)
-            Rigidbody2D rb = _detectionTriggerObj.AddComponent<Rigidbody2D>();
-            rb.isKinematic = true;
-            rb.gravityScale = 0f;
-            
-            // 트리거 이벤트 처리 컴포넌트 추가
-            PlayerDetectionTrigger triggerComponent = _detectionTriggerObj.AddComponent<PlayerDetectionTrigger>();
-            triggerComponent.Initialize(this);
-        }
-    }
-    
-    /// <summary>
-    /// 적 감시 범위 트리거 반경을 설정합니다.
-    /// </summary>
-    public void SetDetectionTriggerRange(float range)
-    {
-        _detectionTriggerRange = range;
-        if (_detectionTriggerCollider != null)
-        {
-            _detectionTriggerCollider.radius = range;
-        }
-    }
-    
-    /// <summary>
-    /// 모든 적의 트리거 범위를 확인하여 플레이어의 트리거 범위를 업데이트합니다.
-    /// </summary>
-    private void UpdateDetectionTriggerRange()
-    {
-        if (GameDataManager.Instance == null) return;
-        
-        float maxTriggerRange = 10f; // 기본값
-        
-        // 모든 적 데이터 확인
-        var allEnemies = GameDataManager.Instance.EnemyService.GetAllEnemies();
-        foreach (var enemyData in allEnemies)
-        {
-            if (enemyData != null && enemyData.visualizationTriggerRange > maxTriggerRange)
-            {
-                maxTriggerRange = enemyData.visualizationTriggerRange;
-            }
-        }
-        
-        // 트리거 범위 설정
-        SetDetectionTriggerRange(maxTriggerRange);
-    }
-    
-    /// <summary>
-    /// 특정 적이 근처에 있는지 확인합니다.
-    /// </summary>
-    public bool IsEnemyNearby(EnemyDetector enemy)
-    {
-        return _nearbyEnemies.Contains(enemy);
-    }
-    
-    /// <summary>
-    /// 트리거에 진입한 적을 등록합니다.
-    /// </summary>
-    public void OnEnemyEnter(EnemyDetector enemyDetector)
-    {
-        if (enemyDetector != null)
-        {
-            _nearbyEnemies.Add(enemyDetector);
-        }
-    }
-    
-    /// <summary>
-    /// 트리거에서 나간 적을 제거합니다.
-    /// </summary>
-    public void OnEnemyExit(EnemyDetector enemyDetector)
-    {
-        if (enemyDetector != null)
-        {
-            _nearbyEnemies.Remove(enemyDetector);
-        }
-    }
-    
-    // OnTriggerEnter2D와 OnTriggerExit2D는 제거 (별도 컴포넌트에서 처리)
-
     /// <summary>
     /// 네트워크 상태 초기값을 설정합니다. (State Authority 전용)
     /// </summary>
@@ -521,136 +483,60 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             AnimationState = "idle";
             IsDead = false;
             TeleportCooldownTimer = TickTimer.None;
-            DidTeleport = false; // 초기화
+            DidTeleport = false;
+            BarrierTimer = TickTimer.None;
+            HasBarrier = false;
         }
     }
-
+    
     /// <summary>
-    /// ViewObjParent가 존재하는지 확인하고 없으면 생성합니다.
-    /// NetworkRigidbody2D의 Interpolation Target으로 설정합니다.
+    /// 특정 적이 근처에 있는지 확인합니다.
     /// </summary>
-    private void EnsureViewObjParentExists()
+    public bool IsEnemyNearby(EnemyDetector enemy)
     {
-        // ViewObjParent가 이미 존재하는지 확인
-        Transform viewObjParent = transform.Find("ViewObjParent");
-        
-        if (viewObjParent == null)
-        {
-            // ViewObjParent 생성
-            GameObject viewObjParentObj = new GameObject("ViewObjParent");
-            viewObjParentObj.transform.SetParent(transform, false);
-            viewObjParentObj.transform.localPosition = Vector3.zero;
-            viewObjParentObj.transform.localRotation = Quaternion.identity;
-            viewObjParentObj.transform.localScale = Vector3.one;
-            
-            viewObjParent = viewObjParentObj.transform;
-            
-            Debug.Log($"[PlayerController] ViewObjParent created for Player {PlayerSlot}");
-        }
-        
-        // NetworkRigidbody2D의 Interpolation Target 설정
-        var networkRb = GetComponent<NetworkRigidbody2D>();
-        if (networkRb != null)
-        {
-            if (networkRb.InterpolationTarget == null || networkRb.InterpolationTarget != viewObjParent)
-            {
-                networkRb.InterpolationTarget = viewObjParent;
-                Debug.Log($"[PlayerController] Interpolation Target set to ViewObjParent for Player {PlayerSlot}");
-            }
-        }
-        else
-        {
-            Debug.LogWarning($"[PlayerController] NetworkRigidbody2D not found on Player {PlayerSlot}!");
-        }
+        return _detectionManager != null && _detectionManager.IsEnemyNearby(enemy);
     }
-
+    
     /// <summary>
-    /// 캐릭터 뷰 오브젝트를 생성합니다. (CharacterIndex 동기화 후 호출)
+    /// 보호막 만료 시 모든 플레이어의 HP를 3으로 회복합니다.
     /// </summary>
-    private void TryCreateView()
+    private void RestoreAllPlayersHealthOnBarrierExpire()
     {
-        if (_viewObj != null || GameDataManager.Instance == null) return;
-
-        var data = GameDataManager.Instance.CharacterService.GetCharacter(CharacterIndex);
-
-        if (data != null)
+        if (Runner == null) return;
+        
+        // 모든 플레이어 가져오기
+        List<PlayerController> allPlayers = new List<PlayerController>();
+        
+        if (MainGameManager.Instance != null)
         {
-            if (_viewObj != null) Destroy(_viewObj);
-
-            GameObject instance = new GameObject("ViewObj");
+            allPlayers = MainGameManager.Instance.GetAllPlayers();
+        }
+        
+        if (allPlayers == null || allPlayers.Count == 0)
+        {
+            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
+        }
+        
+        // 모든 플레이어의 HP를 3으로 회복
+        foreach (var player in allPlayers)
+        {
+            if (player == null || player.IsDead) continue;
             
-            // ViewObjParent를 찾아서 그 자식으로 설정
-            Transform viewObjParent = transform.Find("ViewObjParent");
-            if (viewObjParent != null)
+            // PlayerState의 SetHealth를 사용하여 이벤트 발생
+            if (player.State != null)
             {
-                instance.transform.SetParent(viewObjParent, false);
-                Debug.Log($"[PlayerController] ViewObj created under ViewObjParent for Player {PlayerSlot}");
+                player.State.SetHealth(3f);
             }
             else
             {
-                // ViewObjParent가 없으면 루트에 생성 (fallback)
-                Debug.LogWarning($"[PlayerController] ViewObjParent not found! Creating ViewObj at root for Player {PlayerSlot}");
-                instance.transform.SetParent(transform, false);
+                player.CurrentHealth = 3f;
             }
-
-            _viewObj = Instantiate(data.viewObj, instance.transform);
-            _animator = _viewObj.GetComponent<Animator>();
-        }
-    }
-    #endregion
-
-    #region Private Methods - Animation
-    /// <summary>
-    /// 실제 이동 거리를 기반으로 애니메이션 상태를 업데이트합니다. (서버 전용)
-    /// </summary>
-    private void UpdateAnimation()
-    {
-        if (_animator == null || IsDead) return;
-
-        Vector2 currentPos = transform.position;
-        Vector2 actualMovement = currentPos - _previousPosition;
-        float actualSpeed = actualMovement.magnitude / Runner.DeltaTime;
-
-        if (actualSpeed < MIN_MOVEMENT_SPEED)
-        {
-            AnimationState = "idle";
-        }
-        else
-        {
-            if (Mathf.Abs(actualMovement.y) > Mathf.Abs(actualMovement.x))
-            {
-                AnimationState = actualMovement.y > 0 ? "up" : "down";
-            }
-            else
-            {
-                AnimationState = "horizontal";
-                ScaleX = actualMovement.x < 0 ? 1f : -1f;
-            }
-        }
-    }
-
-    /// <summary>
-    /// 애니메이션을 재생합니다 (중복 재생 방지).
-    /// </summary>
-    private void PlayAnimation(string stateName)
-    {
-        if (_animator != null && !string.IsNullOrEmpty(stateName) && _lastAnimationState != stateName)
-        {
-            _animator.Play(stateName);
-            _lastAnimationState = stateName;
-        }
-    }
-
-    /// <summary>
-    /// 뷰 오브젝트의 스케일을 업데이트합니다 (좌우 반전).
-    /// </summary>
-    private void UpdateScale()
-    {
-        if (_viewObj != null)
-        {
-            Vector3 scale = _viewObj.transform.localScale;
-            scale.x = ScaleX;
-            _viewObj.transform.localScale = scale;
+            
+            // 보호막 상태 제거
+            player.HasBarrier = false;
+            player.BarrierTimer = TickTimer.None;
+            
+            Debug.Log($"[BarrierMagic] {player.name} HP restored to 3 (barrier expired)");
         }
     }
     #endregion
@@ -668,15 +554,15 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             switch (change)
             {
                 case nameof(AnimationState):
-                    PlayAnimation(AnimationState.ToString());
+                    _animationController?.PlayAnimation(AnimationState.ToString());
                     break;
 
                 case nameof(ScaleX):
-                    UpdateScale();
+                    _animationController?.UpdateScale();
                     break;
 
                 case nameof(CharacterIndex):
-                    TryCreateView();
+                    _viewManager?.TryCreateView();
                     break;
 
                 case nameof(MagicActive):
@@ -696,6 +582,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
                 case nameof(AbsorbedMagicCode):
                     _magicController.UpdateMagicUIState(MagicActive);
+                    break;
+
+                case nameof(HasBarrier):
+                    _barrierVisual?.UpdateBarrierVisual();
                     break;
             }
         }

@@ -44,19 +44,24 @@ public class MainCanvas : MonoBehaviour, ICanvas
 
     /// <summary>
     /// PlayerController가 스폰될 때 호출합니다. 로컬 Input Authority가 있는 플레이어만 등록합니다.
+    /// 테스트 모드에서는 선택된 플레이어를 등록합니다.
     /// </summary>
     public void RegisterPlayer(PlayerController player)
     {
         if (player == null) return;
         
-        // Input Authority가 있는 플레이어만 등록
-        if (!player.Object.HasInputAuthority)
+        // 테스트 모드가 아닐 때만 Input Authority 체크
+        if (MainGameManager.Instance == null || !MainGameManager.Instance.IsTestMode)
         {
-            Debug.Log($"[MainCanvas] Ignoring player - no input authority: {player.name}");
-            return;
+            // Input Authority가 있는 플레이어만 등록
+            if (!player.Object.HasInputAuthority)
+            {
+                Debug.Log($"[MainCanvas] Ignoring player - no input authority: {player.name}");
+                return;
+            }
         }
 
-        Debug.Log($"[MainCanvas] Registering local player: {player.name}");
+        Debug.Log($"[MainCanvas] Registering player: {player.name} (TestMode: {MainGameManager.Instance?.IsTestMode ?? false})");
         SetupPlayer(player);
     }
 

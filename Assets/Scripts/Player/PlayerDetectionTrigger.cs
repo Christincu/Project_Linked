@@ -6,14 +6,17 @@ using UnityEngine;
 /// </summary>
 public class PlayerDetectionTrigger : MonoBehaviour
 {
-    private PlayerController _playerController;
+    private PlayerDetectionManager _detectionManager;
     
     /// <summary>
     /// 초기화합니다.
     /// </summary>
     public void Initialize(PlayerController playerController)
     {
-        _playerController = playerController;
+        if (playerController != null)
+        {
+            _detectionManager = playerController.GetComponent<PlayerDetectionManager>();
+        }
     }
     
     /// <summary>
@@ -21,7 +24,7 @@ public class PlayerDetectionTrigger : MonoBehaviour
     /// </summary>
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (_playerController == null) return;
+        if (_detectionManager == null) return;
         
         // MapTeleporter나 다른 트리거 오브젝트는 무시
         if (other.GetComponent<MapTeleporter>() != null) return;
@@ -44,7 +47,7 @@ public class PlayerDetectionTrigger : MonoBehaviour
         // EnemyDetector가 있는 경우에만 처리 (적만 감지)
         if (enemyDetector != null)
         {
-            _playerController.OnEnemyEnter(enemyDetector);
+            _detectionManager.OnEnemyEnter(enemyDetector);
         }
     }
     
@@ -53,7 +56,7 @@ public class PlayerDetectionTrigger : MonoBehaviour
     /// </summary>
     private void OnTriggerExit2D(Collider2D other)
     {
-        if (_playerController == null) return;
+        if (_detectionManager == null) return;
         
         // MapTeleporter나 다른 트리거 오브젝트는 무시
         if (other.GetComponent<MapTeleporter>() != null) return;
@@ -76,7 +79,7 @@ public class PlayerDetectionTrigger : MonoBehaviour
         // EnemyDetector가 있는 경우에만 처리 (적만 감지)
         if (enemyDetector != null)
         {
-            _playerController.OnEnemyExit(enemyDetector);
+            _detectionManager.OnEnemyExit(enemyDetector);
         }
     }
 }
