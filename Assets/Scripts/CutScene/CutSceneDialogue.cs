@@ -10,6 +10,11 @@ using TMPro;
 [DisallowMultipleComponent]
 public class CutSceneDialogue : MonoBehaviour
 {
+    #region Events / State
+    public event Action OnClosed;      // 대사 종료(UI 비활성) 시 알림
+    public bool IsPlaying => _isPlaying;
+    #endregion
+
     #region General
     [Header("General")]
     [Tooltip("플레이 시작 시 자동 재생할지 여부")]
@@ -37,22 +42,22 @@ public class CutSceneDialogue : MonoBehaviour
 
     #region CSV
     [Header("CSV")]
-    [Tooltip("CSV(TextAsset): 구분, 순번, 캐릭터명, 일러스트 슬롯, 일러스트, 대사")]
+    [Tooltip("CSV(TextAsset): Category, order, CharacterName, IllustrateSlot, IllustrateName, Line")]
     public TextAsset csv;
 
-    [Tooltip("CSV에 헤더가 있는가? (예: 구분,순번,...)")]
+    [Tooltip("CSV에 헤더가 있는가? (반드시 사용 권장)")]
     public bool hasHeader = true;
 
     [Tooltip("인코딩 강제(예: \"cp949\"). 비우면 UTF-8/BOM 자동 감지")]
     public string csvEncodingOverride = "";
 
-    [Header("CSV Column Index (헤더 없을 때 사용)")]
-    public int colCategory = 0;   // 구분
-    public int colOrder = 1;      // 순번
-    public int colCharacter = 2;  // 캐릭터명
-    public int colSlot = 3;       // 일러스트 슬롯 (무시됨)
-    public int colIllustrate = 4; // 일러스트
-    public int colLine = 5;       // 대사
+    [Header("CSV Column Index (헤더 없을 때만 사용)")]
+    public int colCategory = 0;   // Category
+    public int colOrder = 1;      // order
+    public int colCharacter = 2;  // CharacterName
+    public int colSlot = 3;       // IllustrateSlot
+    public int colIllustrate = 4; // IllustrateName
+    public int colLine = 5;       // Line
 
     [Serializable]
     private class LineData
@@ -74,19 +79,21 @@ public class CutSceneDialogue : MonoBehaviour
 
     #region UI
     [Header("UI Roots")]
-    public GameObject cutsceneUIRoot;           // 컷신 UI 루트
-    public List<GameObject> gameplayUIRoots;    // 컷신 동안 숨길 게임 UI 루트들
+    [Tooltip("컷신 패널 루트(필수)")]
+    public GameObject cutsceneUIRoot;           // 반드시 연결!
+
+    [Header("Gameplay UI (Optional)")]
+    [Tooltip("컷신 켤 때 숨길 게임 UI 루트들 (선택)")]
+    public List<GameObject> gameplayUIRoots = new List<GameObject>();
 
     [Header("TMP Texts")]
     public TMP_Text charNameText;               // 캐릭터명
     public TMP_Text dialogueText;               // 대사
 
-    [Header("Portrait Slots")]
-    public Image firstImage;   // 왼쪽(직전 화자 배치)
-    public Image secondImage;  // 가운데(현재 화자 배치)
-    public Image thirdImage;   // 우측(미사용: 필요시 확장)
-
-    // defaultTransparent는 사용하지 않음(없을 땐 완전 비활성)
+    [Header("Portrait Slots (선택)")]
+    public Image firstImage;   // 왼쪽(직전 화자)
+    public Image secondImage;  // 가운데(현 화자)
+    public Image thirdImage;   // 우측(미사용)
     #endregion
 
     #region Visual Config
@@ -105,10 +112,8 @@ public class CutSceneDialogue : MonoBehaviour
     [Serializable]
     public struct CharacterFolderAlias
     {
-        [Tooltip("CSV 캐릭터명(예: 라피, Lafi, 가로, Garo)")]
-        public string characterNameKey;
-        [Tooltip("실제 폴더명(예: \"Lafi (1P)\", \"Garo (2P)\")")]
-        public string folderName;
+        public string characterNameKey; // CSV 캐릭터명
+        public string folderName;       // 실제 폴더명
     }
 
     [Header("Character Folder Aliases (선택)")]
@@ -116,34 +121,27 @@ public class CutSceneDialogue : MonoBehaviour
     private Dictionary<string, string> _aliasMap;
     #endregion
 
-    #region State for speaker switching
-    // 현재 화자 / 직전 화자 상태
+    #region Speaker State
     private string _currentSpeaker = null;
     private Sprite _currentSprite = null;
     private string _previousSpeaker = null;
     private Sprite _previousSprite = null;
     #endregion
 
-    #region Unity Lifecycle
+    #region Unity
     private void Awake()
     {
         BuildAliasMap();
         LoadCSV();
+
+        // 컷신 시작 전 상태: 컷신 패널 Off, 게임 UI On
         SetUI(false);
+        ToggleGameplayUI(true);
         ResetPortraits();
 
-        // 컷신 UI가 Gameplay UI 리스트에 실수로 들어간 경우 제거
-        if (gameplayUIRoots != null && cutsceneUIRoot)
-        {
-            for (int i = gameplayUIRoots.Count - 1; i >= 0; i--)
-            {
-                if (gameplayUIRoots[i] == cutsceneUIRoot)
-                {
-                    Debug.LogWarning("[CutSceneDialogue] Cutscene UI Root가 Gameplay UI Roots에 포함되어 제거했습니다.");
-                    gameplayUIRoots.RemoveAt(i);
-                }
-            }
-        }
+        // 컷신 UI가 Gameplay 목록에 들어가 있으면 제거(실수 방지)
+        if (cutsceneUIRoot != null && gameplayUIRoots != null)
+            gameplayUIRoots.RemoveAll(go => go == cutsceneUIRoot);
 
         if (autoStartOnPlay)
             StartCutscene(defaultCategory);
@@ -153,10 +151,8 @@ public class CutSceneDialogue : MonoBehaviour
     {
         if (!_isPlaying) return;
 
-        // 시작 직후 클릭 블록
         if (Time.unscaledTime < _blockUntilTime) return;
 
-        // 눌려있던 클릭이 모두 떼질 때까지 대기
         if (!_armedForClick)
         {
             if (!Input.GetMouseButton(0)) _armedForClick = true;
@@ -172,27 +168,16 @@ public class CutSceneDialogue : MonoBehaviour
     #endregion
 
     #region Public API
-    public void OnClickStartCutscene()
-    {
-        StartCutscene(defaultCategory);
-    }
-
     public void StartCutscene(string category)
     {
         if (_isPlaying) return;
 
+        // 재생 목록 구성
         if (playByCsvOrder)
-        {
-            // CSV에 적힌 순서(rowIndex)대로 전부 재생
             _cur = _all.OrderBy(l => l.rowIndex).ToList();
-        }
         else
-        {
-            // 지정 카테고리만 재생
             _cur = _all.Where(l => l.category.Equals(category, StringComparison.OrdinalIgnoreCase))
-                       .OrderBy(l => l.order)
-                       .ToList();
-        }
+                       .OrderBy(l => l.order).ToList();
 
         if (_cur.Count == 0)
         {
@@ -201,36 +186,55 @@ public class CutSceneDialogue : MonoBehaviour
         }
 
         _isPlaying = true;
-        SetUI(true);
+
+        ToggleGameplayUI(false);  // 게임 UI 숨김
+        SetUI(true);              // 컷신 UI 켜기
         ResetPortraits();
+
         _currentSpeaker = _previousSpeaker = null;
         _currentSprite = _previousSprite = null;
 
-        // 시작 직후 입력 블록 & 클릭 무장 해제
         _blockUntilTime = Time.unscaledTime + clickBlockDurationOnStart;
         _armedForClick = false;
 
-        // 첫 줄 즉시 표시
-        _idx = 0;
-        DrawCurrent();
+        _idx = -1;
+        Advance(); // 첫 줄 표시(빈줄 자동 스킵 포함)
     }
 
     public void EndCutscene()
     {
         if (!_isPlaying) return;
+
         _isPlaying = false;
-        SetUI(false);
+
+        SetUI(false);             // 컷신 UI 끄기
+        ToggleGameplayUI(true);   // 게임 UI 복구
+
         _currentSpeaker = _previousSpeaker = null;
         _currentSprite = _previousSprite = null;
+
+        OnClosed?.Invoke();
     }
     #endregion
 
-    #region Internal Playback
+    #region Draw / Advance
     private void Advance()
     {
         if (!_isPlaying) return;
 
         _idx++;
+
+        // 캐릭터/일러/대사 모두 빈 줄은 자동 스킵
+        while (_idx < _cur.Count)
+        {
+            var l = _cur[_idx];
+            bool emptyRow = string.IsNullOrWhiteSpace(l.character)
+                         && string.IsNullOrWhiteSpace(l.illustrate)
+                         && string.IsNullOrWhiteSpace(l.line);
+            if (!emptyRow) break;
+            _idx++;
+        }
+
         if (_idx >= _cur.Count)
         {
             EndCutscene();
@@ -243,7 +247,6 @@ public class CutSceneDialogue : MonoBehaviour
     private void DrawCurrent()
     {
         if (!_isPlaying) return;
-        _idx = Mathf.Clamp(_idx, 0, _cur.Count - 1);
 
         var line = _cur[_idx];
 
@@ -256,13 +259,17 @@ public class CutSceneDialogue : MonoBehaviour
     private void SetUI(bool on)
     {
         if (cutsceneUIRoot) cutsceneUIRoot.SetActive(on);
-        if (gameplayUIRoots != null)
-            foreach (var go in gameplayUIRoots) if (go) go.SetActive(!on);
+    }
+
+    private void ToggleGameplayUI(bool on)
+    {
+        if (gameplayUIRoots == null) return;
+        foreach (var go in gameplayUIRoots)
+            if (go) go.SetActive(on);
     }
 
     private void ResetPortraits()
     {
-        // 이미지 초기화(비활성 + 스프라이트 제거)
         ClearImage(firstImage);
         ClearImage(secondImage);
         ClearImage(thirdImage);
@@ -272,67 +279,44 @@ public class CutSceneDialogue : MonoBehaviour
     }
     #endregion
 
-    #region Portrait / Speaker Rules
+    #region Portrait
     private void ApplyPortrait(LineData line)
     {
-        // 0) 스프라이트 로드
         Sprite s = LoadIllustrateSprite(line.character, line.illustrate);
-        // s가 null이면 해당 슬롯은 비활성 처리(흰 배경 없이 공백)
         bool hasSprite = s != null;
 
-        // 1) 화자 변경 여부 판단
-        bool speakerChanged = (_currentSpeaker == null) || !string.Equals(_currentSpeaker, line.character, StringComparison.OrdinalIgnoreCase);
+        bool speakerChanged = (_currentSpeaker == null)
+                           || !string.Equals(_currentSpeaker, line.character, StringComparison.OrdinalIgnoreCase);
 
         if (speakerChanged)
         {
-            // 직전 화자를 왼쪽으로 보냄 + 톤다운
             _previousSpeaker = _currentSpeaker;
             _previousSprite = _currentSprite;
 
             if (!string.IsNullOrEmpty(_previousSpeaker))
             {
-                if (_previousSprite) // 스프라이트 있는 경우만 표시
-                {
-                    ShowImage(firstImage, _previousSprite, dimColor, sendToBack: true);
-                }
-                else
-                {
-                    ClearImage(firstImage);
-                }
+                if (_previousSprite) ShowImage(firstImage, _previousSprite, dimColor, sendToBack: true);
+                else ClearImage(firstImage);
             }
-            else
-            {
-                ClearImage(firstImage);
-            }
+            else ClearImage(firstImage);
 
-            // 새 화자를 가운데로 + 원색 + 맨 위
             _currentSpeaker = line.character;
             _currentSprite = s;
 
-            if (hasSprite)
-                ShowImage(secondImage, s, speakerColor, bringToFront: true);
-            else
-                ClearImage(secondImage);
+            if (hasSprite) ShowImage(secondImage, s, speakerColor, bringToFront: true);
+            else ClearImage(secondImage);
 
-            // 우측 슬롯은 현 규칙에선 사용하지 않음(비활성)
             ClearImage(thirdImage);
         }
         else
         {
-            // 같은 화자가 계속 말함 → 가운데 이미지만 갱신
             _currentSprite = s;
 
-            if (hasSprite)
-                ShowImage(secondImage, s, speakerColor, bringToFront: true);
-            else
-                ClearImage(secondImage);
+            if (hasSprite) ShowImage(secondImage, s, speakerColor, bringToFront: true);
+            else ClearImage(secondImage);
 
-            // 왼쪽(직전 화자) 유지, 우측은 비활성
-            // 단, 직전 화자 스프라이트가 없었다면 빈 상태 유지
-            if (_previousSprite)
-                ShowImage(firstImage, _previousSprite, dimColor, sendToBack: true);
-            else
-                ClearImage(firstImage);
+            if (_previousSprite) ShowImage(firstImage, _previousSprite, dimColor, sendToBack: true);
+            else ClearImage(firstImage);
 
             ClearImage(thirdImage);
         }
@@ -343,27 +327,24 @@ public class CutSceneDialogue : MonoBehaviour
         if (!img) return;
         img.enabled = true;
         img.sprite = sprite;
-
-        img.material = null;                 // 기본 UI 머티리얼
-        img.canvasRenderer.SetAlpha(1f);     // 완전 불투명
-        img.color = tint;                  // 화자는 Color.white, 직전 화자는 dimColor
+        img.material = null;
+        img.canvasRenderer.SetAlpha(1f);
+        img.color = tint;
 
         if (bringToFront) img.transform.SetAsLastSibling();
         else if (sendToBack) img.transform.SetAsFirstSibling();
     }
-
 
     private void ClearImage(Image img)
     {
         if (!img) return;
         img.enabled = false;
         img.sprite = null;
-        // color는 보존해도 되지만, 에디터 미리보기 혼동 방지를 위해 원색으로
         img.color = Color.white;
     }
     #endregion
 
-    #region Resource Loading & Helpers
+    #region Helpers
     private void BuildAliasMap()
     {
         _aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -383,7 +364,7 @@ public class CutSceneDialogue : MonoBehaviour
         var b = new StringBuilder();
         foreach (var ch in s)
         {
-            if (char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' || ch > 127) // 한글 포함
+            if (char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' || ch > 127)
                 b.Append(char.ToLowerInvariant(ch));
         }
         return b.ToString();
@@ -394,7 +375,6 @@ public class CutSceneDialogue : MonoBehaviour
         if (string.IsNullOrWhiteSpace(illustrate))
             return null;
 
-        // alias 매핑 우선
         string key = NormalizeKey(characterName);
         string folderName = null;
         if (_aliasMap != null && _aliasMap.TryGetValue(key, out var mapped))
@@ -418,7 +398,6 @@ public class CutSceneDialogue : MonoBehaviour
             if (sp) return sp;
         }
 
-        // 공백/괄호 제거 버전도 시도
         string simple = StripSpecial(illustrate);
         if (simple != illustrate)
         {
@@ -426,7 +405,6 @@ public class CutSceneDialogue : MonoBehaviour
             if (sp) return sp;
         }
 
-        // 못 찾으면 null 반환 → 호출부에서 Image 비활성 처리
         return null;
     }
 
@@ -443,6 +421,7 @@ public class CutSceneDialogue : MonoBehaviour
 
     private static int SafeInt(string s) => int.TryParse(s, out var v) ? v : 0;
 
+    /// <summary>따옴표/콤마 대응 CSV 1줄 파서</summary>
     private static List<string> ParseCsv(string line)
     {
         var list = new List<string>();
@@ -498,22 +477,32 @@ public class CutSceneDialogue : MonoBehaviour
             if (string.IsNullOrWhiteSpace(line)) continue;
 
             var cells = ParseCsv(line);
+
+            // 최소 칼럼 체크(헤더 파일 기준)
             if (cells.Count <= Math.Max(colLine, Math.Max(colCategory, colOrder)))
                 continue;
+
+            // Line 이후는 모두 합쳐 콤마 내성 확보
+            string mergedLine = string.Join(",", cells.Skip(colLine)).Trim();
+
+            // 완전 빈 레코드 스킵(캐릭터/일러/대사 모두 공백)
+            bool allEmpty = string.IsNullOrWhiteSpace(cells[colCharacter])
+                         && string.IsNullOrWhiteSpace(cells[colIllustrate])
+                         && string.IsNullOrWhiteSpace(mergedLine);
+            if (allEmpty) continue;
 
             _all.Add(new LineData
             {
                 category = cells[colCategory].Trim(),
                 order = SafeInt(cells[colOrder]),
                 character = cells[colCharacter].Trim(),
-                slot = cells[colSlot].Trim(),
+                slot = (cells.Count > colSlot ? cells[colSlot] : "").Trim(),
                 illustrate = cells[colIllustrate].Trim(),
-                line = cells[colLine],
+                line = mergedLine,
                 rowIndex = row++
             });
         }
 
-        // playByCsvOrder=true면 CSV 원래 순서 유지, false면 Category→Order로 정렬
         if (!playByCsvOrder)
         {
             _all.Sort((a, b) =>
@@ -524,5 +513,4 @@ public class CutSceneDialogue : MonoBehaviour
         }
     }
     #endregion
-
 }
