@@ -80,6 +80,9 @@ public class EnemyController : NetworkBehaviour
         // ViewObjParent 생성 및 Interpolation Target 설정
         EnsureViewObjParentExists();
 
+        // 네트워크 동기화 컴포넌트 자동 보강 (없으면 추가)
+        EnsureNetworkSyncComponentExists();
+
         TryCreateView();
 
         // 초기화 및 데이터 동기화 대기
@@ -122,6 +125,9 @@ public class EnemyController : NetworkBehaviour
         _state?.Initialize(this, enemyData);
         _detector?.Initialize(this, enemyData);
         _movement?.Initialize(this, enemyData);
+        
+        // 3. 적 감시 범위 트리거 콜리더 초기화 (플레이어의 트리거와 충돌하기 위해)
+        EnsureDetectionTriggerColliderExists();
     }
 
     /// <summary>
@@ -280,6 +286,50 @@ public class EnemyController : NetworkBehaviour
         {
             Debug.LogWarning($"[EnemyController] NetworkRigidbody2D not found!");
         }
+    }
+
+    /// <summary>
+    /// NetworkRigidbody2D 또는 NetworkTransform 중 하나가 존재하도록 보장합니다.
+    /// 없으면 NetworkTransform을 추가해 기본 위치/회전 동기화가 이루어지도록 합니다.
+    /// </summary>
+    private void EnsureNetworkSyncComponentExists()
+    {
+        // 우선 NetworkRigidbody2D가 있다면 그대로 사용
+        var networkRb2D = GetComponent<NetworkRigidbody2D>();
+        if (networkRb2D != null)
+        {
+            return;
+        }
+
+        // 없다면 NetworkTransform 존재 여부 확인 후 없으면 추가
+        var networkTransform = GetComponent<NetworkTransform>();
+        if (networkTransform == null)
+        {
+            networkTransform = gameObject.AddComponent<NetworkTransform>();
+            Debug.Log("[EnemyController] NetworkTransform added for transform sync");
+        }
+    }
+    
+    /// <summary>
+    /// 적 감시 범위 트리거 콜리더를 초기화합니다 (플레이어의 트리거와 충돌하기 위해).
+    /// </summary>
+    private void EnsureDetectionTriggerColliderExists()
+    {
+        // 이미 Collider2D가 있는지 확인 (모든 종류)
+        Collider2D existingCollider = GetComponent<Collider2D>();
+        
+        if (existingCollider == null)
+        {
+            // Collider2D가 없으면 트리거 콜리더 추가
+            CircleCollider2D triggerCollider = gameObject.AddComponent<CircleCollider2D>();
+            triggerCollider.isTrigger = true;
+            triggerCollider.radius = 0.5f; // 기본 크기 (실제 크기는 중요하지 않음, 플레이어가 감지하는 용도)
+            Debug.Log("[EnemyController] Detection trigger collider added");
+        }
+        // Collider2D가 이미 있으면 그대로 사용 (트리거든 아니든 상관없이 플레이어의 트리거와 충돌 가능)
+        
+        // EnemyDetector가 있는지 확인 (플레이어의 트리거가 감지할 수 있도록)
+        // EnemyDetector는 자동으로 추가되므로 별도 체크 불필요
     }
 
     /// <summary>

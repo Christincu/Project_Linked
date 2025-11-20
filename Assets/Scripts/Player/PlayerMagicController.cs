@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Fusion;
 
@@ -9,10 +10,9 @@ using Fusion;
 /// </summary>
 public class PlayerMagicController : MonoBehaviour
 {
-    #region Serialized Fields
-    [Header("Prefabs")]
-    [SerializeField] private GameObject magicProjectilePrefab;
-
+    #region Private Fields - Prefabs
+    private GameObject _magicProjectilePrefab;
+    private NetworkPrefabRef _barrierMagicObjectPrefab; // 보호막 마법 오브젝트 프리팹
     #endregion
 
     #region Private Fields
@@ -39,6 +39,12 @@ public class PlayerMagicController : MonoBehaviour
     private bool _previousLeftMouseButton = false; // 이전 프레임의 좌클릭 상태
     private bool _previousRightMouseButton = false; // 이전 프레임의 우클릭 상태
     private float _magicActivationTime = 0f; // 마법을 활성화한 시간 (Time.time)
+
+    // 보호막 마법 선택 모드
+    private PlayerController _selectedPlayerForBarrier = null; // 선택된 플레이어 (보호막용)
+    private Dictionary<PlayerController, GameObject> _barrierHighlightObjects = new Dictionary<PlayerController, GameObject>(); // 하이라이트 오브젝트
+    private Color _barrierHighlightColor = new Color(0.2f, 1f, 0.2f, 1f); // 연두색
+    private float _barrierHighlightThickness = 0.1f;
 
     #endregion
 
@@ -78,7 +84,7 @@ public class PlayerMagicController : MonoBehaviour
     #endregion
 
     #region Events
-    public System.Action<Vector3, Vector3> OnMagicCast; // (position, direction)
+    public System.Action<Vector3, Vector3, int> OnMagicCast; // (position, direction, magicCode)
     public System.Action OnCooldownStarted;
     public System.Action OnCooldownEnded;
     #endregion
@@ -87,11 +93,13 @@ public class PlayerMagicController : MonoBehaviour
     /// <summary>
     /// PlayerController에서 호출하여 초기화합니다.
     /// </summary>
-    public void Initialize(PlayerController controller, GameDataManager gameDataManager)
+    public void Initialize(PlayerController controller, GameDataManager gameDataManager, GameObject magicProjectilePrefab, NetworkPrefabRef barrierMagicObjectPrefab)
     {
         _controller = controller;
         _gameDataManager = gameDataManager;
         _characterData = gameDataManager.CharacterService.GetCharacter(_controller.CharacterIndex);
+        _magicProjectilePrefab = magicProjectilePrefab;
+        _barrierMagicObjectPrefab = barrierMagicObjectPrefab;
     }
 
     /// <summary>
@@ -100,6 +108,12 @@ public class PlayerMagicController : MonoBehaviour
     void Update()
     {
         if (!_isInitialized || _controller == null) return;
+        
+        // 보호막 마법 선택 모드일 때 하이라이트 업데이트 (렌더링만)
+        if (IsInBarrierSelectionMode())
+        {
+            UpdateBarrierHighlightVisuals();
+        }
     }
 
     /// <summary>
@@ -183,25 +197,300 @@ public class PlayerMagicController : MonoBehaviour
     #region Magic Casting
     /// <summary>
     /// 마법을 시전합니다.
+    /// ActivatedMagicCode와 AbsorbedMagicCode를 확인하여 조합 마법 또는 단일 마법을 시전합니다.
     /// </summary>
     /// <param name="targetPosition">목표 위치 (월드 좌표)</param>
     public void CastMagic(Vector3 targetPosition)
     {
-
         if (_controller == null) return;
         if (!_controller.Object.HasStateAuthority) return;
-
+        
         // 시전 가능 여부 확인
         if (!CanCastMagic) return;
         if (_controller.State == null) return;
+
+        // 시전할 마법 코드 결정 (마법 합체 후 바로 정보를 가져옴)
+        int magicCodeToCast = GetMagicCodeToCast();
+        
+        if (magicCodeToCast == -1)
+        {
+            // 시전할 마법이 없음
+            Debug.LogWarning($"[CastMagic] {_controller.name} tried to cast magic but no magic is activated");
+            return;
+        }
 
         // 발사 방향 계산
         Vector3 startPos = _controller.transform.position;
         Vector3 direction = (targetPosition - startPos).normalized;
 
-        // 이벤트 발생
-        OnMagicCast?.Invoke(startPos, direction);
-        OnCooldownStarted?.Invoke();
+        // 조합 마법 특수 처리 (보호막 마법: Air + Soil)
+        if (magicCodeToCast == 10) // 조합 마법 코드 10 (Air + Soil)
+        {
+            // 보호막 마법은 시전하지 않고 선택 모드로 진입
+            // CastMagic을 호출하지 않음 (선택 모드 유지)
+            return; // 시전하지 않고 선택 모드로 유지
+        }
+        else
+        {
+            // 일반 마법 시전
+            OnMagicCast?.Invoke(startPos, direction, magicCodeToCast);
+            OnCooldownStarted?.Invoke();
+        }
+    }
+    
+    /// <summary>
+    /// 시전할 마법 코드를 결정합니다. (마법 합체 후 바로 정보를 가져옴)
+    /// </summary>
+    private int GetMagicCodeToCast()
+    {
+        // 흡수된 마법이 있는지 확인 (조합 마법)
+        if (_controller.AbsorbedMagicCode != -1 && _controller.ActivatedMagicCode != -1)
+        {
+            // 두 마법을 조합 (마법 합체 후 바로 정보를 가져옴)
+            int combinedMagicCode = _gameDataManager.MagicService.GetCombinedMagic(
+                _controller.ActivatedMagicCode, 
+                _controller.AbsorbedMagicCode
+            );
+            
+            if (combinedMagicCode != -1)
+            {
+                // 조합 마법 시전
+                return combinedMagicCode;
+            }
+            else
+            {
+                // 조합이 없으면 활성화된 마법만 시전
+                return _controller.ActivatedMagicCode;
+            }
+        }
+        else if (_controller.ActivatedMagicCode != -1)
+        {
+            // 단일 마법 시전
+            return _controller.ActivatedMagicCode;
+        }
+        
+        return -1;
+    }
+    
+    /// <summary>
+    /// 보호막 마법 선택 모드인지 확인합니다.
+    /// </summary>
+    private bool IsInBarrierSelectionMode()
+    {
+        if (_controller == null || !_controller.MagicActive) return false;
+        
+        int magicCodeToCast = GetMagicCodeToCast();
+        return magicCodeToCast == 10; // 보호막 마법 코드
+    }
+    
+    /// <summary>
+    /// 보호막 마법 선택 모드에서 플레이어 선택을 업데이트합니다. (입력 데이터 사용)
+    /// </summary>
+    private void UpdateBarrierSelectionWithInput(Vector3 mouseWorldPos)
+    {
+        if (_controller == null || !_controller.Object.HasInputAuthority) return;
+        
+        // 가장 가까운 플레이어 찾기 (자신 포함)
+        PlayerController closestPlayer = FindClosestPlayerForBarrier(mouseWorldPos);
+        
+        if (closestPlayer != null && !closestPlayer.IsDead)
+        {
+            _selectedPlayerForBarrier = closestPlayer;
+        }
+        else
+        {
+            _selectedPlayerForBarrier = null;
+        }
+    }
+    
+    /// <summary>
+    /// 보호막 마법용 가장 가까운 플레이어를 찾습니다.
+    /// </summary>
+    private PlayerController FindClosestPlayerForBarrier(Vector3 mouseWorldPos)
+    {
+        List<PlayerController> allPlayers = new List<PlayerController>();
+        
+        if (MainGameManager.Instance != null)
+        {
+            allPlayers = MainGameManager.Instance.GetAllPlayers();
+        }
+        
+        if (allPlayers == null || allPlayers.Count == 0)
+        {
+            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
+        }
+
+        PlayerController closestPlayer = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (var player in allPlayers)
+        {
+            if (player == null || player.IsDead) continue;
+
+            Vector3 playerPos = player.transform.position;
+            if (player.ViewObj != null)
+            {
+                playerPos = player.ViewObj.transform.position;
+            }
+            
+            float distance = Vector3.Distance(mouseWorldPos, playerPos);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestPlayer = player;
+            }
+        }
+
+        return closestPlayer;
+    }
+    
+    /// <summary>
+    /// 보호막 하이라이트 시각 효과를 업데이트합니다.
+    /// </summary>
+    private void UpdateBarrierHighlightVisuals()
+    {
+        // 이전 선택된 플레이어 하이라이트 제거
+        foreach (var kvp in _barrierHighlightObjects.ToList())
+        {
+            if (kvp.Key != _selectedPlayerForBarrier)
+            {
+                RemoveBarrierHighlight(kvp.Key);
+            }
+        }
+
+        // 현재 선택된 플레이어 하이라이트 추가
+        if (_selectedPlayerForBarrier != null && !_barrierHighlightObjects.ContainsKey(_selectedPlayerForBarrier))
+        {
+            AddBarrierHighlight(_selectedPlayerForBarrier);
+        }
+    }
+    
+    /// <summary>
+    /// 플레이어에게 보호막 하이라이트를 추가합니다.
+    /// </summary>
+    private void AddBarrierHighlight(PlayerController player)
+    {
+        if (player == null) return;
+        
+        GameObject viewObj = player.ViewObj;
+        if (viewObj == null)
+        {
+            Transform viewObjParent = player.transform.Find("ViewObjParent");
+            if (viewObjParent != null && viewObjParent.childCount > 0)
+            {
+                viewObj = viewObjParent.GetChild(0).gameObject;
+            }
+        }
+        
+        if (viewObj == null) return;
+
+        GameObject highlightObj = new GameObject("BarrierHighlight");
+        highlightObj.transform.SetParent(viewObj.transform, false);
+        
+        SpriteRenderer playerRenderer = viewObj.GetComponent<SpriteRenderer>();
+        if (playerRenderer != null && playerRenderer.sprite != null)
+        {
+            SpriteRenderer highlightRenderer = highlightObj.AddComponent<SpriteRenderer>();
+            highlightRenderer.sprite = playerRenderer.sprite;
+            highlightRenderer.color = _barrierHighlightColor;
+            highlightRenderer.sortingOrder = playerRenderer.sortingOrder + 1;
+            highlightObj.transform.localScale = Vector3.one * (1f + _barrierHighlightThickness);
+        }
+
+        _barrierHighlightObjects[player] = highlightObj;
+    }
+    
+    /// <summary>
+    /// 플레이어의 보호막 하이라이트를 제거합니다.
+    /// </summary>
+    private void RemoveBarrierHighlight(PlayerController player)
+    {
+        if (player == null || !_barrierHighlightObjects.ContainsKey(player)) return;
+
+        GameObject highlightObj = _barrierHighlightObjects[player];
+        if (highlightObj != null)
+        {
+            Destroy(highlightObj);
+        }
+
+        _barrierHighlightObjects.Remove(player);
+    }
+    
+    /// <summary>
+    /// 플레이어에게 보호막을 적용합니다.
+    /// </summary>
+    private void ApplyBarrierToPlayer(PlayerController targetPlayer)
+    {
+        if (targetPlayer == null || _controller == null) return;
+        if (!_controller.Object.HasStateAuthority) return;
+
+        // 모든 플레이어 가져오기
+        List<PlayerController> allPlayers = new List<PlayerController>();
+        
+        if (MainGameManager.Instance != null)
+        {
+            allPlayers = MainGameManager.Instance.GetAllPlayers();
+        }
+        
+        if (allPlayers == null || allPlayers.Count == 0)
+        {
+            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
+        }
+
+        // 보호막을 받은 플레이어는 체력 3, 받지 못한 플레이어는 체력 1
+        foreach (var player in allPlayers)
+        {
+            if (player == null || player.IsDead) continue;
+
+            if (player == targetPlayer)
+            {
+                // 보호막 받은 플레이어: 체력 3 및 보호막 타이머 설정
+                // PlayerState의 SetHealth를 사용하여 이벤트 발생
+                if (player.State != null)
+                {
+                    player.State.SetHealth(3f);
+                }
+                else
+                {
+                    player.CurrentHealth = 3f;
+                }
+                // 보호막 타이머 시작
+                if (_controller.Runner != null)
+                {
+                    player.BarrierTimer = TickTimer.CreateFromSeconds(_controller.Runner, 5f); // 기본 5초
+                    player.HasBarrier = true;
+                }
+                Debug.Log($"[BarrierMagic] {targetPlayer.name} received barrier (HP: {player.CurrentHealth}/{player.MaxHealth})");
+            }
+            else
+            {
+                // 보호막 받지 못한 플레이어: 체력 1
+                // PlayerState의 SetHealth를 사용하여 이벤트 발생
+                if (player.State != null)
+                {
+                    player.State.SetHealth(1f);
+                }
+                else
+                {
+                    player.CurrentHealth = 1f;
+                }
+                // 기존 보호막 제거
+                player.BarrierTimer = TickTimer.None;
+                player.HasBarrier = false;
+                Debug.Log($"[BarrierMagic] {player.name} did not receive barrier (HP: {player.CurrentHealth}/{player.MaxHealth})");
+            }
+        }
+        
+        // 모든 하이라이트 제거
+        foreach (var kvp in _barrierHighlightObjects)
+        {
+            if (kvp.Value != null)
+            {
+                Destroy(kvp.Value);
+            }
+        }
+        _barrierHighlightObjects.Clear();
+        _selectedPlayerForBarrier = null;
     }
     #endregion
 
@@ -291,34 +580,68 @@ public class PlayerMagicController : MonoBehaviour
 
         if (leftClickDown || rightClickDown)
         {
-            int magicCode = -1;
-
-            if (leftClickDown)
-            {
-                magicCode = _characterData.magicData1.magicCode;
-            }
-            else if (rightClickDown)
-            {
-                magicCode = _characterData.magicData2.magicCode;
-            }
-
             if (!controller.MagicActive)
             {
+                // 마법이 비활성화되어 있으면 활성화
+                int magicCode = -1;
+
+                if (leftClickDown)
+                {
+                    magicCode = _characterData.magicData1.magicCode;
+                }
+                else if (rightClickDown)
+                {
+                    magicCode = _characterData.magicData2.magicCode;
+                }
+
                 controller.RPC_ActivateMagic(controller.ActiveMagicSlotNetworked, magicCode);
             }
-            else if (controller.MagicActive)
+            else
             {
-                controller.RPC_DeactivateMagic();
+                // 마법이 활성화되어 있으면 시전 또는 보호막 적용
+                int magicCodeToCast = GetMagicCodeToCast();
+                
+                if (magicCodeToCast == 10) // 보호막 마법
+                {
+                    // 보호막 선택 모드: 선택된 플레이어가 있으면 보호막 적용
+                    if (_selectedPlayerForBarrier != null && !_selectedPlayerForBarrier.IsDead)
+                    {
+                        // 선택된 플레이어에게 보호막 적용
+                        ApplyBarrierToPlayer(_selectedPlayerForBarrier);
+                        
+                        // 마법 비활성화
+                        controller.RPC_DeactivateMagic();
+                    }
+                    // 선택된 플레이어가 없으면 선택 모드 유지 (시전하지 않음)
+                }
+                else
+                {
+                    // 일반 마법 시전
+                    Vector3 mousePos = GetMouseWorldPosition(inputData);
+                    controller.RPC_CastMagic(mousePos);
+                }
             }
         }
 
         // 마우스 위치 업데이트 (활성화된 경우에만)
         if (controller.MagicActive)
         {
-            Vector3 mousePos = GetMouseWorldPosition(inputData);
-            Vector3 anchorPos = CalculateAnchorPosition(mousePos, controller);
-            UpdateAnchorPosition(anchorPos);
-            _controller.RPC_UpdateMagicAnchorPosition(anchorPos);
+            int magicCodeToCast = GetMagicCodeToCast();
+            
+            if (magicCodeToCast == 10) // 보호막 마법 선택 모드
+            {
+                // 보호막 선택 모드: 플레이어 선택 업데이트
+                Vector3 mousePos = GetMouseWorldPosition(inputData);
+                UpdateBarrierSelectionWithInput(mousePos);
+            }
+            else
+            {
+                // 일반 마법: 앵커 위치 업데이트
+                Vector3 mousePos = GetMouseWorldPosition(inputData);
+                Vector3 anchorPos = CalculateAnchorPosition(mousePos, controller);
+                UpdateAnchorPosition(anchorPos);
+                _controller.RPC_UpdateMagicAnchorPosition(anchorPos);
+            }
         }
 
         _previousLeftMouseButton = inputData.GetMouseButton(InputMouseButton.LEFT);

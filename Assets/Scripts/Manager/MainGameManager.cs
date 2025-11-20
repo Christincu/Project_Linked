@@ -249,13 +249,38 @@ public class MainGameManager : MonoBehaviour
     private void HandleTestModeInput()
     {
         // 1/2 키로 조작 대상 전환
-        if (Input.GetKeyDown(KeyCode.Alpha1)) { SelectedSlot = 0; Debug.Log($"Switched to Player 1 (Slot: {SelectedSlot})"); }
-        if (Input.GetKeyDown(KeyCode.Alpha2)) { SelectedSlot = 1; Debug.Log($"Switched to Player 2 (Slot: {SelectedSlot})"); }
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            SelectedSlot = 0;
+            Debug.Log($"Switched to Player 1 (Slot: {SelectedSlot})");
+            UpdateCanvasForSelectedPlayer();
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            SelectedSlot = 1;
+            Debug.Log($"Switched to Player 2 (Slot: {SelectedSlot})");
+            UpdateCanvasForSelectedPlayer();
+        }
 
         // T/Y/U 키로 데미지/힐 테스트
         if (Input.GetKeyDown(KeyCode.T)) ApplyTestHealthChange(-1f, "Damage");
         if (Input.GetKeyDown(KeyCode.Y)) ApplyTestHealthChange(1f, "Heal");
         if (Input.GetKeyDown(KeyCode.U)) ApplyTestHealthChange(999f, "Full Heal");
+    }
+    
+    /// <summary>
+    /// 테스트 모드에서 선택된 플레이어에 맞춰 Canvas를 업데이트합니다.
+    /// </summary>
+    private void UpdateCanvasForSelectedPlayer()
+    {
+        if (!_isTestMode) return;
+        
+        PlayerController selectedPlayer = GetSelectedPlayer();
+        if (selectedPlayer != null && GameManager.Instance?.Canvas is MainCanvas canvas)
+        {
+            canvas.RegisterPlayer(selectedPlayer);
+            Debug.Log($"[MainGameManager] Canvas updated for selected player (Slot: {SelectedSlot})");
+        }
     }
 
     private void ApplyTestHealthChange(float amount, string type)
@@ -620,8 +645,26 @@ public class MainGameManager : MonoBehaviour
     /// </summary>
     public List<PlayerController> GetAllPlayers()
     {
+        // 테스트 모드: 로컬에서 생성한 두 플레이어를 모두 반환
+        if (_isTestMode)
+        {
+            var result = new List<PlayerController>();
+            if (_playerObj1 != null && _playerObj1.IsValid)
+            {
+                var c1 = _playerObj1.GetComponent<PlayerController>();
+                if (c1 != null) result.Add(c1);
+            }
+            if (_playerObj2 != null && _playerObj2.IsValid)
+            {
+                var c2 = _playerObj2.GetComponent<PlayerController>();
+                if (c2 != null) result.Add(c2);
+            }
+            return result;
+        }
+
+        // 네트워크 모드: 서버/클라이언트가 등록한 맵을 기준으로 반환
         return _spawnedPlayers.Values
-            .Select(obj => obj.GetComponent<PlayerController>())
+            .Select(obj => obj != null ? obj.GetComponent<PlayerController>() : null)
             .Where(controller => controller != null)
             .ToList();
     }

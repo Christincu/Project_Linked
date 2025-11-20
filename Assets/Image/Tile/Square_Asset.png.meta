@@ -1,0 +1,1490 @@
+fileFormatVersion: 2
+guid: b030f1b7ab2e43044b0322d9df8f37f9
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 95
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 3
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Square_Asset_0
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 981
+        width: 30
+        height: 24
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dc76e10915db3a245b2f708ea1102ee2
+      internalID: -487363949
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_1
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 984
+        width: 24
+        height: 18
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a392ab0bc3ddf7e499198318ffde5db9
+      internalID: -1530273700
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_2
+      rect:
+        serializedVersion: 2
+        x: 651
+        y: 987
+        width: 6
+        height: 18
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fd756ec2eff5b0c43a4af8ce14385c83
+      internalID: -1117346013
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_3
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 936
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape:
+      - - {x: 48, y: -48}
+        - {x: 48, y: -2}
+        - {x: 48, y: 48}
+        - {x: -48, y: 48}
+        - {x: -48, y: -48}
+      tessellationDetail: 0
+      bones: []
+      spriteID: 38097d5be2c33de41a1f1ad4fd54df3c
+      internalID: 644899483
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_4
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 936
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 45a991135969b7543aa3882a00511b90
+      internalID: 1101852582
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_5
+      rect:
+        serializedVersion: 2
+        x: 1047
+        y: 936
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f428454e6910ed54aafc2a6456f485e3
+      internalID: 16092698
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_6
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 936
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape:
+      - - {x: -48, y: -48}
+        - {x: -48, y: 48}
+        - {x: 48, y: 48}
+        - {x: 48, y: -48}
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1cbcae4d2a9912c48b9eabb5fe6f2696
+      internalID: 484839216
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_7
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 888
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b7684523e058c6a4dac6b32ceea10c50
+      internalID: -757912706
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_8
+      rect:
+        serializedVersion: 2
+        x: 240
+        y: 888
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b315fdfc038f8db43840477aa515ff62
+      internalID: -78629030
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_9
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 888
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5bbf679c4fc116d40ac10dddef803912
+      internalID: -1819250861
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_10
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 888
+        width: 33
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5a3791a5a8d9fc4458d9328519bf904f
+      internalID: 1690501875
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_11
+      rect:
+        serializedVersion: 2
+        x: 546
+        y: 903
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0fae7ed72d6a88549903f915f64cf7a4
+      internalID: -1917009304
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_12
+      rect:
+        serializedVersion: 2
+        x: 633
+        y: 888
+        width: 18
+        height: 18
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f59ab59b03bf3214c9b2596a26c69a6b
+      internalID: 200901821
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_13
+      rect:
+        serializedVersion: 2
+        x: 1296
+        y: 621
+        width: 576
+        height: 333
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape:
+      - - {x: 193, y: 57.5}
+        - {x: 164, y: 109.5}
+        - {x: -151, y: 107.5}
+        - {x: -211, y: 49.5}
+        - {x: -270, y: -0.5}
+        - {x: -217, y: -40.5}
+        - {x: -199, y: -100.5}
+        - {x: -45, y: -103.5}
+        - {x: 48, y: -103.5}
+        - {x: 173, y: -96.5}
+        - {x: 209, y: -26.5}
+        - {x: 255, y: 7.5}
+      tessellationDetail: 0
+      bones: []
+      spriteID: 496f286cba2c05e42993fc9a4f256f50
+      internalID: 807754185
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_14
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 888
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f93b39e2b3d7836429daa4eb738eb997
+      internalID: -1586330267
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_15
+      rect:
+        serializedVersion: 2
+        x: 654
+        y: 888
+        width: 9
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a925c9eca64b51c4aac46811e185a6c6
+      internalID: 231526484
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_16
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 744
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b970f964636ecfb45aebf526b83a11b7
+      internalID: 759979323
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_17
+      rect:
+        serializedVersion: 2
+        x: 240
+        y: 744
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fd0442f3aedb9b7499da7121081d10da
+      internalID: -1326300596
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_18
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 744
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ee2ba3cf2622c5c4790a8a7a431a1740
+      internalID: -1530705053
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_19
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 744
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bf79b39d883ba4f4ebcba07339c72953
+      internalID: -1246402590
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_20
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 792
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ef0a285d82ff2894fb9adcd2ad9e0fa3
+      internalID: 643248751
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_21
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 792
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c0d2575ea2631f640a4964ece58657a5
+      internalID: 558508120
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_22
+      rect:
+        serializedVersion: 2
+        x: 1047
+        y: 792
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 57e65498f593c3c44861af87656ced95
+      internalID: 1083565820
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_23
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 792
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a31acfe15e53eb144b4c97be2ed82a07
+      internalID: 2041748465
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_24
+      rect:
+        serializedVersion: 2
+        x: 99
+        y: 606
+        width: 75
+        height: 90
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 79d0ff3f9206d5d48a1c63108b0af6b3
+      internalID: 223204274
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_25
+      rect:
+        serializedVersion: 2
+        x: 243
+        y: 615
+        width: 90
+        height: 75
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ff40611cde0af5f48b2317bf1823c0f8
+      internalID: 88680999
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_26
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 603
+        width: 54
+        height: 90
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d4fe7cab58be1f7418a1961e41e5ec5d
+      internalID: -1799589939
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_27
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 627
+        width: 96
+        height: 54
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a96974c0195b8bf408688c92479ac595
+      internalID: -1275868977
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_28
+      rect:
+        serializedVersion: 2
+        x: 777
+        y: 648
+        width: 87
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7067614092837ed42b15b7bed1c9d467
+      internalID: -541318523
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_29
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 648
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7f6ea4edcc2264144a88124c3a358bb0
+      internalID: -1544124656
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_30
+      rect:
+        serializedVersion: 2
+        x: 1047
+        y: 648
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 59cff3259cf140b4298fbb44c32213f5
+      internalID: -606221218
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_31
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 648
+        width: 87
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 871b0b146167f6a46a470c4dd19a792b
+      internalID: 471801805
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_32
+      rect:
+        serializedVersion: 2
+        x: 276
+        y: 558
+        width: 15
+        height: 15
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cf0a9fc4ccaf5f347aa088006f127ead
+      internalID: 1955877133
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_33
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 504
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 686084f29e2465d47b01042a26e5a1c4
+      internalID: 1202229566
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_34
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 504
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 894673774aaffa64694da5728933226c
+      internalID: -257660886
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_35
+      rect:
+        serializedVersion: 2
+        x: 1047
+        y: 504
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a817ff6f0fe1ec1448beba89f31be479
+      internalID: -672645303
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_36
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 504
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1594dc84c71aa274c9ce0e1aa3e0feec
+      internalID: 1213688839
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_37
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 486
+        width: 63
+        height: 66
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9892f4b0c45eee648b127e8324fe259f
+      internalID: 1372899579
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_38
+      rect:
+        serializedVersion: 2
+        x: 153
+        y: 459
+        width: 36
+        height: 33
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1725c4cca5857774da56fcff6727e483
+      internalID: 1766368616
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_39
+      rect:
+        serializedVersion: 2
+        x: 231
+        y: 459
+        width: 102
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4b74592a4f2dfae4cae33a2b3ae98178
+      internalID: 1120327599
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_40
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 120
+        width: 288
+        height: 402
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b5dfa69cedc3ef9429018adabd914b02
+      internalID: 1561213704
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_41
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 408
+        width: 288
+        height: 144
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a47dfaea9a0bc9f45bc95270fced483a
+      internalID: 1401604957
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_42
+      rect:
+        serializedVersion: 2
+        x: 1728
+        y: 360
+        width: 132
+        height: 168
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: feacbb24d3b05894f9b912b94c4cae22
+      internalID: -1083162495
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_43
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 360
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6d185c6e779a9a64584dabb3d4650e9b
+      internalID: 559930397
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_44
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 360
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8e52eb9a81b9e88418300b0a03b30ecf
+      internalID: -1029769363
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_45
+      rect:
+        serializedVersion: 2
+        x: 1056
+        y: 360
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 40271d78d2cfdb04688f420caf56c806
+      internalID: -470590435
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_46
+      rect:
+        serializedVersion: 2
+        x: 1200
+        y: 360
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a569a7a2a37ada3428d7e035afdf2073
+      internalID: -1426204808
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_47
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 264
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a220c5a5956186d4a9afae71efccf407
+      internalID: 1748254367
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_48
+      rect:
+        serializedVersion: 2
+        x: 240
+        y: 264
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a56544d2767ae0c4a9d8d89ac0905f16
+      internalID: -2011531037
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_49
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 216
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 60b71657dfccdcd46b0928a6ee2ca473
+      internalID: -1362003261
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_50
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 216
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f8a6c9b2459fea94ca70891e88ec2f37
+      internalID: -536835373
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_51
+      rect:
+        serializedVersion: 2
+        x: 1056
+        y: 216
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 58283eea511983d46b3abd85381d1c96
+      internalID: 643988169
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_52
+      rect:
+        serializedVersion: 2
+        x: 1200
+        y: 216
+        width: 57
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0734e493cd608e341a4e13c4c195c910
+      internalID: 332471973
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_53
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 264
+        width: 30
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3ee9f32927c04f94e8b0d7585ee2c054
+      internalID: 100653462
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_54
+      rect:
+        serializedVersion: 2
+        x: 1392
+        y: 264
+        width: 21
+        height: 48
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2598b7da6437094ea5acca2012ee307
+      internalID: -852247611
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_55
+      rect:
+        serializedVersion: 2
+        x: 1440
+        y: 264
+        width: 21
+        height: 48
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 863522c0f2ff64a428f5eaad539c52c4
+      internalID: -1126297520
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_56
+      rect:
+        serializedVersion: 2
+        x: 1488
+        y: 264
+        width: 21
+        height: 48
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e12144ee7d2d1ad4c9a818ff9e64f911
+      internalID: 897741924
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_57
+      rect:
+        serializedVersion: 2
+        x: 1539
+        y: 264
+        width: 21
+        height: 42
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4390c8407cf7f3f449027dec776406a0
+      internalID: -2005595648
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_58
+      rect:
+        serializedVersion: 2
+        x: 1584
+        y: 264
+        width: 48
+        height: 48
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 52149cfd98b50674ab93a73d80eed5d1
+      internalID: -57730110
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_59
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 120
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5c712306db4566448916c59b6fdae572
+      internalID: 711791730
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Square_Asset_60
+      rect:
+        serializedVersion: 2
+        x: 240
+        y: 120
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f010207991ec3c64aaeb7d7e8aa042a3
+      internalID: 519309168
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    nameFileIdTable:
+      Square_Asset_0: -487363949
+      Square_Asset_1: -1530273700
+      Square_Asset_10: 1690501875
+      Square_Asset_11: -1917009304
+      Square_Asset_12: 200901821
+      Square_Asset_13: 807754185
+      Square_Asset_14: -1586330267
+      Square_Asset_15: 231526484
+      Square_Asset_16: 759979323
+      Square_Asset_17: -1326300596
+      Square_Asset_18: -1530705053
+      Square_Asset_19: -1246402590
+      Square_Asset_2: -1117346013
+      Square_Asset_20: 643248751
+      Square_Asset_21: 558508120
+      Square_Asset_22: 1083565820
+      Square_Asset_23: 2041748465
+      Square_Asset_24: 223204274
+      Square_Asset_25: 88680999
+      Square_Asset_26: -1799589939
+      Square_Asset_27: -1275868977
+      Square_Asset_28: -541318523
+      Square_Asset_29: -1544124656
+      Square_Asset_3: 644899483
+      Square_Asset_30: -606221218
+      Square_Asset_31: 471801805
+      Square_Asset_32: 1955877133
+      Square_Asset_33: 1202229566
+      Square_Asset_34: -257660886
+      Square_Asset_35: -672645303
+      Square_Asset_36: 1213688839
+      Square_Asset_37: 1372899579
+      Square_Asset_38: 1766368616
+      Square_Asset_39: 1120327599
+      Square_Asset_4: 1101852582
+      Square_Asset_40: 1561213704
+      Square_Asset_41: 1401604957
+      Square_Asset_42: -1083162495
+      Square_Asset_43: 559930397
+      Square_Asset_44: -1029769363
+      Square_Asset_45: -470590435
+      Square_Asset_46: -1426204808
+      Square_Asset_47: 1748254367
+      Square_Asset_48: -2011531037
+      Square_Asset_49: -1362003261
+      Square_Asset_5: 16092698
+      Square_Asset_50: -536835373
+      Square_Asset_51: 643988169
+      Square_Asset_52: 332471973
+      Square_Asset_53: 100653462
+      Square_Asset_54: -852247611
+      Square_Asset_55: -1126297520
+      Square_Asset_56: 897741924
+      Square_Asset_57: -2005595648
+      Square_Asset_58: -57730110
+      Square_Asset_59: 711791730
+      Square_Asset_6: 484839216
+      Square_Asset_60: 519309168
+      Square_Asset_7: -757912706
+      Square_Asset_8: -78629030
+      Square_Asset_9: -1819250861
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

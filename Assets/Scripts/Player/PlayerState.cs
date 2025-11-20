@@ -202,5 +202,19 @@ public class PlayerState : MonoBehaviour
         
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
     }
+    
+    /// <summary>
+    /// 현재 체력을 직접 설정합니다 (서버/State Authority에서만 실행).
+    /// 보호막 등 특수 상황에서 사용됩니다.
+    /// </summary>
+    public void SetHealth(float newHealth)
+    {
+        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
+        
+        CurrentHealth = Mathf.Clamp(newHealth, 0, MaxHealth);
+        
+        // 이벤트 발생
+        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+    }
     #endregion
 }

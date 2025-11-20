@@ -26,9 +26,14 @@ public class EnemyDetector : MonoBehaviour
     private float _lastDetectionRange = -1f;
     private Vector3 _lastPosition;
     private float _lastRotation;
-    private float _updateInterval = 0.1f; // 시야 범위 업데이트 주기 (초)
+    [Header("Performance Settings")]
+    [Tooltip("시야 범위 업데이트 주기 (초) - 유휴 상태")]
+    [SerializeField] private float _updateIntervalIdle = 0.2f;
+    [Tooltip("시야 범위 업데이트 주기 (초) - 탐지 중")]
+    [SerializeField] private float _updateIntervalDetected = 0.08f;
     private float _lastUpdateTime = 0f;
     private Dictionary<PlayerController, Vector3> _lastPlayerPositions = new Dictionary<PlayerController, Vector3>();
+    private bool _wasPlayerDetected = false;
     
     [Header("Detection Settings")]
     [SerializeField] private LayerMask _playerLayerMask;
@@ -56,11 +61,10 @@ public class EnemyDetector : MonoBehaviour
     [Tooltip("트리거 범위 표시 색상 (선택 시 표시)")]
     [SerializeField] private Color _triggerRangeColor = new Color(0f, 1f, 0f, 0.2f);
     
-    [Tooltip("LineRenderer 선 두께")]
-    [SerializeField] private float _lineWidth = 0.05f;
-    
-    [Tooltip("원형 범위를 그릴 세그먼트 수 (높을수록 부드러움)")]
-    [SerializeField] private int _circleSegments = 64;
+    [Tooltip("원형 범위를 그릴 세그먼트 수 (유휴 상태)")]
+    [SerializeField] private int _segmentsWhenIdle = 24;
+    [Tooltip("원형 범위를 그릴 세그먼트 수 (탐지 중)")]
+    [SerializeField] private int _segmentsWhenDetected = 64;
     #endregion
 
     #region Properties
@@ -220,41 +224,23 @@ public class EnemyDetector : MonoBehaviour
     }
     
     /// <summary>
-    /// 플레이어가 트리거 범위 안에 있는지 확인합니다 (시각화용).
+    /// 로컬 플레이어가 트리거 범위 안에 있는지 확인합니다 (시각화용).
     /// </summary>
-    private bool IsPlayerInTriggerRange()
+    private bool IsLocalPlayerInTriggerRange()
     {
         if (_visualizationTriggerRange <= 0f) return true; // 범위가 0이면 항상 표시
         
-        Vector2 enemyPos = transform.position;
-        
-        // 모든 플레이어 확인
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
+        // 로컬 플레이어만 확인
+        PlayerController localPlayer = null;
         if (MainGameManager.Instance != null)
         {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
+            localPlayer = MainGameManager.Instance.GetLocalPlayer();
         }
         
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
+        if (localPlayer == null || localPlayer.IsDead) return false;
         
-        foreach (var player in allPlayers)
-        {
-            if (player == null || player.IsDead) continue;
-            
-            Vector2 playerPos = player.transform.position;
-            float distance = Vector2.Distance(enemyPos, playerPos);
-            
-            if (distance <= _visualizationTriggerRange)
-            {
-                return true;
-            }
-        }
-        
-        return false;
+        // 로컬 플레이어가 이 적을 근처에 등록했는지 확인
+        return localPlayer.IsEnemyNearby(this);
     }
     #endregion
 
@@ -267,11 +253,11 @@ public class EnemyDetector : MonoBehaviour
         if (!_showRuntimeRange) return;
         if (_fieldOfViewMesh == null) return;
         
-        // 플레이어가 트리거 범위 안에 있는지 확인
+        // 로컬 플레이어가 트리거 범위 안에 있는지 확인
         bool shouldShow = _alwaysShowRange;
         if (!shouldShow)
         {
-            shouldShow = IsPlayerInTriggerRange();
+            shouldShow = IsLocalPlayerInTriggerRange();
         }
         
         // 범위 표시 상태 업데이트
@@ -290,24 +276,31 @@ public class EnemyDetector : MonoBehaviour
             // 적이 이동했거나 회전했는지 확인
             bool hasMoved = Vector3.Distance(currentPosition, _lastPosition) > 0.01f;
             bool hasRotated = Mathf.Abs(Mathf.DeltaAngle(currentRotation, _lastRotation)) > 0.1f;
-            bool timePassed = (Time.time - _lastUpdateTime) >= _updateInterval;
+            // 상태에 따른 업데이트 주기 적용
+            bool playerDetectedNow = _detectedPlayer != null;
+            float targetInterval = playerDetectedNow ? _updateIntervalDetected : _updateIntervalIdle;
+            bool timePassed = (Time.time - _lastUpdateTime) >= targetInterval;
             
             // 플레이어 위치 변경 확인
             bool playerMoved = CheckPlayerMovement();
             
             // 플레이어 탐지 상태가 변경되었는지 확인
-            bool playerDetectedChanged = _detectedPlayer != null;
+            bool playerDetectedChanged = playerDetectedNow != _wasPlayerDetected;
             
             // 플레이어가 범위 안에 있을 때는 항상 업데이트
             bool shouldUpdate = hasMoved || hasRotated || timePassed || playerMoved || playerDetectedChanged;
             
             if (shouldUpdate)
             {
-                UpdateRangeVisualization();
+                int segmentsToUse = playerDetectedNow ? _segmentsWhenDetected : _segmentsWhenIdle;
+                UpdateRangeVisualization(true, segmentsToUse);
                 _lastPosition = currentPosition;
                 _lastRotation = currentRotation;
                 _lastUpdateTime = Time.time;
             }
+
+            // 탐지 상태 기록 업데이트
+            _wasPlayerDetected = playerDetectedNow;
         }
     }
     
@@ -395,18 +388,19 @@ public class EnemyDetector : MonoBehaviour
     /// <summary>
     /// 범위 시각화를 업데이트합니다 (실제 시야 범위 그리기).
     /// </summary>
-    private void UpdateRangeVisualization()
+    private void UpdateRangeVisualization(bool forceRedraw = false, int segmentsOverride = -1)
     {
         if (_enemyData == null) return;
         if (_fieldOfViewMesh == null) return;
         
         float detectionRange = _enemyData.detectionRange;
         
-        // 범위가 변경되었을 때만 다시 그리기 (성능 최적화)
-        if (Mathf.Abs(detectionRange - _lastDetectionRange) > 0.01f || _detectedPlayer != null)
+        // 강제 갱신 또는 범위 값 변경 시에만 다시 그리기 (성능 최적화)
+        if (forceRedraw || Mathf.Abs(detectionRange - _lastDetectionRange) > 0.01f)
         {
             // 실제 시야 범위 그리기 (벽에 막히는 부분 제외)
-            DrawFieldOfViewMesh(detectionRange, _circleSegments);
+            int segments = segmentsOverride > 0 ? segmentsOverride : _segmentsWhenDetected;
+            DrawFieldOfViewMesh(detectionRange, segments);
             _lastDetectionRange = detectionRange;
         }
     }
@@ -500,14 +494,14 @@ public class EnemyDetector : MonoBehaviour
         Vector3 center = transform.position;
         bool shouldShowRange = _alwaysShowRange;
         
-        // 플레이어가 트리거 범위 안에 있는지 확인
+        // 로컬 플레이어가 트리거 범위 안에 있는지 확인
         if (!shouldShowRange)
         {
             // 에디터 모드에서는 항상 표시, 플레이 모드에서는 조건부 표시
-            shouldShowRange = !Application.isPlaying || IsPlayerInTriggerRange();
+            shouldShowRange = !Application.isPlaying || IsLocalPlayerInTriggerRange();
         }
         
-        // 항상 표시 모드가 아니고 플레이어가 범위 밖에 있으면 표시하지 않음
+        // 항상 표시 모드가 아니고 로컬 플레이어가 범위 밖에 있으면 표시하지 않음
         if (!shouldShowRange) return;
         
         // EnemyData가 없으면 초기화되지 않았을 수 있으므로 기본값 사용
@@ -554,12 +548,12 @@ public class EnemyDetector : MonoBehaviour
             );
         }
         
-        // 플레이어가 트리거 범위 안에 있는지 확인
+        // 로컬 플레이어가 트리거 범위 안에 있는지 확인
         bool shouldShowRange = _alwaysShowRange;
         if (!shouldShowRange)
         {
             // 에디터 모드에서는 항상 표시, 플레이 모드에서는 조건부 표시
-            shouldShowRange = !Application.isPlaying || IsPlayerInTriggerRange();
+            shouldShowRange = !Application.isPlaying || IsLocalPlayerInTriggerRange();
         }
         
         if (shouldShowRange)
