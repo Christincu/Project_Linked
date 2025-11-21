@@ -40,9 +40,13 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public TickTimer TeleportCooldownTimer { get; set; }
     [Networked] public NetworkBool DidTeleport { get; set; }
     
-    // Barrier (보호막)
+    // Barrier (자폭 보호막)
     [Networked] public TickTimer BarrierTimer { get; set; }
     [Networked] public bool HasBarrier { get; set; }
+    private int _barrierMoveSpeedEffectId = -1; // 이동속도 효과 ID
+    
+    // Threat Score (위협점수)
+    [Networked] public float ThreatScore { get; set; }
     #endregion
 
     #region Private Fields - Components
@@ -65,9 +69,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     private PlayerState _state;
     private PlayerRigidBodyMovement _movement;
     private PlayerAnimationController _animationController;
-    private PlayerBarrierVisual _barrierVisual;
     private PlayerViewManager _viewManager;
     private PlayerDetectionManager _detectionManager;
+    private PlayerEffectManager _effectManager;
     #endregion
 
     #region Private Fields - State
@@ -82,9 +86,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public PlayerState State => _state;
     public PlayerRigidBodyMovement Movement => _movement;
     public PlayerAnimationController AnimationController => _animationController;
-    public PlayerBarrierVisual BarrierVisual => _barrierVisual;
     public PlayerViewManager ViewManager => _viewManager;
     public PlayerDetectionManager DetectionManager => _detectionManager;
+    public PlayerEffectManager EffectManager => _effectManager;
     public float MoveSpeed => _movement != null ? _movement.GetMoveSpeed() : 0f;
 
     // Health Properties
@@ -93,6 +97,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
     // Test Mode Property
     public bool IsTestMode => _isTestMode;
+    
+    // Threat Score Property
+    public float CurrentThreatScore => ThreatScore;
     #endregion
 
     #region Fusion Callbacks
@@ -142,7 +149,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _viewManager?.Initialize(this, _gameDataManager);
         _detectionManager?.Initialize(this, _gameDataManager);
         _animationController?.Initialize(this);
-        _barrierVisual?.Initialize(this);
+        _effectManager?.Initialize(this);
 
         if (_magicController != null)
         {
@@ -208,6 +215,14 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             }
             _movement.Move();
         }
+        else
+        {
+            // 사망 시 즉시 이동 정지 (관성 제거)
+            if (_movement != null && _movement.Rigidbody != null)
+            {
+                _movement.Rigidbody.velocity = Vector2.zero;
+            }
+        }
 
         if (Object.HasStateAuthority && _state.IsDead)
         {
@@ -227,25 +242,117 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             DidTeleport = false;
         }
 
-        // 보호막 타이머 체크
-        if (Object.HasStateAuthority && HasBarrier)
+        // 자폭 베리어 타이머 체크 및 이동속도 효과 관리 (사망 시 처리하지 않음)
+        if (Object.HasStateAuthority && HasBarrier && !_state.IsDead)
         {
-            // 타이머가 실행 중이고 만료되었는지 확인
-            if (BarrierTimer.IsRunning && BarrierTimer.Expired(Runner))
+            if (BarrierTimer.IsRunning)
             {
-                // 보호막 만료: 모든 플레이어의 HP를 3으로 회복
-                RestoreAllPlayersHealthOnBarrierExpire();
+                float remainingTime = BarrierTimer.RemainingTime(Runner) ?? 0f;
                 
-                HasBarrier = false;
-                BarrierTimer = TickTimer.None;
-                Debug.Log($"[BarrierMagic] {name} barrier expired - all players HP restored to 3");
+                // 베리어 조합 데이터 가져오기
+                BarrierMagicCombinationData barrierData = GetBarrierData();
+                if (barrierData != null)
+                {
+                    // 이동속도 효과 적용 구간 계산
+                    float moveSpeedEffectEndTime = barrierData.barrierDuration - barrierData.moveSpeedEffectDuration;
+                    
+                    // 이동속도 효과 적용 구간 (예: 10초~3초)
+                    if (remainingTime > moveSpeedEffectEndTime)
+                    {
+                        // 이동속도 효과가 없으면 추가
+                        if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
+                        {
+                            float effectDuration = remainingTime - moveSpeedEffectEndTime;
+                            _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, barrierData.moveSpeedMultiplier, effectDuration);
+                            Debug.Log($"[BarrierMagic] {name} barrier move speed effect applied ({barrierData.moveSpeedMultiplier * 100f}%)");
+                        }
+                    }
+                    // 이동속도 정상화 구간
+                    else
+                    {
+                        // 이동속도 효과 제거
+                        if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+                        {
+                            _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                            _barrierMoveSpeedEffectId = -1;
+                            Debug.Log($"[BarrierMagic] {name} barrier move speed effect removed (normalized)");
+                        }
+                    }
+                }
+                else
+                {
+                    // 데이터가 없으면 기본값 사용 (하위 호환성)
+                    if (remainingTime > 3f)
+                    {
+                        if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
+                        {
+                            _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, 1.5f, remainingTime - 3f);
+                        }
+                    }
+                    else
+                    {
+                        if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+                        {
+                            _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                            _barrierMoveSpeedEffectId = -1;
+                        }
+                    }
+                }
+                
+                // 타이머 만료 확인
+                if (BarrierTimer.Expired(Runner))
+                {
+                    // 보호막 만료 처리
+                    HasBarrier = false;
+                    BarrierTimer = TickTimer.None;
+                    
+                    // 이동속도 효과 제거
+                    if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+                    {
+                        _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                        _barrierMoveSpeedEffectId = -1;
+                    }
+                    
+                    UpdateThreatScore();
+                    Debug.Log($"[BarrierMagic] {name} barrier expired");
+                }
             }
             else if (!BarrierTimer.IsRunning)
             {
-                // 타이머가 실행되지 않으면 보호막 제거 (초기화 문제)
+                // 타이머가 실행되지 않으면 보호막 제거
                 HasBarrier = false;
+                
+                // 이동속도 효과 제거
+                if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+                {
+                    _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                    _barrierMoveSpeedEffectId = -1;
+                }
+                
+                UpdateThreatScore();
                 Debug.LogWarning($"[BarrierMagic] {name} barrier timer not running, removing barrier");
             }
+        }
+        else if (!HasBarrier && _barrierMoveSpeedEffectId != -1)
+        {
+            // 보호막이 없는데 효과가 남아있으면 제거
+            if (_effectManager != null)
+            {
+                _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                _barrierMoveSpeedEffectId = -1;
+            }
+        }
+        
+        // 위협점수 업데이트 (매 프레임)
+        if (Object.HasStateAuthority)
+        {
+            UpdateThreatScore();
+        }
+        
+        // 효과 업데이트 (만료된 효과 제거)
+        if (Object.HasStateAuthority)
+        {
+            _effectManager?.UpdateEffects();
         }
     }
 
@@ -253,7 +360,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     {
         DetectNetworkChanges();
         _viewManager?.SyncViewObjPosition();
-        _barrierVisual?.CheckBarrierState();
     }
     #endregion
 
@@ -465,9 +571,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _magicController = GetComponent<PlayerMagicController>() ?? gameObject.AddComponent<PlayerMagicController>();
         _movement = GetComponent<PlayerRigidBodyMovement>() ?? gameObject.AddComponent<PlayerRigidBodyMovement>();
         _animationController = GetComponent<PlayerAnimationController>() ?? gameObject.AddComponent<PlayerAnimationController>();
-        _barrierVisual = GetComponent<PlayerBarrierVisual>() ?? gameObject.AddComponent<PlayerBarrierVisual>();
         _viewManager = GetComponent<PlayerViewManager>() ?? gameObject.AddComponent<PlayerViewManager>();
         _detectionManager = GetComponent<PlayerDetectionManager>() ?? gameObject.AddComponent<PlayerDetectionManager>();
+        _effectManager = GetComponent<PlayerEffectManager>() ?? gameObject.AddComponent<PlayerEffectManager>();
+
 
         _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
     }
@@ -486,6 +593,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             DidTeleport = false;
             BarrierTimer = TickTimer.None;
             HasBarrier = false;
+            ThreatScore = 0f;
         }
     }
     
@@ -532,7 +640,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                 player.CurrentHealth = 3f;
             }
             
-            // 보호막 상태 제거
+            // 보호막 상태 제거 (FixedUpdateNetwork에서 이동속도 효과도 자동 제거됨)
             player.HasBarrier = false;
             player.BarrierTimer = TickTimer.None;
             
@@ -585,7 +693,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                     break;
 
                 case nameof(HasBarrier):
-                    _barrierVisual?.UpdateBarrierVisual();
+                    UpdateThreatScore(); // 위협점수 업데이트
                     break;
             }
         }
@@ -595,6 +703,61 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         {
             MagicController.UpdateMagicUIState(MagicActive);
         }
+    }
+    
+    /// <summary>
+    /// 위협점수를 업데이트합니다.
+    /// 자폭 베리어에 따라 위협점수가 결정됩니다.
+    /// </summary>
+    private void UpdateThreatScore()
+    {
+        if (!Object.HasStateAuthority) return;
+        
+        float threatScore = 0f;
+        
+        // 1. 자폭 베리어 보너스
+        if (HasBarrier)
+        {
+            // 베리어 조합 데이터에서 위협점수 가져오기
+            BarrierMagicCombinationData barrierData = GetBarrierData();
+            if (barrierData != null)
+            {
+                threatScore = barrierData.threatScore;
+            }
+            else
+            {
+                // 데이터가 없으면 기본값 사용 (하위 호환성)
+                threatScore = 200f;
+            }
+        }
+        
+        // 2. 사망 상태는 위협점수 0
+        if (IsDead)
+        {
+            threatScore = 0f;
+        }
+        
+        ThreatScore = threatScore;
+    }
+    
+    /// <summary>
+    /// 베리어 조합 데이터를 가져옵니다.
+    /// </summary>
+    private BarrierMagicCombinationData GetBarrierData()
+    {
+        if (_gameDataManager == null || _gameDataManager.MagicService == null) return null;
+        
+        // 베리어 마법 코드는 10 (Air + Soil 조합)
+        // MagicService에서 조합 데이터 찾기
+        MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(10);
+        
+        // BarrierMagicCombinationData로 캐스팅
+        if (combinationData is BarrierMagicCombinationData barrierData)
+        {
+            return barrierData;
+        }
+        
+        return null;
     }
     #endregion
 }

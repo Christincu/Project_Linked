@@ -56,10 +56,7 @@ public class PlayerDetectionManager : MonoBehaviour
             _detectionTriggerCollider.isTrigger = true;
             _detectionTriggerCollider.radius = _detectionTriggerRange;
             
-            // Rigidbody2D 추가 (트리거 작동을 위해 필요)
-            Rigidbody2D rb = _detectionTriggerObj.AddComponent<Rigidbody2D>();
-            rb.isKinematic = true;
-            rb.gravityScale = 0f;
+            // Rigidbody2D는 필요 없음 (적에 NetworkRigidbody2D가 있어서 충돌 감지 가능)
             
             // 트리거 이벤트 처리 컴포넌트 추가
             PlayerDetectionTrigger triggerComponent = _detectionTriggerObj.AddComponent<PlayerDetectionTrigger>();

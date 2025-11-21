@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using Fusion;
 
@@ -42,7 +40,6 @@ public class PlayerState : MonoBehaviour
 
     public TickTimer RespawnTimer
     {
-        // ⭐ [전제] PlayerController에 RespawnTimer가 있다고 가정하고 참조
         get => _controller != null ? _controller.RespawnTimer : default;
         set { if (_controller != null) _controller.RespawnTimer = value; }
     }
@@ -69,9 +66,6 @@ public class PlayerState : MonoBehaviour
         _controller = controller;
         _initialData = initialData;
     }
-
-    // FixedUpdate는 결정론적이지 않으므로 제거합니다.
-    // FixedUpdateNetwork에서 타이머를 확인하는 것이 안전합니다.
     #endregion
 
     #region Health Management
@@ -97,9 +91,19 @@ public class PlayerState : MonoBehaviour
         // 네트워크 변수가 변경되면 OnChanged 콜백을 통해 UI가 업데이트되므로, OnHealthChanged 이벤트는 로컬 UI에만 필요할 수 있습니다.
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth); 
 
-        // 체력이 0 이하면 사망 처리
+        // 체력이 0 이하면 사망 처리 (자폭 베리어 폭발 포함)
         if (CurrentHealth <= 0)
         {
+            // 자폭 베리어 폭발 처리
+            if (_controller != null && _controller.HasBarrier && _controller.BarrierTimer.IsRunning)
+            {
+                BarrierMagicHandler barrierHandler = _controller.MagicController?.GetBarrierMagicHandler();
+                if (barrierHandler != null)
+                {
+                    barrierHandler.HandleBarrierExplosion(_controller);
+                }
+            }
+            
             Die(attacker);
         }
     }
@@ -142,6 +146,13 @@ public class PlayerState : MonoBehaviour
 
         IsDead = true;
         CurrentHealth = 0;
+        
+        // 사망 시 베리어 제거 (시각화 및 범위 표시 제거를 위해)
+        if (_controller.HasBarrier)
+        {
+            _controller.HasBarrier = false;
+            _controller.BarrierTimer = TickTimer.None;
+        }
         
         // 이벤트 발생
         OnDeath?.Invoke(killer);
@@ -216,5 +227,6 @@ public class PlayerState : MonoBehaviour
         // 이벤트 발생
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
     }
+    
     #endregion
 }

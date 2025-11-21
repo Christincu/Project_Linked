@@ -129,8 +129,11 @@ public class PlayerRigidBodyMovement : MonoBehaviour
 
         if (_inputDirection.magnitude > 0)
         {
+            // 효과 적용된 이동속도 계산
+            float effectiveMoveSpeed = GetEffectiveMoveSpeed();
+            
             // 목표 속도 계산
-            Vector2 targetVelocity = _inputDirection * _moveSpeed;
+            Vector2 targetVelocity = _inputDirection * effectiveMoveSpeed;
 
             // 가속도 적용 (Lerp 방식)
             if (_acceleration >= 1f)
@@ -181,7 +184,26 @@ public class PlayerRigidBodyMovement : MonoBehaviour
 
     #region Public Getters
     public Vector2 GetVelocity() => _rigidbody != null ? _rigidbody.velocity : Vector2.zero;
+    
+    /// <summary>
+    /// 기본 이동속도를 반환합니다 (효과 미적용).
+    /// </summary>
     public float GetMoveSpeed() => _moveSpeed;
+    
+    /// <summary>
+    /// 효과가 적용된 이동속도를 반환합니다.
+    /// </summary>
+    public float GetEffectiveMoveSpeed()
+    {
+        if (_controller == null || _controller.EffectManager == null)
+        {
+            return _moveSpeed;
+        }
+        
+        float multiplier = _controller.EffectManager.GetMoveSpeedMultiplier();
+        return _moveSpeed * multiplier;
+    }
+    
     public bool HasNetworkRigidbody() => _networkRb != null;
     #endregion
 }

@@ -14,9 +14,6 @@ public class BarrierMagicObject : NetworkBehaviour
     [SerializeField] private Color highlightColor = new Color(0.2f, 1f, 0.2f, 1f); // 연두색
     [SerializeField] private float highlightThickness = 0.1f;
     [SerializeField] private float detectionRadius = 2f;
-    
-    [Header("Barrier Settings")]
-    [SerializeField] private float barrierDuration = 5f; // 보호막 지속 시간 (초)
     #endregion
 
     #region Networked Properties
@@ -377,6 +374,14 @@ public class BarrierMagicObject : NetworkBehaviour
     {
         if (targetPlayer == null) return;
         if (!Object.HasStateAuthority) return;
+        
+        // 베리어 조합 데이터 가져오기
+        BarrierMagicCombinationData barrierData = GetBarrierData();
+        if (barrierData == null)
+        {
+            Debug.LogError("[BarrierMagic] BarrierMagicCombinationData not found!");
+            return;
+        }
 
         // 모든 플레이어 가져오기
         List<PlayerController> allPlayers = new List<PlayerController>();
@@ -391,7 +396,7 @@ public class BarrierMagicObject : NetworkBehaviour
             allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
         }
 
-        // 보호막을 받은 플레이어는 체력 3, 받지 못한 플레이어는 체력 1
+        // 보호막을 받은 플레이어와 받지 못한 플레이어의 체력 설정
         // 보호막 오브젝트의 State Authority를 사용하여 모든 플레이어의 상태를 변경
         foreach (var player in allPlayers)
         {
@@ -399,21 +404,22 @@ public class BarrierMagicObject : NetworkBehaviour
 
             if (player == targetPlayer)
             {
-                // 보호막 받은 플레이어: 체력 3 및 보호막 타이머 설정
-                player.CurrentHealth = 3f;
+                // 보호막 받은 플레이어: 체력 및 보호막 타이머 설정
+                player.CurrentHealth = barrierData.barrierReceiverHealth;
                 if (player.CurrentHealth > player.MaxHealth)
                 {
                     player.MaxHealth = player.CurrentHealth;
                 }
-                // 보호막 타이머 시작
-                player.BarrierTimer = TickTimer.CreateFromSeconds(Runner, barrierDuration);
+                // 자폭 베리어 타이머 시작
+                player.BarrierTimer = TickTimer.CreateFromSeconds(Runner, barrierData.barrierDuration);
                 player.HasBarrier = true;
-                Debug.Log($"[BarrierMagic] {targetPlayer.name} received barrier (HP: 3, Duration: {barrierDuration}s, Timer: {player.BarrierTimer.RemainingTime(Runner)}s)");
+                // 위협점수와 이동속도 효과는 PlayerController의 FixedUpdateNetwork에서 자동 업데이트됨
+                Debug.Log($"[BarrierMagic] {targetPlayer.name} received self-destruct barrier (HP: {barrierData.barrierReceiverHealth}, Duration: {barrierData.barrierDuration}s, ThreatScore: {barrierData.threatScore})");
             }
             else
             {
-                // 보호막 받지 못한 플레이어: 체력 1
-                player.CurrentHealth = 1f;
+                // 보호막 받지 못한 플레이어: 체력 설정
+                player.CurrentHealth = barrierData.nonReceiverHealth;
                 if (player.CurrentHealth > player.MaxHealth)
                 {
                     player.MaxHealth = player.CurrentHealth;
@@ -421,9 +427,29 @@ public class BarrierMagicObject : NetworkBehaviour
                 // 기존 보호막 제거
                 player.BarrierTimer = TickTimer.None;
                 player.HasBarrier = false;
-                Debug.Log($"[BarrierMagic] {player.name} did not receive barrier (HP: 1)");
+                // 위협점수는 PlayerController의 FixedUpdateNetwork에서 자동 업데이트됨
+                Debug.Log($"[BarrierMagic] {player.name} did not receive barrier (HP: {barrierData.nonReceiverHealth}, ThreatScore: {player.ThreatScore})");
             }
         }
+    }
+    
+    /// <summary>
+    /// 베리어 조합 데이터를 가져옵니다.
+    /// </summary>
+    private BarrierMagicCombinationData GetBarrierData()
+    {
+        if (_gameDataManager == null || _gameDataManager.MagicService == null) return null;
+        
+        // MagicCode로 조합 데이터 찾기 (결과 마법 코드)
+        MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(MagicCode);
+        
+        // BarrierMagicCombinationData로 캐스팅
+        if (combinationData is BarrierMagicCombinationData barrierData)
+        {
+            return barrierData;
+        }
+        
+        return null;
     }
     #endregion
 

@@ -90,6 +90,13 @@ public class EnemyState : MonoBehaviour
         // 이벤트 발생
         OnDeath?.Invoke();
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+        
+        // 적 오브젝트 삭제 (Fusion 네트워크 오브젝트)
+        if (_controller.Runner != null && _controller.Object != null)
+        {
+            _controller.Runner.Despawn(_controller.Object);
+            Debug.Log($"[EnemyState] {_controller.name} despawned after death");
+        }
     }
     #endregion
 }

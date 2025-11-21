@@ -14,6 +14,11 @@ public class PlayerMagicController : MonoBehaviour
     private GameObject _magicProjectilePrefab;
     private NetworkPrefabRef _barrierMagicObjectPrefab; // 보호막 마법 오브젝트 프리팹
     #endregion
+    
+    #region Private Fields - Handlers
+    private Dictionary<int, ICombinedMagicHandler> _magicHandlers = new Dictionary<int, ICombinedMagicHandler>();
+    private ICombinedMagicHandler _currentHandler = null;
+    #endregion
 
     #region Private Fields
     private GameDataManager _gameDataManager;
@@ -39,12 +44,6 @@ public class PlayerMagicController : MonoBehaviour
     private bool _previousLeftMouseButton = false; // 이전 프레임의 좌클릭 상태
     private bool _previousRightMouseButton = false; // 이전 프레임의 우클릭 상태
     private float _magicActivationTime = 0f; // 마법을 활성화한 시간 (Time.time)
-
-    // 보호막 마법 선택 모드
-    private PlayerController _selectedPlayerForBarrier = null; // 선택된 플레이어 (보호막용)
-    private Dictionary<PlayerController, GameObject> _barrierHighlightObjects = new Dictionary<PlayerController, GameObject>(); // 하이라이트 오브젝트
-    private Color _barrierHighlightColor = new Color(0.2f, 1f, 0.2f, 1f); // 연두색
-    private float _barrierHighlightThickness = 0.1f;
 
     #endregion
 
@@ -81,6 +80,33 @@ public class PlayerMagicController : MonoBehaviour
     /// 마법 ViewObj (다른 플레이어의 위치 참조용)
     /// </summary>
     public GameObject MagicViewObj => _magicViewObj;
+    
+    /// <summary>
+    /// 이전 프레임의 좌클릭 상태 (핸들러에서 사용)
+    /// </summary>
+    public bool GetPreviousLeftMouseButton() => _previousLeftMouseButton;
+    
+    /// <summary>
+    /// 이전 프레임의 우클릭 상태 (핸들러에서 사용)
+    /// </summary>
+    public bool GetPreviousRightMouseButton() => _previousRightMouseButton;
+    
+    /// <summary>
+    /// 보호막 마법 오브젝트 프리팹 가져오기
+    /// </summary>
+    public NetworkPrefabRef GetBarrierMagicObjectPrefab() => _barrierMagicObjectPrefab;
+    
+    /// <summary>
+    /// 베리어 마법 핸들러 가져오기
+    /// </summary>
+    public BarrierMagicHandler GetBarrierMagicHandler()
+    {
+        if (_magicHandlers.TryGetValue(10, out var handler) && handler is BarrierMagicHandler barrierHandler)
+        {
+            return barrierHandler;
+        }
+        return null;
+    }
     #endregion
 
     #region Events
@@ -100,6 +126,20 @@ public class PlayerMagicController : MonoBehaviour
         _characterData = gameDataManager.CharacterService.GetCharacter(_controller.CharacterIndex);
         _magicProjectilePrefab = magicProjectilePrefab;
         _barrierMagicObjectPrefab = barrierMagicObjectPrefab;
+        
+        // 합체 마법 핸들러 초기화
+        InitializeMagicHandlers();
+    }
+    
+    /// <summary>
+    /// 합체 마법 핸들러를 초기화합니다.
+    /// </summary>
+    private void InitializeMagicHandlers()
+    {
+        // 보호막 마법 핸들러 등록
+        var barrierHandler = gameObject.AddComponent<BarrierMagicHandler>();
+        barrierHandler.Initialize(this, _gameDataManager);
+        _magicHandlers[10] = barrierHandler; // 마법 코드 10
     }
 
     /// <summary>
@@ -109,10 +149,10 @@ public class PlayerMagicController : MonoBehaviour
     {
         if (!_isInitialized || _controller == null) return;
         
-        // 보호막 마법 선택 모드일 때 하이라이트 업데이트 (렌더링만)
-        if (IsInBarrierSelectionMode())
+        // 현재 활성화된 핸들러 업데이트
+        if (_currentHandler != null)
         {
-            UpdateBarrierHighlightVisuals();
+            _currentHandler.Update();
         }
     }
 
@@ -223,12 +263,18 @@ public class PlayerMagicController : MonoBehaviour
         Vector3 startPos = _controller.transform.position;
         Vector3 direction = (targetPosition - startPos).normalized;
 
-        // 조합 마법 특수 처리 (보호막 마법: Air + Soil)
-        if (magicCodeToCast == 10) // 조합 마법 코드 10 (Air + Soil)
+        // 합체 마법 핸들러 확인
+        if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
         {
-            // 보호막 마법은 시전하지 않고 선택 모드로 진입
-            // CastMagic을 호출하지 않음 (선택 모드 유지)
-            return; // 시전하지 않고 선택 모드로 유지
+            // 핸들러가 있으면 핸들러를 통해 처리
+            _currentHandler = handler;
+            bool castResult = handler.CastMagic(targetPosition);
+            
+            if (!castResult)
+            {
+                // 핸들러가 시전하지 않으면 (선택 모드 등) 여기서 종료
+                return;
+            }
         }
         else
         {
@@ -272,226 +318,6 @@ public class PlayerMagicController : MonoBehaviour
         return -1;
     }
     
-    /// <summary>
-    /// 보호막 마법 선택 모드인지 확인합니다.
-    /// </summary>
-    private bool IsInBarrierSelectionMode()
-    {
-        if (_controller == null || !_controller.MagicActive) return false;
-        
-        int magicCodeToCast = GetMagicCodeToCast();
-        return magicCodeToCast == 10; // 보호막 마법 코드
-    }
-    
-    /// <summary>
-    /// 보호막 마법 선택 모드에서 플레이어 선택을 업데이트합니다. (입력 데이터 사용)
-    /// </summary>
-    private void UpdateBarrierSelectionWithInput(Vector3 mouseWorldPos)
-    {
-        if (_controller == null || !_controller.Object.HasInputAuthority) return;
-        
-        // 가장 가까운 플레이어 찾기 (자신 포함)
-        PlayerController closestPlayer = FindClosestPlayerForBarrier(mouseWorldPos);
-        
-        if (closestPlayer != null && !closestPlayer.IsDead)
-        {
-            _selectedPlayerForBarrier = closestPlayer;
-        }
-        else
-        {
-            _selectedPlayerForBarrier = null;
-        }
-    }
-    
-    /// <summary>
-    /// 보호막 마법용 가장 가까운 플레이어를 찾습니다.
-    /// </summary>
-    private PlayerController FindClosestPlayerForBarrier(Vector3 mouseWorldPos)
-    {
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
-        if (MainGameManager.Instance != null)
-        {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
-        }
-        
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
-
-        PlayerController closestPlayer = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (var player in allPlayers)
-        {
-            if (player == null || player.IsDead) continue;
-
-            Vector3 playerPos = player.transform.position;
-            if (player.ViewObj != null)
-            {
-                playerPos = player.ViewObj.transform.position;
-            }
-            
-            float distance = Vector3.Distance(mouseWorldPos, playerPos);
-            if (distance < closestDistance)
-            {
-                closestDistance = distance;
-                closestPlayer = player;
-            }
-        }
-
-        return closestPlayer;
-    }
-    
-    /// <summary>
-    /// 보호막 하이라이트 시각 효과를 업데이트합니다.
-    /// </summary>
-    private void UpdateBarrierHighlightVisuals()
-    {
-        // 이전 선택된 플레이어 하이라이트 제거
-        foreach (var kvp in _barrierHighlightObjects.ToList())
-        {
-            if (kvp.Key != _selectedPlayerForBarrier)
-            {
-                RemoveBarrierHighlight(kvp.Key);
-            }
-        }
-
-        // 현재 선택된 플레이어 하이라이트 추가
-        if (_selectedPlayerForBarrier != null && !_barrierHighlightObjects.ContainsKey(_selectedPlayerForBarrier))
-        {
-            AddBarrierHighlight(_selectedPlayerForBarrier);
-        }
-    }
-    
-    /// <summary>
-    /// 플레이어에게 보호막 하이라이트를 추가합니다.
-    /// </summary>
-    private void AddBarrierHighlight(PlayerController player)
-    {
-        if (player == null) return;
-        
-        GameObject viewObj = player.ViewObj;
-        if (viewObj == null)
-        {
-            Transform viewObjParent = player.transform.Find("ViewObjParent");
-            if (viewObjParent != null && viewObjParent.childCount > 0)
-            {
-                viewObj = viewObjParent.GetChild(0).gameObject;
-            }
-        }
-        
-        if (viewObj == null) return;
-
-        GameObject highlightObj = new GameObject("BarrierHighlight");
-        highlightObj.transform.SetParent(viewObj.transform, false);
-        
-        SpriteRenderer playerRenderer = viewObj.GetComponent<SpriteRenderer>();
-        if (playerRenderer != null && playerRenderer.sprite != null)
-        {
-            SpriteRenderer highlightRenderer = highlightObj.AddComponent<SpriteRenderer>();
-            highlightRenderer.sprite = playerRenderer.sprite;
-            highlightRenderer.color = _barrierHighlightColor;
-            highlightRenderer.sortingOrder = playerRenderer.sortingOrder + 1;
-            highlightObj.transform.localScale = Vector3.one * (1f + _barrierHighlightThickness);
-        }
-
-        _barrierHighlightObjects[player] = highlightObj;
-    }
-    
-    /// <summary>
-    /// 플레이어의 보호막 하이라이트를 제거합니다.
-    /// </summary>
-    private void RemoveBarrierHighlight(PlayerController player)
-    {
-        if (player == null || !_barrierHighlightObjects.ContainsKey(player)) return;
-
-        GameObject highlightObj = _barrierHighlightObjects[player];
-        if (highlightObj != null)
-        {
-            Destroy(highlightObj);
-        }
-
-        _barrierHighlightObjects.Remove(player);
-    }
-    
-    /// <summary>
-    /// 플레이어에게 보호막을 적용합니다.
-    /// </summary>
-    private void ApplyBarrierToPlayer(PlayerController targetPlayer)
-    {
-        if (targetPlayer == null || _controller == null) return;
-        if (!_controller.Object.HasStateAuthority) return;
-
-        // 모든 플레이어 가져오기
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
-        if (MainGameManager.Instance != null)
-        {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
-        }
-        
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
-
-        // 보호막을 받은 플레이어는 체력 3, 받지 못한 플레이어는 체력 1
-        foreach (var player in allPlayers)
-        {
-            if (player == null || player.IsDead) continue;
-
-            if (player == targetPlayer)
-            {
-                // 보호막 받은 플레이어: 체력 3 및 보호막 타이머 설정
-                // PlayerState의 SetHealth를 사용하여 이벤트 발생
-                if (player.State != null)
-                {
-                    player.State.SetHealth(3f);
-                }
-                else
-                {
-                    player.CurrentHealth = 3f;
-                }
-                // 보호막 타이머 시작
-                if (_controller.Runner != null)
-                {
-                    player.BarrierTimer = TickTimer.CreateFromSeconds(_controller.Runner, 5f); // 기본 5초
-                    player.HasBarrier = true;
-                }
-                Debug.Log($"[BarrierMagic] {targetPlayer.name} received barrier (HP: {player.CurrentHealth}/{player.MaxHealth})");
-            }
-            else
-            {
-                // 보호막 받지 못한 플레이어: 체력 1
-                // PlayerState의 SetHealth를 사용하여 이벤트 발생
-                if (player.State != null)
-                {
-                    player.State.SetHealth(1f);
-                }
-                else
-                {
-                    player.CurrentHealth = 1f;
-                }
-                // 기존 보호막 제거
-                player.BarrierTimer = TickTimer.None;
-                player.HasBarrier = false;
-                Debug.Log($"[BarrierMagic] {player.name} did not receive barrier (HP: {player.CurrentHealth}/{player.MaxHealth})");
-            }
-        }
-        
-        // 모든 하이라이트 제거
-        foreach (var kvp in _barrierHighlightObjects)
-        {
-            if (kvp.Value != null)
-            {
-                Destroy(kvp.Value);
-            }
-        }
-        _barrierHighlightObjects.Clear();
-        _selectedPlayerForBarrier = null;
-    }
     #endregion
 
 
@@ -518,6 +344,19 @@ public class PlayerMagicController : MonoBehaviour
             // 앵커 위치 업데이트 (제공된 경우)
             if (anchorPosition.HasValue)
                 UpdateAnchorPosition(anchorPosition.Value);
+            
+            // 현재 마법 코드에 맞는 핸들러 설정
+            int magicCodeToCast = GetMagicCodeToCast();
+            if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
+            {
+                _currentHandler = handler;
+                // 핸들러 활성화 콜백 호출
+                handler.OnMagicActivated();
+            }
+            else
+            {
+                _currentHandler = null;
+            }
         }
         else
         {
@@ -526,6 +365,13 @@ public class PlayerMagicController : MonoBehaviour
 
             // UI 비활성화
             SetMagicUIActive(false);
+            
+            // 현재 핸들러 비활성화
+            if (_currentHandler != null)
+            {
+                _currentHandler.OnMagicDeactivated();
+                _currentHandler = null;
+            }
         }
 
 
@@ -598,21 +444,15 @@ public class PlayerMagicController : MonoBehaviour
             }
             else
             {
-                // 마법이 활성화되어 있으면 시전 또는 보호막 적용
+                // 마법이 활성화되어 있으면 시전
                 int magicCodeToCast = GetMagicCodeToCast();
                 
-                if (magicCodeToCast == 10) // 보호막 마법
+                // 합체 마법 핸들러 확인
+                if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
                 {
-                    // 보호막 선택 모드: 선택된 플레이어가 있으면 보호막 적용
-                    if (_selectedPlayerForBarrier != null && !_selectedPlayerForBarrier.IsDead)
-                    {
-                        // 선택된 플레이어에게 보호막 적용
-                        ApplyBarrierToPlayer(_selectedPlayerForBarrier);
-                        
-                        // 마법 비활성화
-                        controller.RPC_DeactivateMagic();
-                    }
-                    // 선택된 플레이어가 없으면 선택 모드 유지 (시전하지 않음)
+                    // 핸들러가 있으면 핸들러를 통해 입력 처리
+                    Vector3 mousePos = GetMouseWorldPosition(inputData);
+                    handler.ProcessInput(inputData, mousePos);
                 }
                 else
                 {
@@ -628,11 +468,13 @@ public class PlayerMagicController : MonoBehaviour
         {
             int magicCodeToCast = GetMagicCodeToCast();
             
-            if (magicCodeToCast == 10) // 보호막 마법 선택 모드
+            // 합체 마법 핸들러 확인
+            if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
             {
-                // 보호막 선택 모드: 플레이어 선택 업데이트
+                // 핸들러가 있으면 마우스 위치 업데이트마다 ProcessInput 호출 (하이라이트 업데이트를 위해)
                 Vector3 mousePos = GetMouseWorldPosition(inputData);
-                UpdateBarrierSelectionWithInput(mousePos);
+                handler.ProcessInput(inputData, mousePos);
+                _currentHandler = handler;
             }
             else
             {

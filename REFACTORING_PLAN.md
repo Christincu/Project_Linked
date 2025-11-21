@@ -1,170 +1,175 @@
-# 플레이어 코드 리팩토링 계획
+# 플레이어 스크립트 정리 방안
 
-## 현재 문제점
+## ✅ 완료된 작업
 
-### 1. PlayerController.cs (907줄) - 너무 많은 책임
-- 네트워크 동기화
-- 초기화 로직
-- 애니메이션 관리
-- 보호막 시각 효과
-- 적 감시 범위 트리거
-- ViewObj 관리
-- RPC 메서드들
+### 1. 폴더 구조 생성 및 파일 이동
+- ✅ Core/ 폴더: PlayerController.cs, PlayerInputData.cs
+- ✅ State/ 폴더: PlayerState.cs, PlayerBehavior.cs
+- ✅ Movement/ 폴더: PlayerRigidBodyMovement.cs
+- ✅ Magic/ 폴더: PlayerMagicController.cs, MagicAnchorCollision.cs
+- ✅ Visual/ 폴더: PlayerViewManager.cs, PlayerAnimationController.cs, PlayerBarrierVisual.cs
+- ✅ Detection/ 폴더: PlayerDetectionManager.cs, PlayerDetectionTrigger.cs
+- ✅ Camera/ 폴더: MainCameraController.cs
 
-### 2. PlayerMagicController.cs (781줄) - 마법 시스템 전체
-- 마법 UI 관리
-- 마법 시전
-- 보호막 선택 모드
-- 마법 흡수 로직
-- 입력 처리
+### 2. 안 쓰는 로직 정리
+- ✅ PlayerBehavior.cs에서 사용되지 않는 이벤트 제거:
+  - `OnAttackPerformed` (구독자 없음)
+  - `OnSkillUsed` (구독자 없음)
+  - `OnInteracted` (구독자 없음)
+- ✅ PlayerBehavior.cs에서 사용되지 않는 메서드 제거:
+  - `PerformAttack()` (호출자 없음)
+  - `UseSkill()` (호출자 없음)
+  - `Interact()` (호출자 없음)
+- ✅ 불필요한 using 문 정리
+- ✅ Debug.Log 제거 (초기화 로그)
 
-## 리팩토링 제안
+## 현재 상황
+- 총 13개의 플레이어 관련 스크립트가 `Assets/Scripts/Player/` 폴더에 평면적으로 존재
+- 네임스페이스 없이 모든 클래스가 전역 네임스페이스에 존재
+- 기능별로 명확한 구분이 어려움
 
-### Phase 1: PlayerController 분리 (우선순위 높음)
+## 옵션 1: 기능별 하위 폴더 구조 (권장) ⭐
 
-#### 1.1 PlayerAnimationController.cs (새 파일)
-**분리할 내용:**
-- `UpdateAnimation()` 메서드
-- `PlayAnimation()` 메서드
-- `UpdateScale()` 메서드
-- `AnimationState`, `ScaleX` 관련 로직
-- `_animator`, `_lastAnimationState`, `_previousPosition` 필드
-
-**예상 줄 수:** ~100줄
-
-#### 1.2 PlayerBarrierVisual.cs (새 파일)
-**분리할 내용:**
-- `UpdateBarrierVisual()` 메서드
-- `CreateBarrierVisual()` 메서드
-- `DestroyBarrierVisual()` 메서드
-- `CreateCircleTexture()` 메서드
-- `_barrierVisualObject`, `_previousHasBarrier` 필드
-- `HasBarrier` 변경 감지 로직
-
-**예상 줄 수:** ~120줄
-
-#### 1.3 PlayerViewManager.cs (새 파일)
-**분리할 내용:**
-- `TryCreateView()` 메서드
-- `EnsureViewObjParentExists()` 메서드
-- `_viewObj` 관리
-- ViewObj 생성 및 초기화 로직
-
-**예상 줄 수:** ~80줄
-
-#### 1.4 PlayerDetectionManager.cs (새 파일)
-**분리할 내용:**
-- `InitializeDetectionTrigger()` 메서드
-- `SetDetectionTriggerRange()` 메서드
-- `UpdateDetectionTriggerRange()` 메서드
-- `IsEnemyNearby()`, `OnEnemyEnter()`, `OnEnemyExit()` 메서드
-- `_nearbyEnemies`, `_detectionTriggerObj` 등 필드
-
-**예상 줄 수:** ~100줄
-
-### Phase 2: PlayerMagicController 분리 (우선순위 중간)
-
-#### 2.1 PlayerMagicUI.cs (새 파일)
-**분리할 내용:**
-- `UpdateMagicUIState()` 메서드
-- `SetMagicUIActive()` 메서드
-- `UpdateMagicUiSprite()` 메서드
-- `UpdateAnchorPosition()` 메서드
-- `CalculateAnchorPosition()` 메서드
-- Magic UI 관련 필드들 (`_magicViewObj`, `_magicAnchor`, 등)
-
-**예상 줄 수:** ~200줄
-
-#### 2.2 PlayerBarrierSelector.cs (새 파일)
-**분리할 내용:**
-- `IsInBarrierSelectionMode()` 메서드
-- `UpdateBarrierSelectionWithInput()` 메서드
-- `FindClosestPlayerForBarrier()` 메서드
-- `UpdateBarrierHighlightVisuals()` 메서드
-- `AddBarrierHighlight()` 메서드
-- `RemoveBarrierHighlight()` 메서드
-- `ApplyBarrierToPlayer()` 메서드
-- 보호막 관련 필드들
-
-**예상 줄 수:** ~200줄
-
-#### 2.3 PlayerMagicAbsorption.cs (새 파일)
-**분리할 내용:**
-- `OnPlayerCollisionEnter()` 메서드
-- `DetermineAbsorber()` 메서드
-- `OnAbsorbed()` 메서드
-- 마법 흡수 관련 로직
-
-**예상 줄 수:** ~80줄
-
-### Phase 3: 네트워크 상태 관리 개선 (우선순위 낮음)
-
-#### 3.1 PlayerNetworkStateManager.cs (새 파일)
-**분리할 내용:**
-- `DetectNetworkChanges()` 메서드
-- 네트워크 상태 변경 감지 로직
-- 각 컴포넌트에 변경 알림 전달
-
-**예상 줄 수:** ~100줄
-
-## 리팩토링 후 예상 구조
-
+### 구조
 ```
-PlayerController.cs (~400줄)
-├── 네트워크 변수 정의
-├── 컴포넌트 참조
-├── 초기화 (다른 컴포넌트 초기화 호출)
-├── RPC 메서드들
-└── FixedUpdateNetwork (다른 컴포넌트 호출)
-
-PlayerAnimationController.cs (~100줄)
-├── 애니메이션 상태 관리
-└── 스케일 관리
-
-PlayerBarrierVisual.cs (~120줄)
-├── 보호막 시각 효과 생성/제거
-└── 텍스처 생성
-
-PlayerViewManager.cs (~80줄)
-├── ViewObj 생성 및 관리
-└── ViewObjParent 관리
-
-PlayerDetectionManager.cs (~100줄)
-├── 적 감시 범위 트리거 관리
-└── 적 감지 로직
-
-PlayerMagicController.cs (~300줄)
-├── 마법 시전 로직
-├── 입력 처리
-└── 컴포넌트 조율
-
-PlayerMagicUI.cs (~200줄)
-├── 마법 UI 표시/숨김
-└── 스프라이트 업데이트
-
-PlayerBarrierSelector.cs (~200줄)
-├── 보호막 선택 모드
-└── 하이라이트 관리
-
-PlayerMagicAbsorption.cs (~80줄)
-└── 마법 흡수 로직
+Assets/Scripts/Player/
+├── Core/
+│   ├── PlayerController.cs          (메인 컨트롤러)
+│   └── PlayerInputData.cs           (입력 데이터 구조)
+│
+├── State/
+│   ├── PlayerState.cs                  (상태 관리: HP, 사망, 리스폰)
+│   └── PlayerBehavior.cs              (게임플레이 로직: 공격, 스킬, 상호작용)
+│
+├── Movement/
+│   └── PlayerRigidBodyMovement.cs   (이동 처리)
+│
+├── Magic/
+│   ├── PlayerMagicController.cs      (마법 시스템)
+│   └── MagicAnchorCollision.cs       (마법 앵커 충돌)
+│
+├── Visual/
+│   ├── PlayerViewManager.cs          (뷰 오브젝트 관리)
+│   ├── PlayerAnimationController.cs  (애니메이션)
+│   └── PlayerBarrierVisual.cs        (보호막 시각 효과)
+│
+├── Detection/
+│   ├── PlayerDetectionManager.cs     (적 감지 관리)
+│   └── PlayerDetectionTrigger.cs     (적 감지 트리거)
+│
+└── Camera/
+    └── MainCameraController.cs       (카메라 제어)
 ```
 
-## 구현 순서
+### 장점
+- ✅ 기능별로 명확하게 분리되어 찾기 쉬움
+- ✅ 유지보수성 향상 (관련 스크립트가 한 곳에)
+- ✅ 확장성 좋음 (새 기능 추가 시 폴더만 추가)
+- ✅ Unity 프로젝트 구조와 일치
+- ✅ 기존 코드 변경 최소화 (폴더 이동만)
 
-1. **Phase 1.1**: PlayerAnimationController 분리 (가장 간단)
-2. **Phase 1.2**: PlayerBarrierVisual 분리
-3. **Phase 1.3**: PlayerViewManager 분리
-4. **Phase 1.4**: PlayerDetectionManager 분리
-5. **Phase 2.1**: PlayerMagicUI 분리
-6. **Phase 2.2**: PlayerBarrierSelector 분리
-7. **Phase 2.3**: PlayerMagicAbsorption 분리
-8. **Phase 3.1**: PlayerNetworkStateManager 분리 (선택사항)
+### 단점
+- ⚠️ 폴더 구조가 복잡해질 수 있음
+- ⚠️ 일부 스크립트는 여러 카테고리에 속할 수 있음
 
-## 주의사항
+---
 
-1. **네트워크 변수는 PlayerController에 유지**: Fusion의 NetworkBehaviour 특성상 네트워크 변수는 PlayerController에 있어야 함
-2. **점진적 리팩토링**: 한 번에 하나씩 분리하여 테스트
-3. **의존성 관리**: 각 컴포넌트는 PlayerController 참조를 통해 필요한 데이터 접근
-4. **초기화 순서**: PlayerController의 `InitializeComponents()`에서 모든 컴포넌트 초기화
+## 옵션 2: 네임스페이스 기반 구조
 
+### 구조
+모든 스크립트는 `Assets/Scripts/Player/`에 유지하되 네임스페이스로 구분:
+
+```csharp
+namespace Player.Core { ... }
+namespace Player.State { ... }
+namespace Player.Movement { ... }
+namespace Player.Magic { ... }
+namespace Player.Visual { ... }
+namespace Player.Detection { ... }
+namespace Player.Camera { ... }
+```
+
+### 장점
+- ✅ 폴더 구조 단순 유지
+- ✅ 네임스페이스로 논리적 그룹화
+- ✅ 타입 충돌 방지
+
+### 단점
+- ⚠️ Unity에서는 폴더 구조가 더 직관적
+- ⚠️ 모든 파일에 네임스페이스 추가 필요
+- ⚠️ using 문 추가 필요
+
+---
+
+## 옵션 3: 통합 구조 (비권장)
+
+### 구조
+관련 기능을 하나의 스크립트로 통합:
+- `PlayerCore.cs` (Controller + Input)
+- `PlayerStateSystem.cs` (State + Behavior)
+- `PlayerMagicSystem.cs` (MagicController + MagicAnchorCollision)
+- `PlayerVisualSystem.cs` (ViewManager + Animation + BarrierVisual)
+- `PlayerDetectionSystem.cs` (DetectionManager + DetectionTrigger)
+- `PlayerMovement.cs` (기존 유지)
+- `MainCameraController.cs` (기존 유지)
+
+### 장점
+- ✅ 스크립트 수 감소
+
+### 단점
+- ❌ 단일 책임 원칙 위반
+- ❌ 코드 가독성 저하
+- ❌ 테스트 어려움
+- ❌ 재사용성 저하
+- ❌ 대규모 리팩토링 필요
+
+---
+
+## 옵션 4: 하이브리드 구조 (폴더 + 네임스페이스)
+
+### 구조
+옵션 1의 폴더 구조 + 옵션 2의 네임스페이스
+
+### 장점
+- ✅ 폴더 구조의 직관성
+- ✅ 네임스페이스의 논리적 그룹화
+- ✅ 최고의 확장성
+
+### 단점
+- ⚠️ 약간의 복잡도 증가
+- ⚠️ 모든 파일 수정 필요
+
+---
+
+## 추천: 옵션 1 (기능별 하위 폴더 구조)
+
+### 이유
+1. **Unity 프로젝트 관례**: 폴더 구조가 가장 직관적
+2. **최소 변경**: 파일 이동만으로 가능
+3. **확장성**: 새 기능 추가 시 새 폴더만 생성
+4. **유지보수성**: 관련 스크립트를 쉽게 찾을 수 있음
+
+### 마이그레이션 계획
+1. 폴더 생성 (Core, State, Movement, Magic, Visual, Detection, Camera)
+2. 파일 이동 (Unity가 자동으로 .meta 파일 업데이트)
+3. 참조 확인 (다른 스크립트에서 참조하는 부분 확인)
+4. 테스트 (프리팹 및 씬에서 참조 확인)
+
+---
+
+## 추가 개선 사항
+
+### 1. 공통 인터페이스 도입
+```csharp
+// IPlayerComponent.cs
+public interface IPlayerComponent
+{
+    void Initialize(PlayerController controller);
+}
+```
+
+### 2. 이벤트 시스템 통합
+현재 각 컴포넌트가 개별 이벤트를 가지고 있음 → 중앙화된 이벤트 버스 고려
+
+### 3. 의존성 주입 패턴
+현재는 GetComponent로 의존성 해결 → 초기화 시 주입으로 변경 고려

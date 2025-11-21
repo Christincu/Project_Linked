@@ -118,13 +118,6 @@ public class PlayerViewManager : MonoBehaviour
         {
             animationController.OnViewObjChanged(viewObj);
         }
-        
-        // PlayerBarrierVisual에 알림
-        var barrierVisual = _controller.GetComponent<PlayerBarrierVisual>();
-        if (barrierVisual != null)
-        {
-            barrierVisual.OnViewObjChanged(viewObj);
-        }
     }
     #endregion
 

@@ -171,6 +171,9 @@ public class EnemyDetector : MonoBehaviour
             allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
         }
 
+        // 위협점수 기반으로 플레이어 목록 정렬
+        List<(PlayerController player, float threatScore, float distance)> detectablePlayers = new List<(PlayerController, float, float)>();
+        
         foreach (var player in allPlayers)
         {
             if (player == null || player.IsDead) continue;
@@ -188,14 +191,35 @@ public class EnemyDetector : MonoBehaviour
             // 3. 시야 체크 (레이캐스트로 장애물 확인)
             if (!HasLineOfSight(enemyPos, playerPos)) continue;
 
-            // 플레이어 발견!
-            detectedPlayer = player;
-            _detectedPlayer = player;
-            _lastDetectedPosition = playerPos;
-            return true;
+            // 탐지 가능한 플레이어 목록에 추가 (위협점수와 거리 정보 포함)
+            float threatScore = player.ThreatScore;
+            detectablePlayers.Add((player, threatScore, distance));
         }
-
-        return false;
+        
+        // 탐지 가능한 플레이어가 없으면 false 반환
+        if (detectablePlayers.Count == 0)
+        {
+            return false;
+        }
+        
+        // 위협점수 높은 순으로 정렬 (같으면 거리 가까운 순)
+        detectablePlayers.Sort((a, b) =>
+        {
+            // 위협점수 비교 (높은 순)
+            int threatComparison = b.threatScore.CompareTo(a.threatScore);
+            if (threatComparison != 0) return threatComparison;
+            
+            // 위협점수가 같으면 거리 가까운 순
+            return a.distance.CompareTo(b.distance);
+        });
+        
+        // 가장 위협점수가 높은 플레이어 선택
+        var selectedPlayer = detectablePlayers[0];
+        detectedPlayer = selectedPlayer.player;
+        _detectedPlayer = selectedPlayer.player;
+        _lastDetectedPosition = (Vector2)selectedPlayer.player.transform.position;
+        
+        return true;
     }
 
     // 전방위 탐지이므로 전방 계산 함수는 불필요
@@ -509,7 +533,7 @@ public class EnemyDetector : MonoBehaviour
         
         // 탐지 범위 표시 (반투명 원)
         Gizmos.color = _detectionRangeColor;
-        DrawWireCircle(center, detectionRange, 32);
+        RangeVisualizationUtils.DrawWireCircle(center, detectionRange, 32);
         
         // 탐지 중인 플레이어가 있으면 해당 위치 표시
         if (_detectedPlayer != null && Application.isPlaying)
@@ -539,7 +563,7 @@ public class EnemyDetector : MonoBehaviour
         if (_visualizationTriggerRange > 0f)
         {
             Gizmos.color = _triggerRangeColor;
-            DrawWireCircle(center, _visualizationTriggerRange, 32);
+            RangeVisualizationUtils.DrawWireCircle(center, _visualizationTriggerRange, 32);
             
             // 트리거 범위 텍스트 표시
             Handles.Label(
@@ -560,11 +584,11 @@ public class EnemyDetector : MonoBehaviour
         {
             // 외곽선 강조
             Gizmos.color = new Color(_detectionRangeColor.r, _detectionRangeColor.g, _detectionRangeColor.b, 1f);
-            DrawWireCircle(center, detectionRange, 32);
+            RangeVisualizationUtils.DrawWireCircle(center, detectionRange, 32);
             
             // 내부 원 추가 (범위 강조)
             Gizmos.color = new Color(_detectionRangeColor.r, _detectionRangeColor.g, _detectionRangeColor.b, 0.1f);
-            DrawSolidCircle(center, detectionRange, 32);
+            RangeVisualizationUtils.DrawSolidCircle(center, detectionRange, 32);
             
             // 중심점 표시
             Gizmos.color = Color.red;
@@ -586,45 +610,6 @@ public class EnemyDetector : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// 원의 외곽선을 그립니다.
-    /// </summary>
-    private void DrawWireCircle(Vector3 center, float radius, int segments)
-    {
-        if (segments < 3) segments = 3;
-        
-        Vector3 prevPoint = center + new Vector3(Mathf.Cos(0) * radius, Mathf.Sin(0) * radius, 0);
-        
-        for (int i = 1; i <= segments; i++)
-        {
-            float angle = (i / (float)segments) * Mathf.PI * 2f;
-            Vector3 newPoint = center + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
-            Gizmos.DrawLine(prevPoint, newPoint);
-            prevPoint = newPoint;
-        }
-    }
-    
-    /// <summary>
-    /// 원의 내부를 채웁니다 (반투명).
-    /// </summary>
-    private void DrawSolidCircle(Vector3 center, float radius, int segments)
-    {
-        if (segments < 3) segments = 3;
-        
-        // 중심에서 각 점까지 삼각형으로 채우기
-        for (int i = 0; i < segments; i++)
-        {
-            float angle1 = (i / (float)segments) * Mathf.PI * 2f;
-            float angle2 = ((i + 1) / (float)segments) * Mathf.PI * 2f;
-            
-            Vector3 point1 = center + new Vector3(Mathf.Cos(angle1) * radius, Mathf.Sin(angle1) * radius, 0);
-            Vector3 point2 = center + new Vector3(Mathf.Cos(angle2) * radius, Mathf.Sin(angle2) * radius, 0);
-            
-            // 삼각형 그리기 (Gizmos는 직접 삼각형을 그릴 수 없으므로 외곽선으로 표현)
-            Gizmos.DrawLine(center, point1);
-            Gizmos.DrawLine(point1, point2);
-        }
-    }
 #endif
     #endregion
 }
