@@ -48419,6 +48419,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: ScenSpawner
       objectReference: {fileID: 0}
+    - target: {fileID: 9167472854638011160, guid: e9283f047bef3754ca2fde9b919be557, type: 3}
+      propertyPath: spawnOffsets.Array.data[1].x
+      value: 24
+      objectReference: {fileID: 0}
+    - target: {fileID: 9167472854638011160, guid: e9283f047bef3754ca2fde9b919be557, type: 3}
+      propertyPath: spawnOffsets.Array.data[1].y
+      value: 2
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
