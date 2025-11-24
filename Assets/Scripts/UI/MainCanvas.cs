@@ -34,7 +34,6 @@ public class MainCanvas : MonoBehaviour, ICanvas
         _gameDataManager = gameDataManager;
 
         _isInitialized = true;
-        Debug.Log($"[MainCanvas] Initialized.");
     }
 
     void OnDestroy()
@@ -162,7 +161,15 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private void OnHealthChanged(float current, float max)
     {
-        UpdateHealthUI(current, max);
+        // MaxHealth가 변경되었으면 하트 UI를 다시 생성
+        if (_localPlayer != null && _hpImages.Count != Mathf.CeilToInt(max))
+        {
+            InitializeHealthUI();
+        }
+        else
+        {
+            UpdateHealthUI(current, max);
+        }
     }
 
     /// <summary>

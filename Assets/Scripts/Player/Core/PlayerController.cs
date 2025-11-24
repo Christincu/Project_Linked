@@ -45,6 +45,17 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public bool HasBarrier { get; set; }
     private int _barrierMoveSpeedEffectId = -1; // 이동속도 효과 ID
     
+    // Dash Skill (화염 돌진 스킬)
+    [Networked] public TickTimer DashSkillTimer { get; set; }
+    [Networked] public bool HasDashSkill { get; set; }
+    [Networked] public int DashEnhancementCount { get; set; } // 강화 횟수 (0~3)
+    [Networked] public bool IsDashFinalEnhancement { get; set; } // 최종 강화 상태
+    [Networked] public TickTimer DashStunTimer { get; set; } // 정지/행동불능 타이머
+    [Networked] public NetworkBool DashIsMoving { get; set; } // 이동 상태 (false = 정지, true = 이동)
+    [Networked] public Vector2 DashVelocity { get; set; } // 돌진 속도
+    [Networked] public Vector2 DashLastInputDirection { get; set; } // 마지막 입력 방향
+    public DashMagicObject DashMagicObject { get; set; } // 돌진 마법 오브젝트 참조
+    
     // Threat Score (위협점수)
     [Networked] public float ThreatScore { get; set; }
     #endregion
@@ -56,9 +67,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [SerializeField] private GameObject _magicIdleSecondFloor;
     [SerializeField] private GameObject _magicActiveFloor;
     
-    [Header("Magic Prefabs")]
-    [SerializeField] private GameObject _magicProjectilePrefab;
-    [SerializeField] private NetworkPrefabRef _barrierMagicObjectPrefab; // 보호막 마법 오브젝트 프리팹
 
     private GameDataManager _gameDataManager;
     private ChangeDetector _changeDetector;
@@ -153,7 +161,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         if (_magicController != null)
         {
-            _magicController.Initialize(this, GameDataManager, _magicProjectilePrefab, _barrierMagicObjectPrefab);
+            _magicController.Initialize(this, GameDataManager);
             _magicController.SetMagicUIReferences(_magicViewObj, _magicAnchor, _magicIdleFirstFloor, _magicIdleSecondFloor, _magicActiveFloor);
         }
 
@@ -208,12 +216,28 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         if (!_state.IsDead)
         {
-            _movement.ProcessInput(inputData, _isTestMode, PlayerSlot);
-            if (inputData.HasValue)
+            // Dash 스킬이 활성화되어 있으면 기존 이동 로직 우회 (DashMagicObject에서 처리)
+            if (HasDashSkill && DashMagicObject != null)
             {
-                _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
+                // DashMagicObject의 FixedUpdateNetwork 호출 (네트워크 틱과 동기화)
+                DashMagicObject.FixedUpdateNetwork();
+                
+                // 입력 처리
+                if (inputData.HasValue)
+                {
+                    _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
+                }
             }
-            _movement.Move();
+            else
+            {
+                // 일반 이동 로직
+                _movement.ProcessInput(inputData, _isTestMode, PlayerSlot);
+                if (inputData.HasValue)
+                {
+                    _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
+                }
+                _movement.Move();
+            }
         }
         else
         {
@@ -482,6 +506,36 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     }
     
     /// <summary>
+    /// 보호막을 플레이어에게 적용합니다. (Input Authority → State Authority)
+    /// BarrierMagicHandler에서 호출됩니다.
+    /// </summary>
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_ApplyBarrier(NetworkId targetPlayerId)
+    {
+        if (_magicController == null) return;
+        
+        // 타겟 플레이어 찾기
+        PlayerController targetPlayer = null;
+        if (Runner != null)
+        {
+            var targetObj = Runner.FindObject(targetPlayerId);
+            if (targetObj != null)
+            {
+                targetPlayer = targetObj.GetComponent<PlayerController>();
+            }
+        }
+        
+        if (targetPlayer == null || targetPlayer.IsDead) return;
+        
+        // BarrierMagicHandler를 통해 보호막 적용
+        var barrierHandler = _magicController.GetBarrierMagicHandler();
+        if (barrierHandler != null)
+        {
+            barrierHandler.ApplyBarrierToPlayer(targetPlayer);
+        }
+    }
+    
+    /// <summary>
     /// 현재 시전할 마법 코드를 가져옵니다.
     /// </summary>
     private int GetCurrentMagicCodeToCast()
@@ -593,6 +647,14 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             DidTeleport = false;
             BarrierTimer = TickTimer.None;
             HasBarrier = false;
+            DashSkillTimer = TickTimer.None;
+            HasDashSkill = false;
+            DashEnhancementCount = 0;
+            IsDashFinalEnhancement = false;
+            DashStunTimer = TickTimer.None;
+            DashIsMoving = false;
+            DashVelocity = Vector2.zero;
+            DashLastInputDirection = Vector2.zero;
             ThreatScore = 0f;
         }
     }
@@ -671,6 +733,15 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
                 case nameof(CharacterIndex):
                     _viewManager?.TryCreateView();
+                    break;
+
+                case nameof(CurrentHealth):
+                case nameof(MaxHealth):
+                    // 체력 변경 시 UI 업데이트를 위한 이벤트 발생 (모든 클라이언트에서)
+                    if (_state != null)
+                    {
+                        _state.OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+                    }
                     break;
 
                 case nameof(MagicActive):

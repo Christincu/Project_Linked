@@ -7,7 +7,7 @@ using Fusion;
 /// 보호막 마법 오브젝트 (Air + Soil 조합)
 /// 플레이어를 선택하여 보호막을 적용할 수 있습니다.
 /// </summary>
-public class BarrierMagicObject : NetworkBehaviour
+public class BarrierMagic : NetworkBehaviour
 {
     #region Serialized Fields
     [Header("Visual Settings")]

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 771022882698380088}
   - component: {fileID: 4213512067562145536}
   - component: {fileID: 4633555525266518599}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicAnchor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -124,7 +124,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1807906658658722316}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicViewObj
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -159,7 +159,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2906999768297968146}
   - component: {fileID: 3973978468496843040}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicInsideFloor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -243,7 +243,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5695113073828691201}
   - component: {fileID: 6385103628073754025}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicIdleFirstFloor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -331,7 +331,7 @@ GameObject:
   - component: {fileID: 4924376003885490738}
   - component: {fileID: 7212694276323073538}
   - component: {fileID: 7930489244872943270}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: PlayerPrefab
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -386,14 +386,19 @@ MonoBehaviour:
   _DidTeleport:
     _value: 0
   _HasBarrier: 0
+  _HasDashSkill: 0
+  _DashEnhancementCount: 0
+  _IsDashFinalEnhancement: 0
+  _DashIsMoving:
+    _value: 0
+  _DashVelocity: {x: 0, y: 0}
+  _DashLastInputDirection: {x: 0, y: 0}
+  _ThreatScore: 0
   _magicViewObj: {fileID: 1215593109106226948}
   _magicAnchor: {fileID: 762830782927680907}
   _magicIdleFirstFloor: {fileID: 3898121682051865299}
   _magicIdleSecondFloor: {fileID: 6215968946063405430}
   _magicActiveFloor: {fileID: 2424664468900087719}
-  _magicProjectilePrefab: {fileID: 495353710250101849, guid: 42ca306a686a8024a996cbe404f0a01f, type: 3}
-  _barrierMagicObjectPrefab:
-    RawGuidValue: 42ca306a686a8024a996cbe404f0a01f
 --- !u!70 &7159770031046681830
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -510,7 +515,7 @@ GameObject:
   m_Component:
   - component: {fileID: 505606467910863369}
   - component: {fileID: 1263447415796503997}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicIdleSecondFloor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -593,7 +598,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3972847840167599031}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: ViewObjParent
   m_TagString: Untagged
   m_Icon: {fileID: 0}

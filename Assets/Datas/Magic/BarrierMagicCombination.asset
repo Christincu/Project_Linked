@@ -28,3 +28,5 @@ MonoBehaviour:
   normalizeMoveSpeedInPhase3: 1
   barrierReceiverHealth: 3
   nonReceiverHealth: 1
+  barrierMagicObjectPrefab:
+    RawGuidValue: 42ca306a686a8024a996cbe404f0a01f

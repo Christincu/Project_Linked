@@ -20,42 +20,11 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     private PlayerController _controller;
     private GameDataManager _gameDataManager;
     
-    // 선택 모드 관련
+    // 선택 모드 관련 (하이라이트만 담당)
     private PlayerController _selectedPlayer = null;
     private Dictionary<PlayerController, GameObject> _highlightObjects = new Dictionary<PlayerController, GameObject>();
     private Color _highlightColor = new Color(0.2f, 1f, 0.2f, 1f); // 연두색
     private float _highlightThickness = 0.1f;
-    
-    // 베리어 시각화 관련 (모든 플레이어 추적)
-    private Dictionary<PlayerController, BarrierVisualData> _barrierVisuals = new Dictionary<PlayerController, BarrierVisualData>();
-    
-    // 폭발 범위 시각화 관련 (모든 플레이어 추적)
-    private Dictionary<PlayerController, ExplosionRangeVisualData> _explosionRangeVisuals = new Dictionary<PlayerController, ExplosionRangeVisualData>();
-    #endregion
-    
-    #region Visual Data Structures
-    /// <summary>
-    /// 베리어 시각화 데이터
-    /// </summary>
-    private class BarrierVisualData
-    {
-        public GameObject barrierVisualObject;
-        public bool previousHasBarrier;
-    }
-    
-    /// <summary>
-    /// 폭발 범위 시각화 데이터
-    /// </summary>
-    private class ExplosionRangeVisualData
-    {
-        public GameObject explosionRangeObj;
-        public MeshFilter explosionRangeMeshFilter;
-        public MeshRenderer explosionRangeMeshRenderer;
-        public Mesh explosionRangeMesh;
-        public bool isRangeVisible;
-        public float lastExplosionRadius;
-        public Vector3 lastPosition;
-    }
     #endregion
     
     #region Initialization
@@ -108,7 +77,8 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
             
             if (targetPlayer != null && !targetPlayer.IsDead)
             {
-                ApplyBarrierToPlayer(targetPlayer);
+                // RPC를 통해 보호막 적용 (클라이언트에서 호출 가능)
+                _controller.RPC_ApplyBarrier(targetPlayer.Object.Id);
                 
                 // 마법 비활성화
                 _controller.RPC_DeactivateMagic();
@@ -118,14 +88,9 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     
     public void Update()
     {
-        // 하이라이트 시각 효과 업데이트
+        // 하이라이트 시각 효과 업데이트 (선택 모드용)
+        // 베리어 시각화는 BarrierVisualizationManager에서 처리
         UpdateHighlightVisuals();
-        
-        // 모든 플레이어의 베리어 시각화 업데이트
-        UpdateAllBarrierVisuals();
-        
-        // 모든 플레이어의 폭발 범위 시각화 업데이트
-        UpdateAllExplosionRangeVisuals();
     }
     
     public void OnMagicActivated()
@@ -311,7 +276,7 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     #region Barrier Application
     /// <summary>
     /// 플레이어에게 보호막을 적용합니다.
-    /// BarrierMagicObject를 스폰하여 처리합니다.
+    /// 직접 보호막을 적용합니다 (BarrierMagic 오브젝트 스폰 없이).
     /// </summary>
     public void ApplyBarrierToPlayer(PlayerController targetPlayer)
     {
@@ -319,25 +284,80 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
         if (!_controller.Object.HasStateAuthority) return;
         if (_gameDataManager == null) return;
 
-        // BarrierMagicObject 프리팹 가져오기
-        NetworkPrefabRef barrierPrefab = _magicController.GetBarrierMagicObjectPrefab();
-        if (!barrierPrefab.IsValid) return;
+        // 베리어 조합 데이터 가져오기
+        BarrierMagicCombinationData barrierData = GetBarrierData();
+        if (barrierData == null)
+        {
+            Debug.LogError("[BarrierMagicHandler] BarrierMagicCombinationData not found!");
+            return;
+        }
 
-        // BarrierMagicObject 스폰 (Input Authority를 Owner로 설정)
-        var barrierObj = _controller.Runner.Spawn(
-            barrierPrefab, 
-            _controller.transform.position, 
-            Quaternion.identity, 
-            _controller.Object.InputAuthority, // Input Authority를 Owner로 설정
-            (runner, obj) =>
+        // 모든 플레이어 가져오기
+        List<PlayerController> allPlayers = new List<PlayerController>();
+        
+        if (MainGameManager.Instance != null)
+        {
+            allPlayers = MainGameManager.Instance.GetAllPlayers();
+        }
+        
+        if (allPlayers == null || allPlayers.Count == 0)
+        {
+            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
+        }
+
+        // 보호막을 받은 플레이어와 받지 못한 플레이어의 체력 설정
+        // 각 플레이어의 State Authority에서만 체력을 변경할 수 있으므로, 각 플레이어의 State Authority를 확인
+        foreach (var player in allPlayers)
+        {
+            if (player == null || player.IsDead) continue;
+            
+            // 각 플레이어의 State Authority에서만 체력 변경 가능
+            if (!player.Object.HasStateAuthority) continue;
+
+            if (player == targetPlayer)
             {
-                var barrierMagic = obj.GetComponent<BarrierMagicObject>();
-                if (barrierMagic != null)
+                // 보호막 받은 플레이어: 체력 및 보호막 타이머 설정
+                // MaxHealth를 먼저 업데이트 (SetHealth가 MaxHealth로 클램프하므로)
+                if (barrierData.barrierReceiverHealth > player.MaxHealth)
                 {
-                    barrierMagic.Initialize(_controller, 10); // 마법 코드 10
+                    player.MaxHealth = barrierData.barrierReceiverHealth;
                 }
+                
+                if (player.State != null)
+                {
+                    player.State.SetHealth(barrierData.barrierReceiverHealth);
+                }
+                else
+                {
+                    player.CurrentHealth = barrierData.barrierReceiverHealth;
+                }
+                
+                // 자폭 베리어 타이머 시작
+                player.BarrierTimer = TickTimer.CreateFromSeconds(_controller.Runner, barrierData.barrierDuration);
+                player.HasBarrier = true;
+                // 위협점수와 이동속도 효과는 PlayerController의 FixedUpdateNetwork에서 자동 업데이트됨
+                Debug.Log($"[BarrierMagicHandler] {targetPlayer.name} received self-destruct barrier (HP: {barrierData.barrierReceiverHealth}, Duration: {barrierData.barrierDuration}s, ThreatScore: {barrierData.threatScore})");
             }
-        );
+            else
+            {
+                // 보호막 받지 못한 플레이어: 체력 설정
+                // nonReceiverHealth는 항상 MaxHealth보다 작으므로 MaxHealth 변경 불필요
+                if (player.State != null)
+                {
+                    player.State.SetHealth(barrierData.nonReceiverHealth);
+                }
+                else
+                {
+                    player.CurrentHealth = barrierData.nonReceiverHealth;
+                }
+                
+                // 기존 보호막 제거
+                player.BarrierTimer = TickTimer.None;
+                player.HasBarrier = false;
+                // 위협점수는 PlayerController의 FixedUpdateNetwork에서 자동 업데이트됨
+                Debug.Log($"[BarrierMagicHandler] {player.name} did not receive barrier (HP: {barrierData.nonReceiverHealth}, ThreatScore: {player.ThreatScore})");
+            }
+        }
         
         ClearAllHighlights();
     }
@@ -408,36 +428,6 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     }
     
     /// <summary>
-    /// 남은 시간에 따른 폭발 반지름을 가져옵니다.
-    /// </summary>
-    public float GetExplosionRadius(float remainingTime)
-    {
-        BarrierMagicCombinationData barrierData = GetBarrierData();
-        if (barrierData == null) return 0f;
-        
-        return barrierData.GetExplosionRadius(remainingTime);
-    }
-    
-    /// <summary>
-    /// 남은 시간에 따른 폭발 색상을 가져옵니다.
-    /// </summary>
-    public Color GetExplosionColor(float remainingTime)
-    {
-        if (remainingTime > 7f)
-        {
-            return new Color(1f, 0f, 0f, 0.3f); // 빨간색
-        }
-        else if (remainingTime > 3f)
-        {
-            return new Color(1f, 0.5f, 0f, 0.3f); // 주황색
-        }
-        else
-        {
-            return new Color(1f, 0.8f, 0f, 0.3f); // 노란색
-        }
-    }
-    
-    /// <summary>
     /// 베리어 조합 데이터를 가져옵니다.
     /// </summary>
     private BarrierMagicCombinationData GetBarrierData()
@@ -458,452 +448,7 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     }
     #endregion
     
-    #region Barrier Visuals
-    /// <summary>
-    /// 모든 플레이어의 베리어 시각화를 업데이트합니다.
-    /// </summary>
-    private void UpdateAllBarrierVisuals()
-    {
-        List<PlayerController> allPlayers = GetAllPlayers();
-        
-        foreach (var player in allPlayers)
-        {
-            if (player == null) continue;
-            
-            // 베리어 시각화 데이터 가져오기 또는 생성
-            if (!_barrierVisuals.ContainsKey(player))
-            {
-                _barrierVisuals[player] = new BarrierVisualData
-                {
-                    barrierVisualObject = null,
-                    previousHasBarrier = false
-                };
-            }
-            
-            var visualData = _barrierVisuals[player];
-            
-            // 사망 시 베리어 시각화 제거
-            if (player.IsDead && visualData.barrierVisualObject != null)
-            {
-                DestroyBarrierVisual(player);
-                visualData.previousHasBarrier = false;
-                continue;
-            }
-            
-            // 베리어 상태에 따라 시각화 업데이트
-            if (player.HasBarrier && visualData.barrierVisualObject == null)
-            {
-                CreateBarrierVisual(player);
-            }
-            else if (!player.HasBarrier && visualData.barrierVisualObject != null)
-            {
-                DestroyBarrierVisual(player);
-            }
-            
-            visualData.previousHasBarrier = player.HasBarrier;
-        }
-        
-        // 사라진 플레이어 정리
-        var keysToRemove = new List<PlayerController>();
-        foreach (var kvp in _barrierVisuals)
-        {
-            if (kvp.Key == null || !allPlayers.Contains(kvp.Key))
-            {
-                keysToRemove.Add(kvp.Key);
-            }
-        }
-        foreach (var key in keysToRemove)
-        {
-            if (_barrierVisuals.ContainsKey(key))
-            {
-                DestroyBarrierVisual(key);
-                _barrierVisuals.Remove(key);
-            }
-        }
-    }
-    
-    /// <summary>
-    /// 플레이어에게 베리어 시각 효과를 생성합니다.
-    /// </summary>
-    private void CreateBarrierVisual(PlayerController player)
-    {
-        if (player == null) return;
-        
-        GameObject viewObj = player.ViewObj;
-        if (viewObj == null) return;
-        
-        if (!_barrierVisuals.ContainsKey(player))
-        {
-            _barrierVisuals[player] = new BarrierVisualData();
-        }
-        
-        var visualData = _barrierVisuals[player];
-        if (visualData.barrierVisualObject != null) return;
-        
-        // 보호막 오브젝트 생성
-        visualData.barrierVisualObject = new GameObject("BarrierVisual");
-        visualData.barrierVisualObject.transform.SetParent(viewObj.transform, false);
-        visualData.barrierVisualObject.transform.localPosition = Vector3.zero;
-        
-        // SpriteRenderer 추가
-        SpriteRenderer barrierRenderer = visualData.barrierVisualObject.AddComponent<SpriteRenderer>();
-        
-        // 기본 원형 스프라이트 생성
-        Texture2D barrierTexture = CreateCircleTexture(64, new Color(0.2f, 0.8f, 1f, 0.5f)); // 반투명 청록색
-        Sprite barrierSprite = Sprite.Create(barrierTexture, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 64);
-        barrierRenderer.sprite = barrierSprite;
-        
-        // 플레이어보다 약간 크게 설정
-        visualData.barrierVisualObject.transform.localScale = Vector3.one * 2.0f;
-        SpriteRenderer playerRenderer = viewObj.GetComponent<SpriteRenderer>();
-        if (playerRenderer != null)
-        {
-            barrierRenderer.sortingOrder = playerRenderer.sortingOrder + 1;
-        }
-        else
-        {
-            barrierRenderer.sortingOrder = 1;
-        }
-    }
-    
-    /// <summary>
-    /// 플레이어의 베리어 시각 효과를 제거합니다.
-    /// </summary>
-    private void DestroyBarrierVisual(PlayerController player)
-    {
-        if (player == null || !_barrierVisuals.ContainsKey(player)) return;
-        
-        var visualData = _barrierVisuals[player];
-        if (visualData.barrierVisualObject != null)
-        {
-            Destroy(visualData.barrierVisualObject);
-            visualData.barrierVisualObject = null;
-        }
-    }
-    
-    /// <summary>
-    /// 원형 텍스처를 생성합니다.
-    /// </summary>
-    private Texture2D CreateCircleTexture(int size, Color color)
-    {
-        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        Vector2 center = new Vector2(size * 0.5f, size * 0.5f);
-        float radius = size * 0.4f;
-        
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                Vector2 pos = new Vector2(x, y);
-                float distance = Vector2.Distance(pos, center);
-                
-                if (distance <= radius)
-                {
-                    // 거리에 따라 알파값 조정 (외곽은 더 투명하게)
-                    float alpha = 1f - (distance / radius) * 0.5f;
-                    texture.SetPixel(x, y, new Color(color.r, color.g, color.b, color.a * alpha));
-                }
-                else
-                {
-                    texture.SetPixel(x, y, Color.clear);
-                }
-            }
-        }
-        
-        texture.Apply();
-        return texture;
-    }
-    #endregion
-    
-    #region Explosion Range Visuals
-    /// <summary>
-    /// 모든 플레이어의 폭발 범위 시각화를 업데이트합니다.
-    /// </summary>
-    private void UpdateAllExplosionRangeVisuals()
-    {
-        List<PlayerController> allPlayers = GetAllPlayers();
-        
-        foreach (var player in allPlayers)
-        {
-            if (player == null) continue;
-            
-            // 폭발 범위 시각화 데이터 가져오기 또는 생성
-            if (!_explosionRangeVisuals.ContainsKey(player))
-            {
-                _explosionRangeVisuals[player] = new ExplosionRangeVisualData
-                {
-                    explosionRangeObj = null,
-                    explosionRangeMeshFilter = null,
-                    explosionRangeMeshRenderer = null,
-                    explosionRangeMesh = null,
-                    isRangeVisible = false,
-                    lastExplosionRadius = -1f,
-                    lastPosition = player.transform.position
-                };
-                InitializeExplosionRangeVisual(player);
-            }
-            
-            var visualData = _explosionRangeVisuals[player];
-            if (visualData.explosionRangeMesh == null) continue;
-            
-            // 사망 시 범위 표시 제거
-            if (player.IsDead)
-            {
-                if (visualData.isRangeVisible)
-                {
-                    UpdateExplosionRangeVisibility(player, false);
-                    visualData.isRangeVisible = false;
-                }
-                continue;
-            }
-            
-            // 베리어가 있고 타이머가 실행 중일 때만 표시
-            bool shouldShow = player.HasBarrier && player.BarrierTimer.IsRunning;
-            
-            // 범위 표시 상태 업데이트
-            if (shouldShow != visualData.isRangeVisible)
-            {
-                UpdateExplosionRangeVisibility(player, shouldShow);
-                visualData.isRangeVisible = shouldShow;
-            }
-            
-            // 범위 시각화 업데이트 (범위가 보일 때만)
-            if (visualData.isRangeVisible && player.Runner != null)
-            {
-                Vector3 currentPosition = player.transform.position;
-                bool hasMoved = Vector3.Distance(currentPosition, visualData.lastPosition) > 0.01f;
-                
-                float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
-                float currentRadius = GetExplosionRadius(remainingTime);
-                
-                // 위치가 변경되었거나 범위가 변경되었을 때 업데이트
-                if (hasMoved || Mathf.Abs(currentRadius - visualData.lastExplosionRadius) > 0.01f)
-                {
-                    UpdateExplosionRangeVisualization(player);
-                    visualData.lastPosition = currentPosition;
-                    visualData.lastExplosionRadius = currentRadius;
-                }
-            }
-        }
-        
-        // 사라진 플레이어 정리
-        var keysToRemove = new List<PlayerController>();
-        foreach (var kvp in _explosionRangeVisuals)
-        {
-            if (kvp.Key == null || !allPlayers.Contains(kvp.Key))
-            {
-                keysToRemove.Add(kvp.Key);
-            }
-        }
-        foreach (var key in keysToRemove)
-        {
-            if (_explosionRangeVisuals.ContainsKey(key))
-            {
-                DestroyExplosionRangeVisual(key);
-                _explosionRangeVisuals.Remove(key);
-            }
-        }
-    }
-    
-    /// <summary>
-    /// 플레이어의 폭발 범위 시각화를 초기화합니다.
-    /// </summary>
-    private void InitializeExplosionRangeVisual(PlayerController player)
-    {
-        if (player == null) return;
-        if (!_explosionRangeVisuals.ContainsKey(player)) return;
-        
-        var visualData = _explosionRangeVisuals[player];
-        
-        // 폭발 범위 Mesh 생성
-        visualData.explosionRangeObj = new GameObject("ExplosionRangeMesh");
-        visualData.explosionRangeObj.transform.SetParent(player.transform);
-        visualData.explosionRangeObj.transform.localPosition = Vector3.zero;
-        
-        visualData.explosionRangeMeshFilter = visualData.explosionRangeObj.AddComponent<MeshFilter>();
-        visualData.explosionRangeMeshRenderer = visualData.explosionRangeObj.AddComponent<MeshRenderer>();
-        
-        // 메시 생성
-        visualData.explosionRangeMesh = new Mesh();
-        visualData.explosionRangeMesh.name = "ExplosionRangeMesh";
-        visualData.explosionRangeMeshFilter.mesh = visualData.explosionRangeMesh;
-        
-        // 머티리얼 설정 (반투명)
-        Material material = new Material(Shader.Find("Sprites/Default"));
-        material.color = new Color(1f, 0f, 0f, 0.3f); // 기본 빨간색
-        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        material.SetInt("_ZWrite", 0);
-        material.DisableKeyword("_ALPHATEST_ON");
-        material.EnableKeyword("_ALPHABLEND_ON");
-        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        material.renderQueue = 3000; // Transparent
-        visualData.explosionRangeMeshRenderer.material = material;
-        visualData.explosionRangeMeshRenderer.sortingOrder = 0;
-        
-        // 초기화
-        visualData.lastExplosionRadius = -1f;
-        visualData.lastPosition = player.transform.position;
-        UpdateExplosionRangeVisualization(player);
-        UpdateExplosionRangeVisibility(player, false); // 초기에는 숨김
-    }
-    
-    /// <summary>
-    /// 폭발 범위 표시 여부를 업데이트합니다.
-    /// </summary>
-    private void UpdateExplosionRangeVisibility(PlayerController player, bool visible)
-    {
-        if (player == null || !_explosionRangeVisuals.ContainsKey(player)) return;
-        
-        var visualData = _explosionRangeVisuals[player];
-        if (visualData.explosionRangeMeshRenderer != null)
-        {
-            visualData.explosionRangeMeshRenderer.enabled = visible;
-        }
-    }
-    
-    /// <summary>
-    /// 폭발 범위 시각화를 업데이트합니다 (원형 Mesh 생성).
-    /// </summary>
-    private void UpdateExplosionRangeVisualization(PlayerController player)
-    {
-        if (player == null || player.Runner == null) return;
-        if (!_explosionRangeVisuals.ContainsKey(player)) return;
-        
-        var visualData = _explosionRangeVisuals[player];
-        if (visualData.explosionRangeMesh == null) return;
-        
-        float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
-        float radius = GetExplosionRadius(remainingTime);
-        if (radius <= 0f) return; // 데이터가 없으면 시각화하지 않음
-        
-        Color color = GetExplosionColor(remainingTime);
-        
-        // 머티리얼 색상 업데이트
-        if (visualData.explosionRangeMeshRenderer != null && visualData.explosionRangeMeshRenderer.material != null)
-        {
-            visualData.explosionRangeMeshRenderer.material.color = color;
-        }
-        
-        // 원형 Mesh 생성 (벽 감지 없이)
-        RangeVisualizationUtils.UpdateCircleMesh(visualData.explosionRangeMesh, radius, 64);
-    }
-    
-    /// <summary>
-    /// 플레이어의 폭발 범위 시각화를 제거합니다.
-    /// </summary>
-    private void DestroyExplosionRangeVisual(PlayerController player)
-    {
-        if (player == null || !_explosionRangeVisuals.ContainsKey(player)) return;
-        
-        var visualData = _explosionRangeVisuals[player];
-        if (visualData.explosionRangeObj != null)
-        {
-            Destroy(visualData.explosionRangeObj);
-        }
-    }
-    #endregion
-    
-    #region Gizmos
-#if UNITY_EDITOR
-    /// <summary>
-    /// Unity 에디터에서 자폭 베리어 폭발 범위를 시각화합니다.
-    /// </summary>
-    void OnDrawGizmos()
-    {
-        List<PlayerController> allPlayers = GetAllPlayers();
-        
-        foreach (var player in allPlayers)
-        {
-            if (player == null) continue;
-            if (!player.HasBarrier || !player.BarrierTimer.IsRunning) continue;
-            if (player.Runner == null) continue;
-            
-            float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
-            Vector3 center = player.transform.position;
-            
-            float explosionRadius = GetExplosionRadius(remainingTime);
-            if (explosionRadius <= 0f) continue;
-            
-            Color explosionColor = GetExplosionColor(remainingTime);
-            
-            // 폭발 범위 표시 (반투명 원)
-            Gizmos.color = explosionColor;
-            RangeVisualizationUtils.DrawWireCircle(center, explosionRadius, 32);
-            
-            // 내부 원 채우기
-            Gizmos.color = new Color(explosionColor.r, explosionColor.g, explosionColor.b, 0.1f);
-            RangeVisualizationUtils.DrawSolidCircle(center, explosionRadius, 32);
-        }
-    }
-    
-    /// <summary>
-    /// 오브젝트가 선택되었을 때 더 명확하게 표시합니다.
-    /// </summary>
-    void OnDrawGizmosSelected()
-    {
-        List<PlayerController> allPlayers = GetAllPlayers();
-        
-        foreach (var player in allPlayers)
-        {
-            if (player == null) continue;
-            if (!player.HasBarrier || !player.BarrierTimer.IsRunning) continue;
-            if (player.Runner == null) continue;
-            
-            float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
-            Vector3 center = player.transform.position;
-            
-            float explosionRadius = GetExplosionRadius(remainingTime);
-            if (explosionRadius <= 0f) continue;
-            
-            Color explosionColor;
-            string phaseText;
-            if (remainingTime > 7f)
-            {
-                explosionColor = Color.red;
-                phaseText = "Phase 1 (10s~7s)";
-            }
-            else if (remainingTime > 3f)
-            {
-                explosionColor = new Color(1f, 0.5f, 0f); // 주황색
-                phaseText = "Phase 2 (7s~3s)";
-            }
-            else
-            {
-                explosionColor = Color.yellow;
-                phaseText = "Phase 3 (3s~0s)";
-            }
-            
-            // 폭발 데이터 가져오기
-            BarrierMagicCombinationData barrierData = GetBarrierData();
-            if (barrierData != null)
-            {
-                barrierData.GetExplosionData(remainingTime, out float explosionRadius2, out float explosionDamage);
-                
-                // 외곽선 강조
-                Gizmos.color = explosionColor;
-                RangeVisualizationUtils.DrawWireCircle(center, explosionRadius2, 32);
-                
-                // 내부 원 추가 (범위 강조)
-                Gizmos.color = new Color(explosionColor.r, explosionColor.g, explosionColor.b, 0.1f);
-                RangeVisualizationUtils.DrawSolidCircle(center, explosionRadius2, 32);
-                
-                // 중심점 표시
-                Gizmos.color = explosionColor;
-                Gizmos.DrawWireSphere(center, 0.2f);
-                
-                // 폭발 범위 텍스트 표시
-                Handles.Label(
-                    center + Vector3.up * (explosionRadius2 + 0.5f),
-                    $"Explosion Range: {explosionRadius2:F1}m\nDamage: {explosionDamage}\n{phaseText}\nRemaining: {remainingTime:F2}s"
-                );
-            }
-        }
-    }
-#endif
-    #endregion
-    
-    #region Helper Methods
+    #region Helper Methods (for Highlight)
     /// <summary>
     /// 모든 플레이어를 가져옵니다.
     /// </summary>
@@ -928,27 +473,8 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     #region Cleanup
     private void OnDestroy()
     {
+        // 하이라이트만 정리 (베리어 시각화는 BarrierVisualizationManager에서 처리)
         ClearAllHighlights();
-        
-        // 모든 베리어 시각화 정리
-        foreach (var kvp in _barrierVisuals)
-        {
-            if (kvp.Value.barrierVisualObject != null)
-            {
-                Destroy(kvp.Value.barrierVisualObject);
-            }
-        }
-        _barrierVisuals.Clear();
-        
-        // 모든 폭발 범위 시각화 정리
-        foreach (var kvp in _explosionRangeVisuals)
-        {
-            if (kvp.Value.explosionRangeObj != null)
-            {
-                Destroy(kvp.Value.explosionRangeObj);
-            }
-        }
-        _explosionRangeVisuals.Clear();
     }
     #endregion
 }

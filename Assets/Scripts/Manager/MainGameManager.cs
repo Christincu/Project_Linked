@@ -61,6 +61,9 @@ public class MainGameManager : MonoBehaviour
         FusionManager.OnShutdownEvent += OnNetworkShutdown;
         FusionManager.OnDisconnectedEvent += OnDisconnectedFromServer;
         
+        // BarrierVisualizationManager 초기화 (게임 씬에서만 필요)
+        _ = BarrierVisualizationManager.Instance;
+        
         if (_isTestMode)
         {
             await StartTestSession();
@@ -124,12 +127,10 @@ public class MainGameManager : MonoBehaviour
             if (physicsSimulator == null)
             {
                 physicsSimulator = _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
-                Debug.Log("[MainGameManager] RunnerSimulatePhysics2D added to NetworkRunner");
             }
             
             // Client Physics Simulation을 SimulateAlways로 설정 (가장 부드러운 움직임)
             physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
-            Debug.Log("[MainGameManager] ClientPhysicsSimulation set to SimulateAlways");
             
             await _runner.StartGame(new StartGameArgs
             {
@@ -140,7 +141,6 @@ public class MainGameManager : MonoBehaviour
             });
 
             FusionManager.LocalRunner = _runner;
-            Debug.Log("[MainGameManager] Test session started successfully.");
         }
         
         // 플레이어 스폰
@@ -446,12 +446,10 @@ public class MainGameManager : MonoBehaviour
         if (ScenSpawner.Instance != null)
         {
             Vector3 pos = ScenSpawner.Instance.GetSpawnPosition(index);
-            Debug.Log($"[MainGameManager] Using ScenSpawner position [{index}]: {pos}");
             return pos;
         }
         
         Vector3 defaultPos = spawnPositions[index % spawnPositions.Length];
-        Debug.Log($"[MainGameManager] ScenSpawner not found, using default position [{index}]: {defaultPos}");
         return defaultPos;
     }
     

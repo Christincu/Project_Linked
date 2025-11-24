@@ -58,7 +58,6 @@ public class GameManager : MonoBehaviour
         {
             GameObject panelObj = Instantiate(_loadingPanelPrefab);
             panelObj.name = "LoadingPanel";
-            Debug.Log("[GameManager] LoadingPanel created");
         }
     }
 
@@ -151,7 +150,6 @@ public class GameManager : MonoBehaviour
         
         // 3. 초기화
         Canvas.Initialize(this, GameDataManager.Instance);
-        Debug.Log($"GameManager: Canvas initialized - {Canvas.GetType().Name} in scene {SceneManager.GetActiveScene().name}");
     }
 
     // ========== Network Event Setup (이하 동일) ==========

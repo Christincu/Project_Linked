@@ -11,8 +11,7 @@ using Fusion;
 public class PlayerMagicController : MonoBehaviour
 {
     #region Private Fields - Prefabs
-    private GameObject _magicProjectilePrefab;
-    private NetworkPrefabRef _barrierMagicObjectPrefab; // 보호막 마법 오브젝트 프리팹
+    // 프리팹은 MagicData와 BarrierMagicCombinationData에서 가져옴
     #endregion
     
     #region Private Fields - Handlers
@@ -92,9 +91,38 @@ public class PlayerMagicController : MonoBehaviour
     public bool GetPreviousRightMouseButton() => _previousRightMouseButton;
     
     /// <summary>
-    /// 보호막 마법 오브젝트 프리팹 가져오기
+    /// 보호막 마법 오브젝트 프리팹 가져오기 (데이터에서 가져옴)
     /// </summary>
-    public NetworkPrefabRef GetBarrierMagicObjectPrefab() => _barrierMagicObjectPrefab;
+    public NetworkPrefabRef GetBarrierMagicObjectPrefab()
+    {
+        if (_gameDataManager == null || _gameDataManager.MagicService == null) return default;
+        
+        // 베리어 마법 코드는 10 (Air + Soil 조합)
+        MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(10);
+        
+        if (combinationData is BarrierMagicCombinationData barrierData)
+        {
+            return barrierData.barrierMagicObjectPrefab;
+        }
+        
+        return default;
+    }
+    
+    /// <summary>
+    /// 마법 발사체 프리팹 가져오기 (데이터에서 가져옴)
+    /// </summary>
+    public GameObject GetMagicProjectilePrefab(int magicCode)
+    {
+        if (_gameDataManager == null || _gameDataManager.MagicService == null) return null;
+        
+        MagicData magicData = _gameDataManager.MagicService.GetMagic(magicCode);
+        if (magicData != null)
+        {
+            return magicData.magicProjectilePrefab;
+        }
+        
+        return null;
+    }
     
     /// <summary>
     /// 베리어 마법 핸들러 가져오기
@@ -119,13 +147,11 @@ public class PlayerMagicController : MonoBehaviour
     /// <summary>
     /// PlayerController에서 호출하여 초기화합니다.
     /// </summary>
-    public void Initialize(PlayerController controller, GameDataManager gameDataManager, GameObject magicProjectilePrefab, NetworkPrefabRef barrierMagicObjectPrefab)
+    public void Initialize(PlayerController controller, GameDataManager gameDataManager)
     {
         _controller = controller;
         _gameDataManager = gameDataManager;
         _characterData = gameDataManager.CharacterService.GetCharacter(_controller.CharacterIndex);
-        _magicProjectilePrefab = magicProjectilePrefab;
-        _barrierMagicObjectPrefab = barrierMagicObjectPrefab;
         
         // 합체 마법 핸들러 초기화
         InitializeMagicHandlers();
@@ -140,6 +166,11 @@ public class PlayerMagicController : MonoBehaviour
         var barrierHandler = gameObject.AddComponent<BarrierMagicHandler>();
         barrierHandler.Initialize(this, _gameDataManager);
         _magicHandlers[10] = barrierHandler; // 마법 코드 10
+        
+        // 화염 돌진 마법 핸들러 등록
+        var dashHandler = gameObject.AddComponent<DashMagicHandler>();
+        dashHandler.Initialize(this, _gameDataManager);
+        _magicHandlers[11] = dashHandler; // 마법 코드 11
     }
 
     /// <summary>
@@ -444,9 +475,38 @@ public class PlayerMagicController : MonoBehaviour
             }
             else
             {
-                // 마법이 활성화되어 있으면 시전
+                // 마법이 활성화되어 있을 때
                 int magicCodeToCast = GetMagicCodeToCast();
                 
+                // 다른 마우스 버튼 클릭 시 마법 변경 확인
+                int newMagicCode = -1;
+                if (leftClickDown)
+                {
+                    int leftMagicCode = _characterData.magicData1.magicCode;
+                    // 현재 활성화된 마법과 다른 마법이면 변경
+                    if (controller.ActivatedMagicCode != leftMagicCode)
+                    {
+                        newMagicCode = leftMagicCode;
+                    }
+                }
+                else if (rightClickDown)
+                {
+                    int rightMagicCode = _characterData.magicData2.magicCode;
+                    // 현재 활성화된 마법과 다른 마법이면 변경
+                    if (controller.ActivatedMagicCode != rightMagicCode)
+                    {
+                        newMagicCode = rightMagicCode;
+                    }
+                }
+                
+                // 마법 변경이 필요한 경우
+                if (newMagicCode != -1)
+                {
+                    controller.RPC_ActivateMagic(controller.ActiveMagicSlotNetworked, newMagicCode);
+                    return;
+                }
+                
+                // 같은 마법 버튼 클릭 시 시전
                 // 합체 마법 핸들러 확인
                 if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
                 {
@@ -456,9 +516,8 @@ public class PlayerMagicController : MonoBehaviour
                 }
                 else
                 {
-                    // 일반 마법 시전
-                    Vector3 mousePos = GetMouseWorldPosition(inputData);
-                    controller.RPC_CastMagic(mousePos);
+                    // 일반 마법: 현재 기능이 없으므로 비활성화
+                    controller.RPC_DeactivateMagic();
                 }
             }
         }

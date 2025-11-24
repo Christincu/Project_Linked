@@ -294,8 +294,6 @@ public class EnemyController : NetworkBehaviour
             viewObjParentObj.transform.localScale = Vector3.one;
             
             viewObjParent = viewObjParentObj.transform;
-            
-            Debug.Log($"[EnemyController] ViewObjParent created");
         }
         
         // NetworkRigidbody2D의 Interpolation Target 설정
@@ -446,7 +444,7 @@ public class EnemyController : NetworkBehaviour
     /// </summary>
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (!Object.HasStateAuthority) return;
+        if (Object == null || !Object.HasStateAuthority) return;
         if (_state == null || _state.IsDead) return;
         
         // PlayerDetectionTrigger는 무시 (플레이어 감지용 트리거)

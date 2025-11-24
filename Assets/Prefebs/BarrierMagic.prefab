@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: -7613465450263143700}
   - component: {fileID: 1675058098328588936}
   m_Layer: 0
-  m_Name: Circle
+  m_Name: BarrierMagic
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -95,7 +95,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 495353710250101849}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a49f4a2658574924eb72757710e6d777, type: 3}
+  m_Script: {fileID: 11500000, guid: bfa6878b98f630f4aa9372e2488b3336, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   highlightColor: {r: 0.2, g: 1, b: 0.2, a: 1}
@@ -104,6 +104,7 @@ MonoBehaviour:
   _Owner: {fileID: 0}
   _SelectedPlayer: {fileID: 0}
   _MagicCode: 0
+  _Position: {x: 0, y: 0, z: 0}
 --- !u!114 &1675058098328588936
 MonoBehaviour:
   m_ObjectHideFlags: 0

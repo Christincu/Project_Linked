@@ -1,4 +1,5 @@
 using UnityEngine;
+using Fusion;
 
 /// <summary>
 /// 베리어 마법 조합 데이터 (Air + Soil)
@@ -50,6 +51,10 @@ public class BarrierMagicCombinationData : MagicCombinationData
     
     [Tooltip("베리어를 받지 못한 플레이어의 체력")]
     public float nonReceiverHealth = 1f;
+    
+    [Header("Prefabs")]
+    [Tooltip("베리어 마법 오브젝트 프리팹 (NetworkPrefabRef)")]
+    public NetworkPrefabRef barrierMagicObjectPrefab;
     
     /// <summary>
     /// 남은 시간에 따라 폭발 반지름과 데미지를 반환합니다.
