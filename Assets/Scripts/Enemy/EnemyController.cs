@@ -32,6 +32,9 @@ public class EnemyController : NetworkBehaviour
     [Networked] public Vector2 InvestigatePosition { get; set; }
     [Networked] public TickTimer InvestigationTimer { get; set; }
     [Networked] public NetworkBool IsInvestigating { get; set; }
+    
+    // Knockback State
+    [Networked] public TickTimer KnockbackTimer { get; set; }
     #endregion
 
     #region Private Fields - Components
@@ -244,6 +247,13 @@ public class EnemyController : NetworkBehaviour
     public void SetEnemyIndex(int enemyIndex)
     {
         EnemyIndex = enemyIndex;
+        
+        // ViewObjParent가 없으면 먼저 생성
+        if (transform.Find("ViewObjParent") == null)
+        {
+            EnsureViewObjParentExists();
+        }
+        
         TryCreateView();
     }
     #endregion
@@ -469,7 +479,6 @@ public class EnemyController : NetworkBehaviour
         if (player != null && !player.IsDead && player.State != null)
         {
             player.State.TakeDamage(1f);
-            Debug.Log($"[EnemyController] {name} hit {player.name} (trigger), dealt 1 damage");
         }
     }
 
@@ -545,8 +554,12 @@ public class EnemyController : NetworkBehaviour
     {
         if (_animator != null && !string.IsNullOrEmpty(stateName) && _lastAnimationState != stateName)
         {
-            _animator.Play(stateName);
-            _lastAnimationState = stateName;
+            // AnimatorController가 있는지 확인
+            if (_animator.runtimeAnimatorController != null)
+            {
+                _animator.Play(stateName);
+                _lastAnimationState = stateName;
+            }
         }
     }
 

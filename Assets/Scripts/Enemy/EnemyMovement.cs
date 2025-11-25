@@ -132,6 +132,7 @@ public class EnemyMovement : MonoBehaviour
     /// <summary>
     /// 이동을 업데이트합니다. (FixedUpdateNetwork에서 호출)
     /// NavMeshAgent의 desiredVelocity를 Rigidbody2D에 직접 적용하여 외부 힘(플레이어가 밀어낸 힘)을 무시합니다.
+    /// 단, 넉백 중일 때는 NavMeshAgent 속도를 무시합니다.
     /// </summary>
     public void UpdateMovement()
     {
@@ -142,6 +143,23 @@ public class EnemyMovement : MonoBehaviour
         {
             Stop();
             return;
+        }
+
+        // 넉백 중이면 NavMeshAgent 속도를 무시 (넉백이 우선)
+        if (_controller.Runner != null && _controller.KnockbackTimer.IsRunning && !_controller.KnockbackTimer.Expired(_controller.Runner))
+        {
+            // 넉백 중에는 NavMeshAgent를 정지시키고 Rigidbody 속도는 그대로 유지
+            if (_navMeshAgent != null)
+            {
+                _navMeshAgent.isStopped = true;
+            }
+            return;
+        }
+
+        // 넉백이 끝났으면 NavMeshAgent 다시 활성화
+        if (_navMeshAgent != null && _navMeshAgent.isStopped && _isMovingToTarget)
+        {
+            _navMeshAgent.isStopped = false;
         }
 
         // 이동 중이면 목표 위치로 이동

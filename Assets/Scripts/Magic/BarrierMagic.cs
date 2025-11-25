@@ -4,8 +4,15 @@ using UnityEngine;
 using Fusion;
 
 /// <summary>
-/// 보호막 마법 오브젝트 (Air + Soil 조합)
-/// 플레이어를 선택하여 보호막을 적용할 수 있습니다.
+/// [DEPRECATED] 보호막 마법 오브젝트 (Air + Soil 조합)
+/// 
+/// 이 클래스는 더 이상 사용되지 않습니다.
+/// 타겟팅 로직은 BarrierMagicHandler에서 로컬로 처리하고,
+/// 보호막 적용은 PlayerController의 Networked 속성(HasBarrier, BarrierTimer)을 통해 처리합니다.
+/// 
+/// 네트워크 최적화를 위해 NetworkObject 스폰 없이 RPC만 사용하는 방식으로 변경되었습니다.
+/// 
+/// 제거 예정: 이 파일은 향후 제거될 수 있습니다.
 /// </summary>
 public class BarrierMagic : NetworkBehaviour
 {
@@ -147,10 +154,10 @@ public class BarrierMagic : NetworkBehaviour
         // 보호막 적용
         ApplyBarrierToPlayer(targetPlayer);
         
-        // Owner의 마법 비활성화
-        if (Owner != null && Owner.MagicController != null)
+        // Owner의 마법 비활성화 (State Authority에서 실행 중이므로 내부 메서드 사용)
+        if (Owner != null)
         {
-            Owner.RPC_DeactivateMagic();
+            Owner.DeactivateMagicInternal();
         }
         
         // 오브젝트 제거

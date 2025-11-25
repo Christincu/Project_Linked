@@ -17,5 +17,5 @@ MonoBehaviour:
   characterSprite: {fileID: 21300000, guid: 712cbb320e1d1864db39d48f9322f950, type: 3}
   viewObj: {fileID: 6163888903576731056, guid: 20a634cdb1cf83142ba6ebb1c4f5e7d9, type: 3}
   description: 1
-  magicData1: {fileID: 11400000, guid: a55261af148396e46afef7a631a15315, type: 2}
+  magicData1: {fileID: 11400000, guid: 401804c38e5d8034cb966fe5b982e5d8, type: 2}
   magicData2: {fileID: 11400000, guid: 9b4f6a4c40c65a14a886b886215c95fb, type: 2}

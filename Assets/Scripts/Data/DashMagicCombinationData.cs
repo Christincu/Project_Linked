@@ -68,6 +68,22 @@ public class DashMagicCombinationData : MagicCombinationData
     [Tooltip("적 넉백 각도 범위 (±도)")]
     public float enemyKnockbackAngleRange = 45f;
     
+    [Tooltip("적 넉백 힘")]
+    public float enemyKnockbackForce = 15f;
+    
+    [Tooltip("적 넉백 지속 시간 (초) - NavMeshAgent 무시 시간")]
+    public float enemyKnockbackDuration = 0.3f;
+    
+    [Header("Player Collision Settings")]
+    [Tooltip("플레이어 충돌 시 멈추는 시간 (초)")]
+    public float playerCollisionFreezeDuration = 0.5f;
+    
+    [Tooltip("플레이어 충돌 후 튕겨나가는 힘")]
+    public float playerCollisionRecoilForce = 20f;
+    
+    [Tooltip("플레이어 충돌 후 튕겨나갈 때 스킬 지속시간 연장량 (초)")]
+    public float playerCollisionRecoilTimeExtension = 0.5f;
+    
     [Header("Penalty Settings")]
     [Tooltip("잘못된 충돌 시 행동 불능 시간 (초)")]
     public float wrongCollisionStunDuration = 2f;

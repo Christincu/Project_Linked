@@ -16,9 +16,9 @@ GameObject:
   - component: {fileID: 74533980581394327}
   - component: {fileID: 6100904237682352837}
   - component: {fileID: 8078007073890383421}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: EnemyPrefab
-  m_TagString: Untagged
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -76,12 +76,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 010ab234c739259428f9fcf747f1948b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _updateIntervalIdle: 0.2
+  _updateIntervalDetected: 0.08
   _playerLayerMask:
     serializedVersion: 2
     m_Bits: 128
   _obstacleLayerMask:
     serializedVersion: 2
     m_Bits: 64
+  _showDetectionRange: 1
+  _showRuntimeRange: 1
+  _visualizationTriggerRange: 10
+  _alwaysShowRange: 0
+  _detectionRangeColor: {r: 1, g: 0, b: 0, a: 0.3}
+  _detectedPlayerColor: {r: 1, g: 0.5, b: 0, a: 0.5}
+  _triggerRangeColor: {r: 0, g: 1, b: 0, a: 0.2}
+  _segmentsWhenIdle: 24
+  _segmentsWhenDetected: 64
 --- !u!50 &4753324347353153066
 Rigidbody2D:
   serializedVersion: 4

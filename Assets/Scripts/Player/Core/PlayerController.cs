@@ -54,6 +54,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public NetworkBool DashIsMoving { get; set; } // 이동 상태 (false = 정지, true = 이동)
     [Networked] public Vector2 DashVelocity { get; set; } // 돌진 속도
     [Networked] public Vector2 DashLastInputDirection { get; set; } // 마지막 입력 방향
+    [Networked] public Vector2 DashPendingRecoilDirection { get; set; } // 튕겨나갈 방향 (플레이어 충돌 후)
+    [Networked] public NetworkBool DashIsWaitingToRecoil { get; set; } // 반동 대기 중인지 여부
     public DashMagicObject DashMagicObject { get; set; } // 돌진 마법 오브젝트 참조
     
     // Threat Score (위협점수)
@@ -500,9 +502,24 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             int magicCodeToCast = GetCurrentMagicCodeToCast();
             if (magicCodeToCast != 10)
             {
-                RPC_DeactivateMagic();
+                // RPC를 직접 호출하는 대신 네트워크 변수를 직접 설정
+                // (State Authority에서 실행 중이므로 직접 설정 가능)
+                DeactivateMagicInternal();
             }
         }
+    }
+    
+    /// <summary>
+    /// 마법을 비활성화합니다. (내부 메서드, State Authority에서 직접 호출)
+    /// 다른 NetworkBehaviour에서 호출할 때 사용합니다.
+    /// </summary>
+    public void DeactivateMagicInternal()
+    {
+        MagicActive = false;
+        MagicActivationTick = 0;
+        ActivatedMagicCode = -1;
+        AbsorbedMagicCode = -1;
+        ActiveMagicSlotNetworked = 0;
     }
     
     /// <summary>
@@ -655,6 +672,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             DashIsMoving = false;
             DashVelocity = Vector2.zero;
             DashLastInputDirection = Vector2.zero;
+            DashPendingRecoilDirection = Vector2.zero;
+            DashIsWaitingToRecoil = false;
             ThreatScore = 0f;
         }
     }

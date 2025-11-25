@@ -1,13 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Fusion;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 /// <summary>
 /// 보호막 마법 핸들러 (Air + Soil 조합)
-/// 플레이어 선택, 보호막 적용, 베리어 시각화를 모두 처리합니다.
+/// 마법 활성화 시 플레이어 선택 모드를 제공하고, 클릭 시 보호막을 적용합니다.
 /// </summary>
 public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
 {
@@ -20,9 +17,13 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     private PlayerController _controller;
     private GameDataManager _gameDataManager;
     
-    // 선택 모드 관련 (하이라이트만 담당)
+    // 선택 모드 관련
     private PlayerController _selectedPlayer = null;
-    private Dictionary<PlayerController, GameObject> _highlightObjects = new Dictionary<PlayerController, GameObject>();
+    private PlayerController _currentHighlightedPlayer = null; // 현재 하이라이트된 플레이어
+    
+    // [최적화] 하이라이트 객체 재사용을 위한 단일 인스턴스
+    private GameObject _sharedHighlightInstance = null;
+    private SpriteRenderer _highlightRenderer = null;
     private Color _highlightColor = new Color(0.2f, 1f, 0.2f, 1f); // 연두색
     private float _highlightThickness = 0.1f;
     #endregion
@@ -33,22 +34,33 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
         _magicController = magicController;
         _controller = magicController.Controller;
         _gameDataManager = gameDataManager;
+        
+        // [최적화] 초기화 시 하이라이트 객체 미리 생성 (비활성화 상태)
+        CreateSharedHighlightObject();
+    }
+    
+    /// <summary>
+    /// [최적화] 공유 하이라이트 객체를 미리 생성합니다.
+    /// </summary>
+    private void CreateSharedHighlightObject()
+    {
+        if (_sharedHighlightInstance != null) return;
+        
+        _sharedHighlightInstance = new GameObject("SharedBarrierHighlight");
+        _highlightRenderer = _sharedHighlightInstance.AddComponent<SpriteRenderer>();
+        _highlightRenderer.color = _highlightColor;
+        _sharedHighlightInstance.SetActive(false);
     }
     #endregion
     
     #region ICombinedMagicHandler Methods
-    public bool CanCast(Vector3 targetPosition)
-    {
-        // 보호막 마법은 선택 모드이므로 항상 시전 가능
-        return true;
-    }
+    public bool CanCast(Vector3 targetPosition) => true;
     
-    public bool CastMagic(Vector3 targetPosition)
-    {
-        // 보호막 마법은 CastMagic에서 처리하지 않고 ProcessInput에서 처리
-        // 선택 모드로 유지
-        return false; // 시전하지 않음 (선택 모드 유지)
-    }
+    /// <summary>
+    /// 보호막 마법은 선택 모드이므로 CastMagic에서 즉시 시전하지 않음.
+    /// ProcessInput에서 플레이어 선택 후 클릭 시 보호막을 적용합니다.
+    /// </summary>
+    public bool CastMagic(Vector3 targetPosition) => false; // 선택 모드 유지
     
     public void ProcessInput(InputData inputData, Vector3 mouseWorldPos)
     {
@@ -111,9 +123,23 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     
     public void OnMagicDeactivated()
     {
-        // 모든 하이라이트 제거
-        ClearAllHighlights();
+        // 하이라이트 비활성화
+        if (_sharedHighlightInstance != null)
+        {
+            _sharedHighlightInstance.SetActive(false);
+            _sharedHighlightInstance.transform.SetParent(null); // 부모 연결 해제
+        }
         _selectedPlayer = null;
+        _currentHighlightedPlayer = null;
+    }
+    
+    /// <summary>
+    /// 마법이 현재 시전 중인지 확인합니다.
+    /// 보호막이 적용되어 있으면 시전 중으로 간주합니다.
+    /// </summary>
+    public bool IsCasting()
+    {
+        return _controller != null && _controller.HasBarrier;
     }
     #endregion
     
@@ -123,14 +149,8 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     /// </summary>
     private void UpdatePlayerSelection(Vector3 mouseWorldPos)
     {
-        // 가장 가까운 플레이어 찾기
-        PlayerController closestPlayer = FindClosestPlayer(mouseWorldPos);
-        
-        if (closestPlayer != null && !closestPlayer.IsDead)
-        {
-            _selectedPlayer = closestPlayer;
-        }
-        else
+        _selectedPlayer = FindClosestPlayer(mouseWorldPos);
+        if (_selectedPlayer != null && _selectedPlayer.IsDead)
         {
             _selectedPlayer = null;
         }
@@ -141,17 +161,8 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     /// </summary>
     private PlayerController FindClosestPlayer(Vector3 mouseWorldPos)
     {
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
-        if (MainGameManager.Instance != null)
-        {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
-        }
-        
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
+        List<PlayerController> allPlayers = GetAllPlayers();
+        if (allPlayers == null || allPlayers.Count == 0) return null;
 
         PlayerController closestPlayer = null;
         float closestDistance = float.MaxValue;
@@ -160,13 +171,9 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
         {
             if (player == null || player.IsDead) continue;
 
-            Vector3 playerPos = player.transform.position;
-            if (player.ViewObj != null)
-            {
-                playerPos = player.ViewObj.transform.position;
-            }
-            
+            Vector3 playerPos = player.ViewObj != null ? player.ViewObj.transform.position : player.transform.position;
             float distance = Vector3.Distance(mouseWorldPos, playerPos);
+            
             if (distance < closestDistance)
             {
                 closestDistance = distance;
@@ -176,115 +183,100 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
 
         return closestPlayer;
     }
+    
+    /// <summary>
+    /// 모든 플레이어를 가져옵니다.
+    /// </summary>
+    private List<PlayerController> GetAllPlayers()
+    {
+        if (MainGameManager.Instance != null)
+        {
+            var players = MainGameManager.Instance.GetAllPlayers();
+            if (players != null && players.Count > 0) return players;
+        }
+        
+        return new List<PlayerController>(FindObjectsOfType<PlayerController>());
+    }
     #endregion
     
     #region Highlight Visuals
     /// <summary>
     /// 하이라이트 시각 효과를 업데이트합니다.
+    /// [최적화] 단일 하이라이트 객체를 재사용하여 GC 스파이크 방지
     /// </summary>
     private void UpdateHighlightVisuals()
     {
-        // 이전 선택된 플레이어 하이라이트 제거
-        var keysToRemove = new List<PlayerController>();
-        foreach (var kvp in _highlightObjects)
+        // 타겟이 변경되었을 때만 시각 효과 갱신
+        if (_selectedPlayer != _currentHighlightedPlayer)
         {
-            if (kvp.Key != _selectedPlayer)
-            {
-                keysToRemove.Add(kvp.Key);
-            }
-        }
-        
-        foreach (var key in keysToRemove)
-        {
-            RemoveHighlight(key);
-        }
-
-        // 현재 선택된 플레이어 하이라이트 추가
-        if (_selectedPlayer != null && !_highlightObjects.ContainsKey(_selectedPlayer))
-        {
-            AddHighlight(_selectedPlayer);
+            _currentHighlightedPlayer = _selectedPlayer;
+            UpdateHighlightVisuals(_selectedPlayer);
         }
     }
     
     /// <summary>
-    /// 플레이어에게 하이라이트를 추가합니다.
+    /// [최적화] 하이라이트 시각 효과를 업데이트합니다.
+    /// Destroy/Instantiate 대신 SetActive와 SetParent만 사용
     /// </summary>
-    private void AddHighlight(PlayerController player)
+    private void UpdateHighlightVisuals(PlayerController target)
     {
-        if (player == null) return;
+        if (_sharedHighlightInstance == null || _highlightRenderer == null)
+        {
+            CreateSharedHighlightObject();
+            if (_sharedHighlightInstance == null) return;
+        }
         
-        GameObject viewObj = player.ViewObj;
+        if (target == null || target.IsDead)
+        {
+            _sharedHighlightInstance.SetActive(false);
+            return;
+        }
+        
+        // ViewObj 찾기
+        GameObject viewObj = target.ViewObj;
         if (viewObj == null)
         {
-            Transform viewObjParent = player.transform.Find("ViewObjParent");
+            Transform viewObjParent = target.transform.Find("ViewObjParent");
             if (viewObjParent != null && viewObjParent.childCount > 0)
             {
                 viewObj = viewObjParent.GetChild(0).gameObject;
             }
         }
         
-        if (viewObj == null) return;
-
-        GameObject highlightObj = new GameObject("BarrierHighlight");
-        highlightObj.transform.SetParent(viewObj.transform, false);
+        if (viewObj == null)
+        {
+            _sharedHighlightInstance.SetActive(false);
+            return;
+        }
         
-        SpriteRenderer playerRenderer = viewObj.GetComponent<SpriteRenderer>();
-        if (playerRenderer != null && playerRenderer.sprite != null)
+        SpriteRenderer targetRenderer = viewObj.GetComponent<SpriteRenderer>();
+        if (targetRenderer == null || targetRenderer.sprite == null)
         {
-            SpriteRenderer highlightRenderer = highlightObj.AddComponent<SpriteRenderer>();
-            highlightRenderer.sprite = playerRenderer.sprite;
-            highlightRenderer.color = _highlightColor;
-            highlightRenderer.sortingOrder = playerRenderer.sortingOrder + 1;
-            highlightObj.transform.localScale = Vector3.one * (1f + _highlightThickness);
+            _sharedHighlightInstance.SetActive(false);
+            return;
         }
-
-        _highlightObjects[player] = highlightObj;
-    }
-    
-    /// <summary>
-    /// 플레이어의 하이라이트를 제거합니다.
-    /// </summary>
-    private void RemoveHighlight(PlayerController player)
-    {
-        if (player == null || !_highlightObjects.ContainsKey(player)) return;
-
-        GameObject highlightObj = _highlightObjects[player];
-        if (highlightObj != null)
-        {
-            Destroy(highlightObj);
-        }
-
-        _highlightObjects.Remove(player);
-    }
-    
-    /// <summary>
-    /// 모든 하이라이트를 제거합니다.
-    /// </summary>
-    private void ClearAllHighlights()
-    {
-        foreach (var kvp in _highlightObjects)
-        {
-            if (kvp.Value != null)
-            {
-                Destroy(kvp.Value);
-            }
-        }
-        _highlightObjects.Clear();
+        
+        // [최적화] 부모 변경 및 활성화만 수행
+        _sharedHighlightInstance.transform.SetParent(viewObj.transform, false);
+        _sharedHighlightInstance.transform.localPosition = Vector3.zero;
+        _sharedHighlightInstance.transform.localScale = Vector3.one * (1f + _highlightThickness);
+        
+        _highlightRenderer.sprite = targetRenderer.sprite;
+        _highlightRenderer.sortingOrder = targetRenderer.sortingOrder + 1;
+        
+        _sharedHighlightInstance.SetActive(true);
     }
     #endregion
     
     #region Barrier Application
     /// <summary>
     /// 플레이어에게 보호막을 적용합니다.
-    /// 직접 보호막을 적용합니다 (BarrierMagic 오브젝트 스폰 없이).
     /// </summary>
     public void ApplyBarrierToPlayer(PlayerController targetPlayer)
     {
-        if (targetPlayer == null || _controller == null) return;
-        if (!_controller.Object.HasStateAuthority) return;
+        if (targetPlayer == null || _controller == null || !_controller.Object.HasStateAuthority) return;
         if (_gameDataManager == null) return;
 
-        // 베리어 조합 데이터 가져오기
         BarrierMagicCombinationData barrierData = GetBarrierData();
         if (barrierData == null)
         {
@@ -292,32 +284,16 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
             return;
         }
 
-        // 모든 플레이어 가져오기
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
-        if (MainGameManager.Instance != null)
-        {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
-        }
-        
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
+        List<PlayerController> allPlayers = GetAllPlayers();
 
-        // 보호막을 받은 플레이어와 받지 못한 플레이어의 체력 설정
-        // 각 플레이어의 State Authority에서만 체력을 변경할 수 있으므로, 각 플레이어의 State Authority를 확인
+        // 각 플레이어의 State Authority에서만 체력 변경 가능
         foreach (var player in allPlayers)
         {
-            if (player == null || player.IsDead) continue;
-            
-            // 각 플레이어의 State Authority에서만 체력 변경 가능
-            if (!player.Object.HasStateAuthority) continue;
+            if (player == null || player.IsDead || !player.Object.HasStateAuthority) continue;
 
             if (player == targetPlayer)
             {
-                // 보호막 받은 플레이어: 체력 및 보호막 타이머 설정
-                // MaxHealth를 먼저 업데이트 (SetHealth가 MaxHealth로 클램프하므로)
+                // 보호막 받은 플레이어
                 if (barrierData.barrierReceiverHealth > player.MaxHealth)
                 {
                     player.MaxHealth = barrierData.barrierReceiverHealth;
@@ -332,16 +308,13 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
                     player.CurrentHealth = barrierData.barrierReceiverHealth;
                 }
                 
-                // 자폭 베리어 타이머 시작
                 player.BarrierTimer = TickTimer.CreateFromSeconds(_controller.Runner, barrierData.barrierDuration);
                 player.HasBarrier = true;
-                // 위협점수와 이동속도 효과는 PlayerController의 FixedUpdateNetwork에서 자동 업데이트됨
-                Debug.Log($"[BarrierMagicHandler] {targetPlayer.name} received self-destruct barrier (HP: {barrierData.barrierReceiverHealth}, Duration: {barrierData.barrierDuration}s, ThreatScore: {barrierData.threatScore})");
+                Debug.Log($"[BarrierMagicHandler] {targetPlayer.name} received barrier (HP: {barrierData.barrierReceiverHealth}, Duration: {barrierData.barrierDuration}s)");
             }
             else
             {
-                // 보호막 받지 못한 플레이어: 체력 설정
-                // nonReceiverHealth는 항상 MaxHealth보다 작으므로 MaxHealth 변경 불필요
+                // 보호막 받지 못한 플레이어
                 if (player.State != null)
                 {
                     player.State.SetHealth(barrierData.nonReceiverHealth);
@@ -351,78 +324,56 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
                     player.CurrentHealth = barrierData.nonReceiverHealth;
                 }
                 
-                // 기존 보호막 제거
                 player.BarrierTimer = TickTimer.None;
                 player.HasBarrier = false;
-                // 위협점수는 PlayerController의 FixedUpdateNetwork에서 자동 업데이트됨
-                Debug.Log($"[BarrierMagicHandler] {player.name} did not receive barrier (HP: {barrierData.nonReceiverHealth}, ThreatScore: {player.ThreatScore})");
             }
         }
         
-        ClearAllHighlights();
+        // 하이라이트 비활성화
+        if (_sharedHighlightInstance != null)
+        {
+            _sharedHighlightInstance.SetActive(false);
+            _sharedHighlightInstance.transform.SetParent(null);
+        }
+        _currentHighlightedPlayer = null;
     }
     #endregion
     
     #region Barrier Explosion
     /// <summary>
     /// 자폭 베리어 폭발을 처리합니다.
-    /// 베리어 타이머에 따라 다른 범위와 데미지를 적용합니다.
     /// </summary>
     public void HandleBarrierExplosion(PlayerController playerWithBarrier)
     {
-        if (playerWithBarrier == null || playerWithBarrier.Object == null || !playerWithBarrier.Object.HasStateAuthority) return;
-        if (playerWithBarrier.Runner == null) return;
+        if (playerWithBarrier == null || !playerWithBarrier.Object.HasStateAuthority || playerWithBarrier.Runner == null) return;
         
         float remainingTime = playerWithBarrier.BarrierTimer.RemainingTime(playerWithBarrier.Runner) ?? 0f;
         Vector3 explosionPosition = playerWithBarrier.transform.position;
         
-        // 베리어 조합 데이터 가져오기
         BarrierMagicCombinationData barrierData = GetBarrierData();
         if (barrierData == null) return;
         
-        // 데이터에서 폭발 정보 가져오기
         barrierData.GetExplosionData(remainingTime, out float explosionRadius, out float explosionDamage);
         
-        Debug.Log($"[BarrierExplosion] {playerWithBarrier.name} exploded! Radius: {explosionRadius}m, Damage: {explosionDamage}, RemainingTime: {remainingTime:F2}s");
+        Debug.Log($"[BarrierExplosion] {playerWithBarrier.name} exploded! Radius: {explosionRadius}m, Damage: {explosionDamage}");
         
-        // Physics2D.OverlapCircle을 사용하여 범위 내 적만 효율적으로 가져오기
         Collider2D[] hitColliders = Physics2D.OverlapCircleAll(explosionPosition, explosionRadius);
         
-        // 범위 내 적에게 데미지 적용
         foreach (var collider in hitColliders)
         {
             if (collider == null) continue;
             
-            // EnemyController 찾기 (콜리더가 직접 가지고 있거나 부모/루트에 있을 수 있음)
-            EnemyController enemy = collider.GetComponent<EnemyController>();
-            if (enemy == null)
-            {
-                enemy = collider.GetComponentInParent<EnemyController>();
-            }
-            if (enemy == null && collider.attachedRigidbody != null)
-            {
-                enemy = collider.attachedRigidbody.GetComponent<EnemyController>();
-            }
-            if (enemy == null && collider.transform.root != null)
-            {
-                enemy = collider.transform.root.GetComponent<EnemyController>();
-            }
+            EnemyController enemy = collider.GetComponent<EnemyController>() 
+                ?? collider.GetComponentInParent<EnemyController>()
+                ?? (collider.attachedRigidbody != null ? collider.attachedRigidbody.GetComponent<EnemyController>() : null)
+                ?? (collider.transform.root != null ? collider.transform.root.GetComponent<EnemyController>() : null);
             
-            // 적이 없거나 이미 사망했으면 스킵
             if (enemy == null || enemy.IsDead) continue;
             
-            // 정확한 거리 계산 (콜리더 중심이 아닌 transform 위치 기준)
             float distance = Vector3.Distance(explosionPosition, enemy.transform.position);
-            
-            // 거리 재확인 (OverlapCircle은 콜리더 범위를 기준으로 하므로 정확한 거리 체크 필요)
-            if (distance <= explosionRadius)
+            if (distance <= explosionRadius && enemy.State != null)
             {
-                // 데미지 적용
-                if (enemy.State != null)
-                {
-                    enemy.State.TakeDamage(explosionDamage);
-                    Debug.Log($"[BarrierExplosion] {enemy.name} took {explosionDamage} damage (Distance: {distance:F2}m)");
-                }
+                enemy.State.TakeDamage(explosionDamage);
             }
         }
     }
@@ -432,49 +383,23 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     /// </summary>
     private BarrierMagicCombinationData GetBarrierData()
     {
-        if (_gameDataManager == null || _gameDataManager.MagicService == null) return null;
+        if (_gameDataManager?.MagicService == null) return null;
         
-        // 베리어 마법 코드는 10 (Air + Soil 조합)
-        // MagicService에서 조합 데이터 찾기
         MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(10);
-        
-        // BarrierMagicCombinationData로 캐스팅
-        if (combinationData is BarrierMagicCombinationData barrierData)
-        {
-            return barrierData;
-        }
-        
-        return null;
-    }
-    #endregion
-    
-    #region Helper Methods (for Highlight)
-    /// <summary>
-    /// 모든 플레이어를 가져옵니다.
-    /// </summary>
-    private List<PlayerController> GetAllPlayers()
-    {
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
-        if (MainGameManager.Instance != null)
-        {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
-        }
-        
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
-        
-        return allPlayers;
+        return combinationData as BarrierMagicCombinationData;
     }
     #endregion
     
     #region Cleanup
     private void OnDestroy()
     {
-        // 하이라이트만 정리 (베리어 시각화는 BarrierVisualizationManager에서 처리)
-        ClearAllHighlights();
+        // 하이라이트 객체 정리
+        if (_sharedHighlightInstance != null)
+        {
+            Destroy(_sharedHighlightInstance);
+            _sharedHighlightInstance = null;
+            _highlightRenderer = null;
+        }
     }
     #endregion
 }

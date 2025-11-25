@@ -134,6 +134,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: MapTeleporter (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 2587494974767297055, guid: b30e09a878108cf4f9c1ea6760e7de1c, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4150652111490422076, guid: b30e09a878108cf4f9c1ea6760e7de1c, type: 3}
       propertyPath: teleportDelay
       value: 1
@@ -11564,8 +11568,8 @@ Transform:
   m_Children:
   - {fileID: 1069480694}
   - {fileID: 49328896}
-  - {fileID: 1886305127}
   - {fileID: 2103553799}
+  - {fileID: 1886305127}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1465612899
@@ -21057,6 +21061,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: MapTeleporter
       objectReference: {fileID: 0}
+    - target: {fileID: 2587494974767297055, guid: b30e09a878108cf4f9c1ea6760e7de1c, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4150652111490422076, guid: b30e09a878108cf4f9c1ea6760e7de1c, type: 3}
       propertyPath: teleportDelay
       value: 1
@@ -21168,6 +21176,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4773064773935389814, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: _isTestMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4773064773935389814, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
+      propertyPath: secondCharacterIndex
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -21401,6 +21413,10 @@ PrefabInstance:
     - target: {fileID: 2994721707163787596, guid: 90f16b8e662c72b4fb8d50d70a1abcb4, type: 3}
       propertyPath: m_Name
       value: ScenDespawner
+      objectReference: {fileID: 0}
+    - target: {fileID: 2994721707163787596, guid: 90f16b8e662c72b4fb8d50d70a1abcb4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8933739924241075443, guid: 90f16b8e662c72b4fb8d50d70a1abcb4, type: 3}
       propertyPath: targetSceneName

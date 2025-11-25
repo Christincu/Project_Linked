@@ -4,7 +4,7 @@ using Fusion;
 
 /// <summary>
 /// 화염 돌진 마법 핸들러
-/// 두 플레이어의 마법 합체 발동 시 적용되는 특수 돌진 스킬
+/// 마법 시전 시 두 플레이어에게 돌진 스킬을 적용합니다.
 /// </summary>
 public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
 {
@@ -28,13 +28,10 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
     #endregion
     
     #region ICombinedMagicHandler Methods
-    /// <summary>
-    /// 시전 가능 여부를 확인합니다.
-    /// </summary>
     public bool CanCast(Vector3 targetPosition) => true;
     
     /// <summary>
-    /// 돌진 스킬을 시전합니다.
+    /// 돌진 스킬을 시전합니다. 두 플레이어 모두에게 적용합니다.
     /// </summary>
     public bool CastMagic(Vector3 targetPosition)
     {
@@ -51,7 +48,7 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
     }
     
     /// <summary>
-    /// 입력을 처리합니다.
+    /// 입력 처리: 클릭 시 마법 시전 RPC 호출
     /// </summary>
     public void ProcessInput(InputData inputData, Vector3 mouseWorldPos)
     {
@@ -71,11 +68,21 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
     public void Update() { }
     public void OnMagicActivated() { }
     public void OnMagicDeactivated() { }
+    
+    /// <summary>
+    /// 마법이 현재 시전 중인지 확인합니다.
+    /// 돌진 스킬이 활성화되어 있으면 시전 중으로 간주합니다.
+    /// </summary>
+    public bool IsCasting()
+    {
+        return _controller != null && _controller.HasDashSkill;
+    }
     #endregion
     
     #region Skill Application
     /// <summary>
     /// 합체 마법에 참여한 다른 플레이어를 찾습니다.
+    /// [최적화] 합체 상태인 플레이어만 찾도록 개선
     /// </summary>
     private PlayerController FindOtherPlayerInCombination()
     {
@@ -91,12 +98,30 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
         
         if (myCombinedCode != MagicCode) return null;
         
+        // [최적화] 합체 상태인 플레이어만 찾기
+        // 두 플레이어가 서로의 마법을 흡수한 상태이므로, 
+        // AbsorbedMagicCode가 서로의 ActivatedMagicCode와 일치하는 플레이어를 찾음
         List<PlayerController> allPlayers = GetAllPlayers();
-        
         foreach (var player in allPlayers)
         {
             if (player == null || player == _controller || player.IsDead) continue;
-            return player;
+            
+            // 합체 상태 확인: 상대방의 ActivatedMagicCode가 내 AbsorbedMagicCode와 일치하거나,
+            // 상대방의 AbsorbedMagicCode가 내 ActivatedMagicCode와 일치하는 경우
+            bool isInCombination = (player.ActivatedMagicCode == _controller.AbsorbedMagicCode) ||
+                                  (player.AbsorbedMagicCode == _controller.ActivatedMagicCode);
+            
+            if (isInCombination)
+            {
+                return player;
+            }
+        }
+        
+        // 폴백: 합체 상태 확인이 실패하면 첫 번째 다른 플레이어 반환
+        foreach (var player in allPlayers)
+        {
+            if (player != null && player != _controller && !player.IsDead)
+                return player;
         }
         
         return null;
@@ -131,19 +156,13 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
     /// </summary>
     private List<PlayerController> GetAllPlayers()
     {
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
         if (MainGameManager.Instance != null)
         {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
+            var players = MainGameManager.Instance.GetAllPlayers();
+            if (players != null && players.Count > 0) return players;
         }
         
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
-        
-        return allPlayers;
+        return new List<PlayerController>(FindObjectsOfType<PlayerController>());
     }
     
     /// <summary>
@@ -151,7 +170,7 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
     /// </summary>
     private DashMagicCombinationData GetDashData()
     {
-        if (_gameDataManager == null || _gameDataManager.MagicService == null) return null;
+        if (_gameDataManager?.MagicService == null) return null;
         
         MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(MagicCode);
         return combinationData as DashMagicCombinationData;

@@ -115,9 +115,11 @@ public class MainCanvas : MonoBehaviour, ICanvas
         // 최대 체력에 맞춰 하트 이미지 생성 (1HP당 하트 1개로 가정)
         int maxHearts = Mathf.CeilToInt(_localPlayer.MaxHealth);
         
+        // MaxHealth가 아직 초기화되지 않았으면 재시도
         if (maxHearts <= 0)
         {
-            Debug.LogWarning($"[MainCanvas] MaxHealth is {_localPlayer.MaxHealth}, no hearts to create");
+            // 초기화 대기 후 재시도
+            StartCoroutine(WaitForMaxHealthAndInitialize());
             return;
         }
         
@@ -137,6 +139,27 @@ public class MainCanvas : MonoBehaviour, ICanvas
 
         // 초기 상태 업데이트
         UpdateHealthUI(_localPlayer.CurrentHealth, _localPlayer.MaxHealth);
+    }
+
+    /// <summary>
+    /// MaxHealth가 초기화될 때까지 대기한 후 HP UI를 초기화합니다.
+    /// </summary>
+    private IEnumerator WaitForMaxHealthAndInitialize()
+    {
+        int maxAttempts = 30; // 3초 대기 (0.1초 * 30)
+        int attempts = 0;
+        
+        while (attempts < maxAttempts && (_localPlayer == null || _localPlayer.MaxHealth <= 0))
+        {
+            yield return new WaitForSeconds(0.1f);
+            attempts++;
+        }
+        
+        // 다시 시도
+        if (_localPlayer != null && _localPlayer.MaxHealth > 0)
+        {
+            InitializeHealthUI();
+        }
     }
 
     /// <summary>

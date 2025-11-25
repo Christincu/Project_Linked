@@ -51,5 +51,11 @@ public interface ICombinedMagicHandler
     /// 마법 비활성화 시 호출
     /// </summary>
     void OnMagicDeactivated();
+    
+    /// <summary>
+    /// 마법이 현재 시전 중인지 확인합니다.
+    /// </summary>
+    /// <returns>시전 중이면 true, 아니면 false</returns>
+    bool IsCasting();
 }
 

@@ -16,7 +16,7 @@ MonoBehaviour:
   magicCode2: 0
   resultMagicCode: 11
   initialStunDuration: 0.5
-  cameraZoomOutMultiplier: 3
+  cameraZoomOutMultiplier: 2
   maxSpeed: 50
   movementAcceleration: 10
   deceleration: 4
@@ -33,6 +33,11 @@ MonoBehaviour:
   playerCollisionFrontAngle: 120
   enemyCollisionCooldown: 0.5
   enemyKnockbackAngleRange: 45
+  enemyKnockbackForce: 15
+  enemyKnockbackDuration: 0.3
+  playerCollisionFreezeDuration: 0.5
+  playerCollisionRecoilForce: 10
+  playerCollisionRecoilTimeExtension: 0.5
   wrongCollisionStunDuration: 2
   dashBarrierPrefab: {fileID: 495353710250101849, guid: 9b2d0cf1af9d26140b1a4a8bfb35f835, type: 3}
   baseBarrierSprite: {fileID: 21300000, guid: dcc058603fdd1834d99ab5d74b63dd63, type: 3}

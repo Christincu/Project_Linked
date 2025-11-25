@@ -450,6 +450,23 @@ public class PlayerMagicController : MonoBehaviour
     {
         if (!_isInitialized || !controller.Object.HasInputAuthority) return;
         if (isTestMode && inputData.ControlledSlot != controller.PlayerSlot) return;
+        
+        // 합체 마법이 시전 중일 때 마법 시전 차단
+        // 현재 활성화된 핸들러가 시전 중인지 확인 (각 핸들러가 자신의 상태를 관리)
+        if (_currentHandler != null && _currentHandler.IsCasting())
+        {
+            return; // 현재 핸들러가 시전 중이면 입력 차단
+        }
+        
+        // _currentHandler가 없어도 활성화된 마법 코드로 핸들러 찾아서 체크
+        int activeMagicCode = GetMagicCodeToCast();
+        if (activeMagicCode != -1 && _magicHandlers.TryGetValue(activeMagicCode, out var activeHandler))
+        {
+            if (activeHandler.IsCasting())
+            {
+                return; // 해당 핸들러가 시전 중이면 입력 차단
+            }
+        }
 
         // 클릭 감지
         bool leftClickDown = inputData.GetMouseButton(InputMouseButton.LEFT) && !_previousLeftMouseButton;
@@ -530,9 +547,13 @@ public class PlayerMagicController : MonoBehaviour
             // 합체 마법 핸들러 확인
             if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
             {
-                // 핸들러가 있으면 마우스 위치 업데이트마다 ProcessInput 호출 (하이라이트 업데이트를 위해)
-                Vector3 mousePos = GetMouseWorldPosition(inputData);
-                handler.ProcessInput(inputData, mousePos);
+                // 시전 중이 아닐 때만 입력 처리 (시전 중에는 입력 무시)
+                if (!handler.IsCasting())
+                {
+                    // 핸들러가 있으면 마우스 위치 업데이트마다 ProcessInput 호출 (하이라이트 업데이트를 위해)
+                    Vector3 mousePos = GetMouseWorldPosition(inputData);
+                    handler.ProcessInput(inputData, mousePos);
+                }
                 _currentHandler = handler;
             }
             else
@@ -619,24 +640,34 @@ public class PlayerMagicController : MonoBehaviour
     /// <summary>
     /// MagicAnchorCollision에서 호출: 다른 마법 앵커와의 충돌 시작
     /// 충돌 시 즉시 흡수 처리
+    /// [중요] State Authority 검사를 강화하여 데이터 불일치 방지
     /// </summary>
     public void OnPlayerCollisionEnter(PlayerController otherPlayer)
     {
-        // Early exit checks
-        if (otherPlayer == _controller || otherPlayer == null) return;
+        // 1. 기본 유효성 검사
+        if (otherPlayer == null || otherPlayer.IsDead) return;
+        if (otherPlayer == _controller) return;
         if (otherPlayer.MagicController == null) return;
-        if (_controller.Object.Id.Raw > otherPlayer.Object.Id.Raw) return; // 중복 처리 방지
         if (!_controller.MagicActive || !otherPlayer.MagicActive) return;
+        
+        // [중요] 네트워크 상태 변경 권한이 있는 쪽(State Authority)에서만 로직 수행
+        // Fusion에서 상태 변경은 서버(호스트)가 주도하는 것이 가장 안전합니다.
+        if (!_controller.Object.HasStateAuthority) return;
+        
+        // 2. 중복 처리 방지 (ID 비교)
+        // 두 플레이어 모두 State Authority를 가질 수 있는 상황(예: Shared Mode)이나
+        // Host Mode에서 서버가 충돌을 처리할 때 중복 계산을 막기 위함
+        if (_controller.Object.Id.Raw > otherPlayer.Object.Id.Raw) return;
 
         _collidingPlayer = otherPlayer;
         
-        // 양쪽 플레이어 정보 캡처
+        // 3. 양쪽 플레이어 정보 캡처
         int myTick = _controller.MagicActivationTick;
         int otherTick = otherPlayer.MagicActivationTick;
         
         if (myTick <= 0 || otherTick <= 0) return;
         
-        // 누가 흡수할지 결정 (먼저 활성화한 쪽이 흡수)
+        // 4. 흡수자 판별 (결정론적 로직)
         bool iAmAbsorber = DetermineAbsorber(myTick, otherTick, 
             _controller.CharacterIndex, otherPlayer.CharacterIndex,
             _controller.Object.Id.Raw, otherPlayer.Object.Id.Raw);
@@ -645,16 +676,19 @@ public class PlayerMagicController : MonoBehaviour
         PlayerController absorbed = iAmAbsorber ? otherPlayer : _controller;
         int absorbedMagicCode = absorbed.ActivatedMagicCode;
         
-        // 흡수 처리
+        // 5. 상태 변경 적용 (직접 수정)
+        // State Authority를 가지고 있으므로 RPC 없이 바로 Networked 변수 수정 가능
+        // 피흡수자 처리
         absorbed.MagicActive = false;
         absorbed.MagicActivationTick = 0;
         absorbed.ActivatedMagicCode = -1;
         absorbed.ActiveMagicSlotNetworked = 0;
         absorbed.MagicController?.OnAbsorbed();
         
+        // 흡수자 처리
         absorber.AbsorbedMagicCode = absorbedMagicCode;
         
-        Debug.Log($"[Absorption] {absorber.name} absorbed {absorbed.name}'s magic (code: {absorbedMagicCode})");
+        Debug.Log($"[Absorption] Server handled: {absorber.name} absorbed {absorbed.name}'s magic (code: {absorbedMagicCode})");
     }
     
     /// <summary>

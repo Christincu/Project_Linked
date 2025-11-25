@@ -42,9 +42,6 @@ public class BarrierMagicCombinationData : MagicCombinationData
     [Tooltip("3단계 폭발 데미지")]
     public float explosionDamagePhase3 = 1000f;
     
-    [Tooltip("3단계에서 이동속도 정상화 여부")]
-    public bool normalizeMoveSpeedInPhase3 = true;
-    
     [Header("Health Settings")]
     [Tooltip("베리어를 받은 플레이어의 체력")]
     public float barrierReceiverHealth = 3f;
