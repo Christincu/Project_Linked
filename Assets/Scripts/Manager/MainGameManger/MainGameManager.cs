@@ -67,7 +67,7 @@ public partial class MainGameManager : MonoBehaviour
         FusionManager.OnPlayerJoinedEvent += OnPlayerJoinedDuringGame;
         FusionManager.OnPlayerLeftEvent += OnPlayerLeft;
         FusionManager.OnShutdownEvent += OnNetworkShutdown;
-        FusionManager.OnDisconnectedEvent += OnDisconnectedFromServer;
+        FusionManager.OnDisconnectedEvent += OnDisconnected;
         
         // BarrierVisualizationManager 초기화 (게임 씬에서만 필요)
         _ = BarrierVisualizationManager.Instance;
@@ -108,7 +108,7 @@ public partial class MainGameManager : MonoBehaviour
         FusionManager.OnPlayerJoinedEvent -= OnPlayerJoinedDuringGame;
         FusionManager.OnPlayerLeftEvent -= OnPlayerLeft;
         FusionManager.OnShutdownEvent -= OnNetworkShutdown;
-        FusionManager.OnDisconnectedEvent -= OnDisconnectedFromServer;
+        FusionManager.OnDisconnectedEvent -= OnDisconnected;
     }
     
     // =========================================================
@@ -580,8 +580,9 @@ public partial class MainGameManager : MonoBehaviour
 
     /// <summary>
     /// 서버와의 연결이 끊어졌을 때 호출됩니다 (클라이언트 관점)
+    /// FusionManager.OnDisconnectedEvent를 통해 호출됩니다.
     /// </summary>
-    private void OnDisconnectedFromServer(NetworkRunner runner)
+    private void OnDisconnected(NetworkRunner runner)
     {
         Debug.Log("[MainGameManager] Disconnected from server, returning to title...");
         
