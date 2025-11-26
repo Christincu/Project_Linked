@@ -57,45 +57,49 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     public bool CanCast(Vector3 targetPosition) => true;
     
     /// <summary>
-    /// 보호막 마법은 선택 모드이므로 CastMagic에서 즉시 시전하지 않음.
-    /// ProcessInput에서 플레이어 선택 후 클릭 시 보호막을 적용합니다.
+    /// [핵심 수정] 클릭 시 호출되는 메서드입니다.
+    /// 여기서 실제 보호막 적용 로직을 수행합니다.
     /// </summary>
-    public bool CastMagic(Vector3 targetPosition) => false; // 선택 모드 유지
+    public bool CastMagic(Vector3 targetPosition)
+    {
+        if (_controller == null || !_controller.Object.HasInputAuthority) return false;
+        
+        // 1. 현재 마우스 위치(targetPosition)에 있는 플레이어를 찾습니다.
+        // ProcessInput이 직전 프레임에 _selectedPlayer를 갱신했겠지만, 
+        // 확실하게 하기 위해 여기서 다시 찾거나 _selectedPlayer를 사용합니다.
+        PlayerController target = _selectedPlayer;
+        
+        // 만약 선택된 플레이어가 없다면 현재 위치 기준으로 다시 찾기 (빠른 클릭 대응)
+        if (target == null || target.IsDead)
+        {
+            target = FindClosestPlayer(targetPosition);
+        }
+        
+        // 2. 유효한 타겟이면 보호막 적용
+        if (target != null && !target.IsDead)
+        {
+            // RPC 호출
+            _controller.RPC_ApplyBarrier(target.Object.Id);
+            
+            // 마법 비활성화 (성공했으므로)
+            _controller.RPC_DeactivateMagic();
+            
+            return true; // 시전 성공
+        }
+        
+        return false; // 시전 실패 (허공 클릭 등)
+    }
     
+    /// <summary>
+    /// [핵심 수정] 클릭하지 않았을 때(호버링 중) 호출됩니다.
+    /// 여기서는 타겟팅 업데이트와 하이라이트만 처리합니다.
+    /// </summary>
     public void ProcessInput(InputData inputData, Vector3 mouseWorldPos)
     {
         if (_controller == null || !_controller.Object.HasInputAuthority) return;
         
-        // 먼저 플레이어 선택 업데이트 (클릭 감지 전에)
+        // 타겟팅 업데이트 (하이라이트 갱신용)
         UpdatePlayerSelection(mouseWorldPos);
-        
-        // 마우스 클릭 감지
-        bool leftClickDown = inputData.GetMouseButton(InputMouseButton.LEFT) && 
-                            !_magicController.GetPreviousLeftMouseButton();
-        bool rightClickDown = inputData.GetMouseButton(InputMouseButton.RIGHT) && 
-                             !_magicController.GetPreviousRightMouseButton();
-        
-        // 클릭 시 선택된 플레이어에게 보호막 적용
-        if (leftClickDown || rightClickDown)
-        {
-            // 선택된 플레이어가 있으면 적용, 없으면 현재 마우스 위치에서 가장 가까운 플레이어 찾아서 적용
-            PlayerController targetPlayer = _selectedPlayer;
-            
-            if (targetPlayer == null || targetPlayer.IsDead)
-            {
-                // 선택된 플레이어가 없으면 마우스 위치에서 가장 가까운 플레이어 찾기
-                targetPlayer = FindClosestPlayer(mouseWorldPos);
-            }
-            
-            if (targetPlayer != null && !targetPlayer.IsDead)
-            {
-                // RPC를 통해 보호막 적용 (클라이언트에서 호출 가능)
-                _controller.RPC_ApplyBarrier(targetPlayer.Object.Id);
-                
-                // 마법 비활성화
-                _controller.RPC_DeactivateMagic();
-            }
-        }
     }
     
     public void Update()
@@ -345,6 +349,7 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     /// </summary>
     public void HandleBarrierExplosion(PlayerController playerWithBarrier)
     {
+        // 권한 체크 및 유효성 검사
         if (playerWithBarrier == null || !playerWithBarrier.Object.HasStateAuthority || playerWithBarrier.Runner == null) return;
         
         float remainingTime = playerWithBarrier.BarrierTimer.RemainingTime(playerWithBarrier.Runner) ?? 0f;
@@ -353,10 +358,17 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
         BarrierMagicCombinationData barrierData = GetBarrierData();
         if (barrierData == null) return;
         
+        // 폭발 데이터 계산
         barrierData.GetExplosionData(remainingTime, out float explosionRadius, out float explosionDamage);
         
-        Debug.Log($"[BarrierExplosion] {playerWithBarrier.name} exploded! Radius: {explosionRadius}m, Damage: {explosionDamage}");
-        
+        Debug.Log($"[BarrierExplosion] Server Calculated Boom! {playerWithBarrier.name} exploded! Radius: {explosionRadius}m, Damage: {explosionDamage}");
+
+        // ===============================================================
+        // [핵심 수정] 시각 효과는 RPC를 통해 모든 클라이언트에게 전파
+        // ===============================================================
+        playerWithBarrier.RPC_TriggerExplosionVfx(explosionPosition, explosionRadius);
+
+        // --- 아래는 물리/데미지 로직 (서버에서만 실행됨) ---
         Collider2D[] hitColliders = Physics2D.OverlapCircleAll(explosionPosition, explosionRadius);
         
         foreach (var collider in hitColliders)

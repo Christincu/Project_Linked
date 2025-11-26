@@ -16,17 +16,22 @@ public class MainGameManager : MonoBehaviour
     [SerializeField] private bool _isTestMode = false;
     
     [Header("Player Prefabs & Data")]
-    [SerializeField] private NetworkPrefabRef PlayerPrefab;
-    [SerializeField] private int firstCharacterIndex = 0;
-    [SerializeField] private int secondCharacterIndex = 1;
+    [SerializeField] private NetworkPrefabRef _playerPrefab;
+    [SerializeField] private int _firstCharacterIndex = 0;
+    [SerializeField] private int _secondCharacterIndex = 1;
     
     [Header("Spawn Settings")]
-    [SerializeField] private Vector2[] spawnPositions = new Vector2[]
+    [SerializeField] private Vector2[] _spawnPositions = new Vector2[]
     {
         new Vector2(0, 2),
         new Vector2(0, -2)
     };
-    
+    [SerializeField] private List<EnemySpawner> _enemySpawners = new List<EnemySpawner>();
+
+    [Header("Level Settings")]
+    [SerializeField] private GameObject _mapDoorObject;
+    [SerializeField] private Collider2D _mapDoorTriggerColider;
+
     // Singleton instance
     public static MainGameManager Instance { get; private set; }
     
@@ -178,7 +183,7 @@ public class MainGameManager : MonoBehaviour
             {
                 if (obj.TryGetComponent(out PlayerData pd))
                 {
-                    pd.CharacterIndex = firstCharacterIndex;
+                    pd.CharacterIndex = _firstCharacterIndex;
                     Debug.Log($"[TestMode] PlayerData1 created for PlayerRef: {player1Ref}");
                 }
             });
@@ -187,25 +192,25 @@ public class MainGameManager : MonoBehaviour
             {
                 if (obj.TryGetComponent(out PlayerData pd))
                 {
-                    pd.CharacterIndex = secondCharacterIndex;
+                    pd.CharacterIndex = _secondCharacterIndex;
                     Debug.Log($"[TestMode] PlayerData2 created for PlayerRef: {player2Ref}");
                 }
             });
         }
         
         // Player 1 스폰 (InputAuthority는 localPlayer)
-        _playerObj1 = _runner.Spawn(PlayerPrefab, spawnPos0, Quaternion.identity, localPlayer, (runner, obj) => 
+        _playerObj1 = _runner.Spawn(_playerPrefab, spawnPos0, Quaternion.identity, localPlayer, (runner, obj) => 
         {
             var controller = obj.GetComponent<PlayerController>();
-            controller.SetCharacterIndex(firstCharacterIndex);
+            controller.SetCharacterIndex(_firstCharacterIndex);
             controller.PlayerSlot = 0;
         });
         
         // Player 2 스폰 (InputAuthority는 localPlayer)
-        _playerObj2 = _runner.Spawn(PlayerPrefab, spawnPos1, Quaternion.identity, localPlayer, (runner, obj) => 
+        _playerObj2 = _runner.Spawn(_playerPrefab, spawnPos1, Quaternion.identity, localPlayer, (runner, obj) => 
         {
             var controller = obj.GetComponent<PlayerController>();
-            controller.SetCharacterIndex(secondCharacterIndex);
+            controller.SetCharacterIndex(_secondCharacterIndex);
             controller.PlayerSlot = 1;
         });
         
@@ -290,7 +295,7 @@ public class MainGameManager : MonoBehaviour
         {
             if (type == "Damage") controller.State.TakeDamage(amount);
             else if (type == "Heal") controller.State.Heal(amount);
-            else if (type == "Full Heal") controller.State.FullHeal();
+            else if (type == "Full Heal") controller.State.SetHealth(controller.State.MaxHealth);
             
             Debug.Log($"[TestMode] {type} applied to Player {SelectedSlot + 1}");
         }
@@ -449,7 +454,7 @@ public class MainGameManager : MonoBehaviour
             return pos;
         }
         
-        Vector3 defaultPos = spawnPositions[index % spawnPositions.Length];
+        Vector3 defaultPos = _spawnPositions[index % _spawnPositions.Length];
         return defaultPos;
     }
     
@@ -462,7 +467,7 @@ public class MainGameManager : MonoBehaviour
         yield return null;
 
         NetworkObject playerObject = runner.Spawn(
-            PlayerPrefab, 
+            _playerPrefab, 
             spawnPosition, 
             Quaternion.identity, 
             player,

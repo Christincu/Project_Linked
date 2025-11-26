@@ -48,28 +48,41 @@ public class GameDataManager : MonoBehaviour
     /// GameDataManager의 싱글톤 인스턴스입니다.
     /// </summary>
     public static GameDataManager Instance { get; private set; }
+    
+    /// <summary>
+    /// 초기화 완료 여부를 나타냅니다.
+    /// </summary>
+    public bool IsInitialized { get; private set; }
     #endregion
     
     void Awake()
     {
+        // 싱글톤 인스턴스만 설정하고, 초기화는 GameManager에서 제어
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Initialize();
         }
-        else
+        else if (Instance != this)
         {
             Destroy(gameObject);
         }
     }
 
     /// <summary>
-    /// GameDataManager를 초기화합니다.
+    /// GameDataManager를 초기화합니다. (GameManager에서 호출)
     /// </summary>
-    private void Initialize()
+    public void Initialize()
     {
+        if (IsInitialized)
+        {
+            Debug.LogWarning("[GameDataManager] Already initialized. Skipping.");
+            return;
+        }
+        
         ValidateData();
+        IsInitialized = true;
+        Debug.Log("[GameDataManager] Initialized");
     }
 
     /// <summary>

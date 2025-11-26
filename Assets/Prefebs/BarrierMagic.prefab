@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 550572495045917433}
   - component: {fileID: 2172042211537887419}
-  - component: {fileID: -7613465450263143700}
+  - component: {fileID: -3406245776188528483}
   - component: {fileID: 1675058098328588936}
   m_Layer: 0
   m_Name: BarrierMagic
@@ -86,25 +86,41 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!114 &-7613465450263143700
-MonoBehaviour:
+--- !u!58 &-3406245776188528483
+CircleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 495353710250101849}
   m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bfa6878b98f630f4aa9372e2488b3336, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  highlightColor: {r: 0.2, g: 1, b: 0.2, a: 1}
-  highlightThickness: 0.1
-  detectionRadius: 2
-  _Owner: {fileID: 0}
-  _SelectedPlayer: {fileID: 0}
-  _MagicCode: 0
-  _Position: {x: 0, y: 0, z: 0}
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  serializedVersion: 2
+  m_Radius: 0.5
 --- !u!114 &1675058098328588936
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -121,6 +137,5 @@ MonoBehaviour:
   ObjectInterest: 1
   Flags: 262145
   NestedObjects: []
-  NetworkedBehaviours:
-  - {fileID: -7613465450263143700}
+  NetworkedBehaviours: []
   ForceRemoteRenderTimeframe: 0

@@ -53,6 +53,9 @@ public class BarrierMagicCombinationData : MagicCombinationData
     [Tooltip("베리어 마법 오브젝트 프리팹 (NetworkPrefabRef)")]
     public NetworkPrefabRef barrierMagicObjectPrefab;
     
+    [Tooltip("베리어 폭발 이펙트 프리팹 (GameObject)")]
+    public GameObject explosionVfxPrefab;
+    
     /// <summary>
     /// 남은 시간에 따라 폭발 반지름과 데미지를 반환합니다.
     /// </summary>

@@ -441,6 +441,7 @@ public class EnemyController : NetworkBehaviour
         }
         
         // 플레이어와 충돌 시 데미지 적용
+        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerState.TakeDamage에서 처리)
         if (player != null && !player.IsDead && player.State != null)
         {
             player.State.TakeDamage(1f);
@@ -476,6 +477,7 @@ public class EnemyController : NetworkBehaviour
         }
         
         // 플레이어와 충돌 시 데미지 적용
+        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerState.TakeDamage에서 처리)
         if (player != null && !player.IsDead && player.State != null)
         {
             player.State.TakeDamage(1f);

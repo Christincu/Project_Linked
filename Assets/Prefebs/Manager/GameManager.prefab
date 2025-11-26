@@ -46,5 +46,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _mainGameManagerPrefab: {fileID: 1935061100617456413, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
   _mainCanvasPrefab: {fileID: 6663652681012781032, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+  _gameDataManagerPrefab: {fileID: 5831478817120600860, guid: 131a4e56d1ea23844a60896f01748436, type: 3}
+  _fusionManagerPrefab: {fileID: 4524050043323689731, guid: 3583fc15177008e4fb29d324e21e2508, type: 3}
   _warningPanelPrefab: {fileID: 2621339039182107631, guid: dd9f24397ee2f4748b8ddf3b59ebf48b, type: 3}
   _loadingPanelPrefab: {fileID: 7651666766029640032, guid: afa0feb7d6888db4887cb1a98398ba2a, type: 3}

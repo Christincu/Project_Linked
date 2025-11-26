@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 550572495045917433}
   - component: {fileID: 2172042211537887419}
+  - component: {fileID: 6195104446293962660}
   - component: {fileID: -7613465450263143700}
   - component: {fileID: 1675058098328588936}
   m_Layer: 0
@@ -76,7 +77,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
-  m_Color: {r: 1, g: 0, b: 0.009601116, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -86,6 +87,41 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!58 &6195104446293962660
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 495353710250101849}
+  m_Enabled: 1
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  serializedVersion: 2
+  m_Radius: 0.5
 --- !u!114 &-7613465450263143700
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -99,7 +135,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   attackColliderRadius: 1
-  frontAngleRange: 120
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 8192
+  playerLayer:
+    serializedVersion: 2
+    m_Bits: 128
 --- !u!114 &1675058098328588936
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -116,5 +157,6 @@ MonoBehaviour:
   ObjectInterest: 1
   Flags: 262145
   NestedObjects: []
-  NetworkedBehaviours: []
+  NetworkedBehaviours:
+  - {fileID: -7613465450263143700}
   ForceRemoteRenderTimeframe: 0

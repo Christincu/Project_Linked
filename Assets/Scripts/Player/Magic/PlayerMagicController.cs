@@ -40,9 +40,13 @@ public class PlayerMagicController : MonoBehaviour
     private PlayerController _collidingPlayer = null; // 충돌 중인 플레이어
 
     private bool _magicUIToggleActive = false; // 토글 상태: 마법 UI가 활성화되어 있는지
-    private bool _previousLeftMouseButton = false; // 이전 프레임의 좌클릭 상태
-    private bool _previousRightMouseButton = false; // 이전 프레임의 우클릭 상태
     private float _magicActivationTime = 0f; // 마법을 활성화한 시간 (Time.time)
+    
+    // 입력 상태 보관 (Click 감지용)
+    private NetworkButtons _prevButtons;
+    
+    // 네트워크 변경 감지 (PlayerController의 ChangeDetector 사용)
+    private NetworkBehaviour.ChangeDetector _changeDetector;
 
     #endregion
 
@@ -83,12 +87,12 @@ public class PlayerMagicController : MonoBehaviour
     /// <summary>
     /// 이전 프레임의 좌클릭 상태 (핸들러에서 사용)
     /// </summary>
-    public bool GetPreviousLeftMouseButton() => _previousLeftMouseButton;
+    public bool GetPreviousLeftMouseButton() => _prevButtons.IsSet(InputMouseButton.LEFT);
     
     /// <summary>
     /// 이전 프레임의 우클릭 상태 (핸들러에서 사용)
     /// </summary>
-    public bool GetPreviousRightMouseButton() => _previousRightMouseButton;
+    public bool GetPreviousRightMouseButton() => _prevButtons.IsSet(InputMouseButton.RIGHT);
     
     /// <summary>
     /// 보호막 마법 오브젝트 프리팹 가져오기 (데이터에서 가져옴)
@@ -135,6 +139,14 @@ public class PlayerMagicController : MonoBehaviour
         }
         return null;
     }
+    
+    /// <summary>
+    /// 베리어 핸들러 가져오기 (헬퍼)
+    /// </summary>
+    public ICombinedMagicHandler GetBarrierHandler()
+    {
+        return _magicHandlers.TryGetValue(10, out var h) ? (BarrierMagicHandler)h : null;
+    }
     #endregion
 
     #region Events
@@ -153,6 +165,12 @@ public class PlayerMagicController : MonoBehaviour
         _gameDataManager = gameDataManager;
         _characterData = gameDataManager.CharacterService.GetCharacter(_controller.CharacterIndex);
         
+        // ChangeDetector 초기화 (PlayerController의 ChangeDetector 사용)
+        if (_controller != null)
+        {
+            _changeDetector = _controller.MagicChangeDetector;
+        }
+        
         // 합체 마법 핸들러 초기화
         InitializeMagicHandlers();
     }
@@ -162,29 +180,16 @@ public class PlayerMagicController : MonoBehaviour
     /// </summary>
     private void InitializeMagicHandlers()
     {
-        // 보호막 마법 핸들러 등록
-        var barrierHandler = gameObject.AddComponent<BarrierMagicHandler>();
+        _magicHandlers.Clear();
+        
+        // 기존에 붙어있는지 확인 후 없으면 추가 (중복 방지)
+        var barrierHandler = GetComponent<BarrierMagicHandler>() ?? gameObject.AddComponent<BarrierMagicHandler>();
         barrierHandler.Initialize(this, _gameDataManager);
         _magicHandlers[10] = barrierHandler; // 마법 코드 10
         
-        // 화염 돌진 마법 핸들러 등록
-        var dashHandler = gameObject.AddComponent<DashMagicHandler>();
+        var dashHandler = GetComponent<DashMagicHandler>() ?? gameObject.AddComponent<DashMagicHandler>();
         dashHandler.Initialize(this, _gameDataManager);
         _magicHandlers[11] = dashHandler; // 마법 코드 11
-    }
-
-    /// <summary>
-    /// 매 프레임 호출되어 충돌 상태를 업데이트합니다.
-    /// </summary>
-    void Update()
-    {
-        if (!_isInitialized || _controller == null) return;
-        
-        // 현재 활성화된 핸들러 업데이트
-        if (_currentHandler != null)
-        {
-            _currentHandler.Update();
-        }
     }
 
     /// <summary>
@@ -261,7 +266,6 @@ public class PlayerMagicController : MonoBehaviour
             _magicIdleSecondFloor.SetActive(false);
         if (_magicInsideFloor != null)
             _magicInsideFloor.SetActive(false);
-
     }
     #endregion
 
@@ -281,7 +285,7 @@ public class PlayerMagicController : MonoBehaviour
         if (_controller.State == null) return;
 
         // 시전할 마법 코드 결정 (마법 합체 후 바로 정보를 가져옴)
-        int magicCodeToCast = GetMagicCodeToCast();
+        int magicCodeToCast = GetCurrentCombinedCode();
         
         if (magicCodeToCast == -1)
         {
@@ -316,45 +320,31 @@ public class PlayerMagicController : MonoBehaviour
     }
     
     /// <summary>
-    /// 시전할 마법 코드를 결정합니다. (마법 합체 후 바로 정보를 가져옴)
+    /// 실제 시전될 마법 코드(조합 고려)를 반환합니다.
     /// </summary>
-    private int GetMagicCodeToCast()
+    private int GetCurrentCombinedCode()
     {
-        // 흡수된 마법이 있는지 확인 (조합 마법)
+        if (_controller == null) return -1;
+        
         if (_controller.AbsorbedMagicCode != -1 && _controller.ActivatedMagicCode != -1)
         {
-            // 두 마법을 조합 (마법 합체 후 바로 정보를 가져옴)
-            int combinedMagicCode = _gameDataManager.MagicService.GetCombinedMagic(
+            if (_gameDataManager?.MagicService == null) return _controller.ActivatedMagicCode;
+            
+            int combinedCode = _gameDataManager.MagicService.GetCombinedMagic(
                 _controller.ActivatedMagicCode, 
                 _controller.AbsorbedMagicCode
             );
-            
-            if (combinedMagicCode != -1)
-            {
-                // 조합 마법 시전
-                return combinedMagicCode;
-            }
-            else
-            {
-                // 조합이 없으면 활성화된 마법만 시전
-                return _controller.ActivatedMagicCode;
-            }
+            // 조합 마법이 있으면 반환, 없으면 활성화된 마법 반환
+            return combinedCode != -1 ? combinedCode : _controller.ActivatedMagicCode;
         }
-        else if (_controller.ActivatedMagicCode != -1)
-        {
-            // 단일 마법 시전
-            return _controller.ActivatedMagicCode;
-        }
-        
-        return -1;
+        return _controller.ActivatedMagicCode;
     }
     
     #endregion
 
-
     #region Magic UI Control
     /// <summary>
-    /// 마법 UI 상태를 업데이트합니다. (상태 변경 시에만 호출)
+    /// 마법 UI 상태를 업데이트합니다. (상태 변경 시에만 호출) - 레거시 호환
     /// </summary>
     public void UpdateMagicUIState(bool isActive = false, Vector3? anchorPosition = null)
     {
@@ -368,46 +358,181 @@ public class PlayerMagicController : MonoBehaviour
             // 활성화 시간 기록
             if (_magicActivationTime == 0f)
                 _magicActivationTime = Time.time;
-
-            // UI 활성화
-            SetMagicUIActive(true);
-
-            // 앵커 위치 업데이트 (제공된 경우)
-            if (anchorPosition.HasValue)
-                UpdateAnchorPosition(anchorPosition.Value);
-            
-            // 현재 마법 코드에 맞는 핸들러 설정
-            int magicCodeToCast = GetMagicCodeToCast();
-            if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
-            {
-                _currentHandler = handler;
-                // 핸들러 활성화 콜백 호출
-                handler.OnMagicActivated();
-            }
-            else
-            {
-                _currentHandler = null;
-            }
         }
         else
         {
             // 활성화 시간 리셋
             _magicActivationTime = 0f;
+        }
 
-            // UI 비활성화
-            SetMagicUIActive(false);
+        // UI 상태 동기화 (내부적으로 SyncUIState 호출)
+        SyncUIState();
+        
+        // 앵커 위치 업데이트 (제공된 경우)
+        if (anchorPosition.HasValue)
+        {
+            UpdateAnchorPosition(anchorPosition.Value);
+        }
+    }
+    
+    #region Visuals & Synchronization (Called from Render)
+    
+    /// <summary>
+    /// 렌더링 틱에서 호출되는 시각적 업데이트
+    /// </summary>
+    public void OnRender()
+    {
+        // 초기화 전이면 처리하지 않음
+        if (!_isInitialized || _controller == null) return;
+        
+        // 1. 네트워크 상태 변화에 따라 핸들러/UI 동기화
+        SyncHandler();
+        SyncUIState();
+        
+        // 2. 앵커 위치 보간 (스르륵 이동 효과)
+        if (_magicAnchor != null && _controller.MagicActive)
+        {
+            // 현재 위치(_magicAnchor.transform.localPosition)에서 
+            // 네트워크로 동기화된 목표 위치(_controller.MagicAnchorLocalPosition)로
+            // 부드럽게 이동 (Time.deltaTime * 속도)
             
-            // 현재 핸들러 비활성화
+            float lerpSpeed = 15f; // 숫자가 클수록 빠름 (15 정도면 적당히 빠르고 부드러움)
+
+            _magicAnchor.transform.localPosition = Vector3.Lerp(
+                _magicAnchor.transform.localPosition,
+                _controller.MagicAnchorLocalPosition,
+                Time.deltaTime * lerpSpeed
+            );
+        }
+    }
+    
+    /// <summary>
+    /// 현재 마법 코드에 맞는 핸들러를 동기화합니다.
+    /// FixedUpdateNetwork와 Render 양쪽에서 호출되어 상태 불일치를 방지합니다.
+    /// </summary>
+    private void SyncHandler()
+    {
+        // 초기화 전이거나 컨트롤러가 없으면 처리하지 않음
+        if (_controller == null || !_isInitialized) return;
+        
+        if (!_controller.MagicActive)
+        {
             if (_currentHandler != null)
             {
                 _currentHandler.OnMagicDeactivated();
                 _currentHandler = null;
             }
+            return;
         }
-
-
-        UpdateMagicUiSprite();
+        
+        int targetCode = GetCurrentCombinedCode();
+        
+        // 핸들러가 없거나 코드가 변경되었다면 교체
+        if (_currentHandler == null || _currentHandler.MagicCode != targetCode)
+        {
+            _currentHandler?.OnMagicDeactivated(); // 기존 종료
+            
+            if (_magicHandlers.TryGetValue(targetCode, out var newHandler))
+            {
+                _currentHandler = newHandler;
+                _currentHandler.OnMagicActivated(); // 새 핸들러 시작
+            }
+            else
+            {
+                _currentHandler = null; // 일반 마법
+            }
+        }
     }
+    
+    /// <summary>
+    /// UI 상태를 동기화합니다. (핵심 로직)
+    /// UpdateMagicUIState와 OnRender에서 호출됩니다.
+    /// </summary>
+    private void SyncUIState()
+    {
+        if (_controller == null) return;
+        
+        bool isActive = _controller.MagicActive;
+        
+        // UI 오브젝트 활성화/비활성화
+        if (_magicViewObj != null)
+            _magicViewObj.SetActive(isActive);
+        if (_magicAnchor != null)
+            _magicAnchor.SetActive(isActive);
+            
+        if (isActive)
+        {
+            // 스프라이트 업데이트 (Activated / Absorbed 코드 기반)
+            UpdateSprites();
+        }
+        else
+        {
+            // 비활성화 시 스프라이트 숨기기
+            if (_magicIdleFirstFloor != null)
+                _magicIdleFirstFloor.SetActive(false);
+            if (_magicIdleSecondFloor != null)
+                _magicIdleSecondFloor.SetActive(false);
+            if (_magicInsideFloor != null)
+                _magicInsideFloor.SetActive(false);
+        }
+    }
+    
+    /// <summary>
+    /// 스프라이트를 업데이트합니다.
+    /// </summary>
+    private void UpdateSprites()
+    {
+        // 활성화된 마법 스프라이트 설정
+        if (_controller.ActivatedMagicCode != -1)
+        {
+            var data = _gameDataManager.MagicService.GetMagic(_controller.ActivatedMagicCode);
+            if (data != null)
+            {
+                if (_idleFirstFloorRenderer != null)
+                    _idleFirstFloorRenderer.sprite = data.magicIdleSprite;
+                if (_activeInsideRenderer != null)
+                    _activeInsideRenderer.sprite = data.magicInsideSprite;
+            }
+            if (_magicIdleFirstFloor != null)
+                _magicIdleFirstFloor.SetActive(true);
+            if (_magicInsideFloor != null)
+                _magicInsideFloor.SetActive(true);
+        }
+        else
+        {
+            if (_magicIdleFirstFloor != null)
+                _magicIdleFirstFloor.SetActive(false);
+            if (_magicInsideFloor != null)
+                _magicInsideFloor.SetActive(false);
+        }
+        
+        // 흡수된 마법 스프라이트 설정
+        if (_controller.AbsorbedMagicCode != -1)
+        {
+            var data = _gameDataManager.MagicService.GetMagic(_controller.AbsorbedMagicCode);
+            if (data != null && _idleSecondFloorRenderer != null)
+            {
+                _idleSecondFloorRenderer.sprite = data.magicIdleSprite;
+            }
+            if (_magicIdleSecondFloor != null)
+                _magicIdleSecondFloor.SetActive(true);
+        }
+        else
+        {
+            if (_magicIdleSecondFloor != null)
+                _magicIdleSecondFloor.SetActive(false);
+        }
+    }
+    
+    /// <summary>
+    /// 마법 UI 시각적 업데이트 (부드러운 보간) - 레거시 호환
+    /// </summary>
+    public void UpdateMagicVisuals()
+    {
+        OnRender();
+    }
+    
+    #endregion
 
     /// <summary>
     /// UI 활성화/비활성화를 처리합니다.
@@ -441,133 +566,146 @@ public class PlayerMagicController : MonoBehaviour
             }
         }
     }
+    
+    /// <summary>
+    /// 마우스 위치를 기반으로 앵커의 목표 위치(좌/우)를 계산하고 업데이트합니다.
+    /// </summary>
+    private void UpdateAnchorPosition(Vector3 mousePos, PlayerController controller)
+    {
+        Vector3 playerPos = controller.transform.position;
+        float directionX = mousePos.x - playerPos.x;
+        
+        // 현재 앵커의 로컬 위치 설정값 가져오기
+        // (주의: transform.localPosition이 아니라 설정된 거리값을 기준으로 해야 함)
+        // 여기서는 단순히 X축 거리의 절댓값을 사용
+        Vector3 currentLocal = _magicAnchor != null ? _magicAnchor.transform.localPosition : _controller.MagicAnchorLocalPosition;
+        float dist = Mathf.Abs(currentLocal.x); 
+        if (dist < 0.1f) dist = 1f; // 기본 거리 안전장치
+        
+        // 마우스 방향에 따라 목표 X 좌표 결정 (좌 or 우)
+        float targetX = directionX >= 0 ? dist : -dist;
+        
+        // 목표 로컬 위치 생성 (Y, Z는 유지)
+        Vector3 targetLocal = new Vector3(targetX, currentLocal.y, currentLocal.z);
+        
+        // 목표값이 변경되었을 때만 RPC 전송 (네트워크 대역폭 절약)
+        if (Mathf.Abs(targetLocal.x - _controller.MagicAnchorLocalPosition.x) > 0.01f)
+        {
+            _controller.RPC_UpdateMagicAnchorPosition(targetLocal);
+        }
+    }
 
     /// <summary>
-    /// 입력을 처리하여 마법 UI를 업데이트합니다.
-    /// PlayerController에서 호출됩니다.
+    /// 네트워크 틱마다 호출되는 메인 로직
     /// </summary>
     public void ProcessInput(InputData inputData, PlayerController controller, bool isTestMode)
     {
         if (!_isInitialized || !controller.Object.HasInputAuthority) return;
         if (isTestMode && inputData.ControlledSlot != controller.PlayerSlot) return;
+
+        // 1. 핸들러 상태 동기화 (입력 처리 전 필수)
+        SyncHandler();
+
+        // 2. 클릭 감지
+        NetworkButtons pressed = inputData.GetMouseButtonPressed(_prevButtons);
+        bool leftClick = pressed.IsSet(InputMouseButton.LEFT);
+        bool rightClick = pressed.IsSet(InputMouseButton.RIGHT);
+
+        // 3. 상태별 분기 처리
+        if (!controller.MagicActive)
+        {
+            HandleInactiveState(leftClick, rightClick);
+        }
+        else
+        {
+            HandleActiveState(inputData, leftClick, rightClick, controller);
+        }
+
+        // 4. 이전 버튼 상태 저장
+        _prevButtons = inputData.MouseButtons;
         
-        // 합체 마법이 시전 중일 때 마법 시전 차단
-        // 현재 활성화된 핸들러가 시전 중인지 확인 (각 핸들러가 자신의 상태를 관리)
-        if (_currentHandler != null && _currentHandler.IsCasting())
+        // 5. 핸들러 업데이트 (시각효과 등)
+        _currentHandler?.Update();
+    }
+    
+    /// <summary>
+    /// 마법이 비활성화 상태일 때의 입력 처리 (활성화 요청)
+    /// </summary>
+    private void HandleInactiveState(bool leftClick, bool rightClick)
+    {
+        if (leftClick)
         {
-            return; // 현재 핸들러가 시전 중이면 입력 차단
+            _controller.RPC_ActivateMagic(1, _characterData.magicData1.magicCode);
+        }
+        else if (rightClick)
+        {
+            _controller.RPC_ActivateMagic(2, _characterData.magicData2.magicCode);
+        }
+    }
+    
+    /// <summary>
+    /// 마법이 활성화 상태일 때의 입력 처리 (교체 또는 시전)
+    /// </summary>
+    private void HandleActiveState(InputData inputData, bool leftClick, bool rightClick, PlayerController controller)
+    {
+        // 마우스 위치 계산
+        Vector3 mousePos = GetMouseWorldPosition(inputData);
+        
+        // A. 다른 슬롯의 마법을 눌렀다면 -> 교체
+        if (leftClick && controller.ActiveMagicSlotNetworked == 2)
+        {
+            _controller.RPC_ActivateMagic(1, _characterData.magicData1.magicCode);
+            return;
+        }
+        if (rightClick && controller.ActiveMagicSlotNetworked == 1)
+        {
+            _controller.RPC_ActivateMagic(2, _characterData.magicData2.magicCode);
+            return;
         }
         
-        // _currentHandler가 없어도 활성화된 마법 코드로 핸들러 찾아서 체크
-        int activeMagicCode = GetMagicCodeToCast();
-        if (activeMagicCode != -1 && _magicHandlers.TryGetValue(activeMagicCode, out var activeHandler))
+        // B. 같은 슬롯을 눌렀다면 -> 시전 (또는 핸들러 위임)
+        if (leftClick || rightClick)
         {
-            if (activeHandler.IsCasting())
-            {
-                return; // 해당 핸들러가 시전 중이면 입력 차단
-            }
+            TryCastMagic(mousePos);
         }
-
-        // 클릭 감지
-        bool leftClickDown = inputData.GetMouseButton(InputMouseButton.LEFT) && !_previousLeftMouseButton;
-        bool rightClickDown = inputData.GetMouseButton(InputMouseButton.RIGHT) && !_previousRightMouseButton;
-
-        if (leftClickDown || rightClickDown)
+        // C. 클릭이 아니라면 -> 조준/준비 동작
+        else
         {
-            if (!controller.MagicActive)
-            {
-                // 마법이 비활성화되어 있으면 활성화
-                int magicCode = -1;
-
-                if (leftClickDown)
-                {
-                    magicCode = _characterData.magicData1.magicCode;
-                }
-                else if (rightClickDown)
-                {
-                    magicCode = _characterData.magicData2.magicCode;
-                }
-
-                controller.RPC_ActivateMagic(controller.ActiveMagicSlotNetworked, magicCode);
-            }
-            else
-            {
-                // 마법이 활성화되어 있을 때
-                int magicCodeToCast = GetMagicCodeToCast();
-                
-                // 다른 마우스 버튼 클릭 시 마법 변경 확인
-                int newMagicCode = -1;
-                if (leftClickDown)
-                {
-                    int leftMagicCode = _characterData.magicData1.magicCode;
-                    // 현재 활성화된 마법과 다른 마법이면 변경
-                    if (controller.ActivatedMagicCode != leftMagicCode)
-                    {
-                        newMagicCode = leftMagicCode;
-                    }
-                }
-                else if (rightClickDown)
-                {
-                    int rightMagicCode = _characterData.magicData2.magicCode;
-                    // 현재 활성화된 마법과 다른 마법이면 변경
-                    if (controller.ActivatedMagicCode != rightMagicCode)
-                    {
-                        newMagicCode = rightMagicCode;
-                    }
-                }
-                
-                // 마법 변경이 필요한 경우
-                if (newMagicCode != -1)
-                {
-                    controller.RPC_ActivateMagic(controller.ActiveMagicSlotNetworked, newMagicCode);
-                    return;
-                }
-                
-                // 같은 마법 버튼 클릭 시 시전
-                // 합체 마법 핸들러 확인
-                if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
-                {
-                    // 핸들러가 있으면 핸들러를 통해 입력 처리
-                    Vector3 mousePos = GetMouseWorldPosition(inputData);
-                    handler.ProcessInput(inputData, mousePos);
-                }
-                else
-                {
-                    // 일반 마법: 현재 기능이 없으므로 비활성화
-                    controller.RPC_DeactivateMagic();
-                }
-            }
-        }
-
-        // 마우스 위치 업데이트 (활성화된 경우에만)
-        if (controller.MagicActive)
-        {
-            int magicCodeToCast = GetMagicCodeToCast();
+            // 앵커 위치 업데이트
+            UpdateAnchorPosition(mousePos, controller);
             
-            // 합체 마법 핸들러 확인
-            if (_magicHandlers.TryGetValue(magicCodeToCast, out var handler))
-            {
-                // 시전 중이 아닐 때만 입력 처리 (시전 중에는 입력 무시)
-                if (!handler.IsCasting())
-                {
-                    // 핸들러가 있으면 마우스 위치 업데이트마다 ProcessInput 호출 (하이라이트 업데이트를 위해)
-                    Vector3 mousePos = GetMouseWorldPosition(inputData);
-                    handler.ProcessInput(inputData, mousePos);
-                }
-                _currentHandler = handler;
-            }
-            else
-            {
-                // 일반 마법: 앵커 위치 업데이트
-                Vector3 mousePos = GetMouseWorldPosition(inputData);
-                Vector3 anchorPos = CalculateAnchorPosition(mousePos, controller);
-                UpdateAnchorPosition(anchorPos);
-                _controller.RPC_UpdateMagicAnchorPosition(anchorPos);
-            }
+            // 핸들러가 있다면 입력 위임 (예: 범위 표시 업데이트)
+            _currentHandler?.ProcessInput(inputData, mousePos);
         }
-
-        _previousLeftMouseButton = inputData.GetMouseButton(InputMouseButton.LEFT);
-        _previousRightMouseButton = inputData.GetMouseButton(InputMouseButton.RIGHT);
+    }
+    
+    /// <summary>
+    /// 마법 시전을 시도합니다.
+    /// </summary>
+    private void TryCastMagic(Vector3 targetPos)
+    {
+        // 현재 핸들러가 시전 중이면 입력 무시 (예: 돌진 중)
+        if (_currentHandler != null && _currentHandler.IsCasting()) return;
+        
+        int code = GetCurrentCombinedCode();
+        
+        // 1. 특수 핸들러(합체 마법) 처리
+        if (_magicHandlers.TryGetValue(code, out var handler))
+        {
+            // 핸들러 내부 로직 실행
+            // handler.CastMagic이 true를 반환하면 시전 성공으로 간주하고 마법 비활성화
+            if (handler.CastMagic(targetPos))
+            {
+                _controller.RPC_DeactivateMagic();
+            }
+            // false 반환 시 (조건 불충족 등) 마법 상태 유지 (예: BarrierMagicHandler의 타겟팅 모드)
+        }
+        // 2. 일반 투사체 마법 처리
+        else
+        {
+            _controller.RPC_CastMagic(targetPos);
+            _controller.RPC_DeactivateMagic(); // 일반 마법은 시전 후 즉시 비활성화
+        }
     }
 
     /// <summary>
@@ -583,58 +721,14 @@ public class PlayerMagicController : MonoBehaviour
         return mouseWorldPos;
     }
 
-    /// <summary>
-    /// 마우스 위치를 기반으로 앵커 위치를 계산합니다.
-    /// </summary>
-    private Vector3 CalculateAnchorPosition(Vector3 mouseWorldPos, PlayerController controller)
-    {
-        if (_magicAnchor == null) return Vector3.zero;
-
-        Vector3 playerPos = controller.transform.position;
-        float horizontalDirection = mouseWorldPos.x - playerPos.x;
-
-        Vector3 anchorLocalPos = _magicAnchor.transform.localPosition;
-        float distance = Mathf.Abs(anchorLocalPos.x); // 기본 거리 유지
-        anchorLocalPos.x = horizontalDirection >= 0 ? distance : -distance;
-
-        return anchorLocalPos;
-    }
 
 
     /// <summary>
-    /// IdleSecondFloor를 AbsorbedMagicCode에 따라 업데이트합니다.
+    /// IdleSecondFloor를 AbsorbedMagicCode에 따라 업데이트합니다. - 레거시 호환
     /// </summary>
     public void UpdateMagicUiSprite()
     {
-        if (_controller.ActivatedMagicCode != -1)
-        {
-            MagicData activatedMagicData = _gameDataManager.MagicService.GetMagic(_controller.ActivatedMagicCode);
-            _idleFirstFloorRenderer.sprite = activatedMagicData.magicIdleSprite;
-            _activeInsideRenderer.sprite = activatedMagicData.magicInsideSprite;
-
-            _magicIdleFirstFloor.SetActive(true);
-            _magicInsideFloor.SetActive(true);
-        }
-        else
-        {
-            _idleFirstFloorRenderer.sprite = null;
-            _activeInsideRenderer.sprite = null;
-            _magicIdleFirstFloor.SetActive(false);
-            _magicInsideFloor.SetActive(false);
-        }
-
-        if (_controller.AbsorbedMagicCode != -1)
-        {
-            MagicData absorbedMagicData = _gameDataManager.MagicService.GetMagic(_controller.AbsorbedMagicCode);
-            _idleSecondFloorRenderer.sprite = absorbedMagicData.magicIdleSprite;
-
-            _magicIdleSecondFloor.SetActive(true);
-        }
-        else
-        {
-            _idleSecondFloorRenderer.sprite = null;
-            _magicIdleSecondFloor.SetActive(false);
-        }
+        UpdateSprites();
     }
 
     /// <summary>

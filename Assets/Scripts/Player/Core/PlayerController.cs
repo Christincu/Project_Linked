@@ -69,7 +69,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [SerializeField] private GameObject _magicIdleSecondFloor;
     [SerializeField] private GameObject _magicActiveFloor;
     
-
     private GameDataManager _gameDataManager;
     private ChangeDetector _changeDetector;
 
@@ -100,6 +99,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public PlayerDetectionManager DetectionManager => _detectionManager;
     public PlayerEffectManager EffectManager => _effectManager;
     public float MoveSpeed => _movement != null ? _movement.GetMoveSpeed() : 0f;
+    public ChangeDetector MagicChangeDetector => _changeDetector;
 
     // Health Properties
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
@@ -218,27 +218,14 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         if (!_state.IsDead)
         {
-            // Dash 스킬이 활성화되어 있으면 기존 이동 로직 우회 (DashMagicObject에서 처리)
-            if (HasDashSkill && DashMagicObject != null)
+            // 1. 이동 로직 처리
+            HandleMovement(inputData);
+            
+            // 2. 마법 입력 처리 (MagicController로 위임)
+            // 돌진 중에는 마법 조작 불가 (이미 DashMagicObject에서 처리)
+            if (inputData.HasValue && !HasDashSkill)
             {
-                // DashMagicObject의 FixedUpdateNetwork 호출 (네트워크 틱과 동기화)
-                DashMagicObject.FixedUpdateNetwork();
-                
-                // 입력 처리
-                if (inputData.HasValue)
-                {
-                    _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
-                }
-            }
-            else
-            {
-                // 일반 이동 로직
-                _movement.ProcessInput(inputData, _isTestMode, PlayerSlot);
-                if (inputData.HasValue)
-                {
-                    _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
-                }
-                _movement.Move();
+                _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
             }
         }
         else
@@ -268,105 +255,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             DidTeleport = false;
         }
 
-        // 자폭 베리어 타이머 체크 및 이동속도 효과 관리 (사망 시 처리하지 않음)
-        if (Object.HasStateAuthority && HasBarrier && !_state.IsDead)
+        // 자폭 베리어 타이머 체크 및 이동속도 효과 관리 (State Authority)
+        if (Object.HasStateAuthority)
         {
-            if (BarrierTimer.IsRunning)
-            {
-                float remainingTime = BarrierTimer.RemainingTime(Runner) ?? 0f;
-                
-                // 베리어 조합 데이터 가져오기
-                BarrierMagicCombinationData barrierData = GetBarrierData();
-                if (barrierData != null)
-                {
-                    // 이동속도 효과 적용 구간 계산
-                    float moveSpeedEffectEndTime = barrierData.barrierDuration - barrierData.moveSpeedEffectDuration;
-                    
-                    // 이동속도 효과 적용 구간 (예: 10초~3초)
-                    if (remainingTime > moveSpeedEffectEndTime)
-                    {
-                        // 이동속도 효과가 없으면 추가
-                        if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
-                        {
-                            float effectDuration = remainingTime - moveSpeedEffectEndTime;
-                            _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, barrierData.moveSpeedMultiplier, effectDuration);
-                            Debug.Log($"[BarrierMagic] {name} barrier move speed effect applied ({barrierData.moveSpeedMultiplier * 100f}%)");
-                        }
-                    }
-                    // 이동속도 정상화 구간
-                    else
-                    {
-                        // 이동속도 효과 제거
-                        if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-                        {
-                            _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                            _barrierMoveSpeedEffectId = -1;
-                            Debug.Log($"[BarrierMagic] {name} barrier move speed effect removed (normalized)");
-                        }
-                    }
-                }
-                else
-                {
-                    // 데이터가 없으면 기본값 사용 (하위 호환성)
-                    if (remainingTime > 3f)
-                    {
-                        if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
-                        {
-                            _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, 1.5f, remainingTime - 3f);
-                        }
-                    }
-                    else
-                    {
-                        if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-                        {
-                            _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                            _barrierMoveSpeedEffectId = -1;
-                        }
-                    }
-                }
-                
-                // 타이머 만료 확인
-                if (BarrierTimer.Expired(Runner))
-                {
-                    // 보호막 만료 처리
-                    HasBarrier = false;
-                    BarrierTimer = TickTimer.None;
-                    
-                    // 이동속도 효과 제거
-                    if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-                    {
-                        _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                        _barrierMoveSpeedEffectId = -1;
-                    }
-                    
-                    UpdateThreatScore();
-                    Debug.Log($"[BarrierMagic] {name} barrier expired");
-                }
-            }
-            else if (!BarrierTimer.IsRunning)
-            {
-                // 타이머가 실행되지 않으면 보호막 제거
-                HasBarrier = false;
-                
-                // 이동속도 효과 제거
-                if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-                {
-                    _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                    _barrierMoveSpeedEffectId = -1;
-                }
-                
-                UpdateThreatScore();
-                Debug.LogWarning($"[BarrierMagic] {name} barrier timer not running, removing barrier");
-            }
-        }
-        else if (!HasBarrier && _barrierMoveSpeedEffectId != -1)
-        {
-            // 보호막이 없는데 효과가 남아있으면 제거
-            if (_effectManager != null)
-            {
-                _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                _barrierMoveSpeedEffectId = -1;
-            }
+            UpdateBarrierState();
         }
         
         // 위협점수 업데이트 (매 프레임)
@@ -386,6 +278,25 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     {
         DetectNetworkChanges();
         _viewManager?.SyncViewObjPosition();
+        
+        // 마법 컨트롤러의 시각적 업데이트 (렌더링 틱에서 처리)
+        _magicController?.OnRender();
+    }
+    /// <summary>
+    /// 이동 로직을 처리합니다.
+    /// </summary>
+    private void HandleMovement(InputData? inputData)
+    {
+        // 대쉬 스킬 사용 중이면 대쉬 오브젝트가 이동 제어
+        if (HasDashSkill && DashMagicObject != null)
+        {
+            DashMagicObject.FixedUpdateNetwork();
+        }
+        else
+        {
+            _movement.ProcessInput(inputData, _isTestMode, PlayerSlot);
+            _movement.Move();
+        }
     }
     #endregion
 
@@ -470,6 +381,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         AbsorbedMagicCode = -1;
         MagicActivationTick = Runner.Tick;
         ActiveMagicSlotNetworked = magicSlot;
+        // [수정] 마법 활성화 시 앵커 위치를 초기화하여 이전 위치가 남아있지 않도록 함
+        MagicAnchorLocalPosition = Vector3.zero;
     }
 
     /// <summary>
@@ -575,6 +488,30 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         }
         
         return -1;
+    }
+
+    /// <summary>
+    /// 서버가 모든 클라이언트에게 폭발 이펙트를 재생하라고 명령합니다.
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_TriggerExplosionVfx(Vector3 position, float radius)
+    {
+        // BarrierMagicCombinationData에서 폭발 이펙트 프리팹 가져오기
+        BarrierMagicCombinationData barrierData = GetBarrierData();
+        if (barrierData == null || barrierData.explosionVfxPrefab == null)
+        {
+            Debug.LogWarning($"[RPC_TriggerExplosionVfx] Explosion VFX prefab is not assigned in BarrierMagicCombinationData! Position: {position}, Radius: {radius}");
+            return;
+        }
+        
+        // 1. 이펙트 프리팹 생성 (로컬 GameObject)
+        GameObject vfx = Instantiate(barrierData.explosionVfxPrefab, position, Quaternion.identity);
+        
+        // 2. 크기 조정 (필요 시)
+        vfx.transform.localScale = Vector3.one * radius;
+        
+        // 3. 파티클 재생 후 파괴 (파티클 설정에 Auto Destruct가 있다면 생략 가능)
+        Destroy(vfx, 2.0f);
     }
 
     /// <summary>
@@ -792,6 +729,112 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         if (magicStateChanged)
         {
             MagicController.UpdateMagicUIState(MagicActive);
+        }
+    }
+    
+    /// <summary>
+    /// 베리어 상태를 업데이트합니다. (PlayerController를 깔끔하게 유지하기 위해 메서드로 분리)
+    /// </summary>
+    private void UpdateBarrierState()
+    {
+        if (!HasBarrier || IsDead) return;
+        
+        if (BarrierTimer.IsRunning)
+        {
+            float remainingTime = BarrierTimer.RemainingTime(Runner) ?? 0f;
+            
+            // 베리어 조합 데이터 가져오기
+            BarrierMagicCombinationData barrierData = GetBarrierData();
+            if (barrierData != null)
+            {
+                // 이동속도 효과 적용 구간 계산
+                float moveSpeedEffectEndTime = barrierData.barrierDuration - barrierData.moveSpeedEffectDuration;
+                
+                // 이동속도 효과 적용 구간 (예: 10초~3초)
+                if (remainingTime > moveSpeedEffectEndTime)
+                {
+                    // 이동속도 효과가 없으면 추가
+                    if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
+                    {
+                        float effectDuration = remainingTime - moveSpeedEffectEndTime;
+                        _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, barrierData.moveSpeedMultiplier, effectDuration);
+                        Debug.Log($"[BarrierMagic] {name} barrier move speed effect applied ({barrierData.moveSpeedMultiplier * 100f}%)");
+                    }
+                }
+                // 이동속도 정상화 구간
+                else
+                {
+                    // 이동속도 효과 제거
+                    if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+                    {
+                        _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                        _barrierMoveSpeedEffectId = -1;
+                        Debug.Log($"[BarrierMagic] {name} barrier move speed effect removed (normalized)");
+                    }
+                }
+            }
+            else
+            {
+                // 데이터가 없으면 기본값 사용 (하위 호환성)
+                if (remainingTime > 3f)
+                {
+                    if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
+                    {
+                        _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, 1.5f, remainingTime - 3f);
+                    }
+                }
+                else
+                {
+                    if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+                    {
+                        _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                        _barrierMoveSpeedEffectId = -1;
+                    }
+                }
+            }
+            
+            // 타이머 만료 확인
+            if (BarrierTimer.Expired(Runner))
+            {
+                // 보호막 만료 처리
+                HasBarrier = false;
+                BarrierTimer = TickTimer.None;
+                
+                // 이동속도 효과 제거
+                if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+                {
+                    _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                    _barrierMoveSpeedEffectId = -1;
+                }
+                
+                UpdateThreatScore();
+                Debug.Log($"[BarrierMagic] {name} barrier expired");
+            }
+        }
+        else if (!BarrierTimer.IsRunning)
+        {
+            // 타이머가 실행되지 않으면 보호막 제거
+            HasBarrier = false;
+            
+            // 이동속도 효과 제거
+            if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+            {
+                _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                _barrierMoveSpeedEffectId = -1;
+            }
+            
+            UpdateThreatScore();
+            Debug.LogWarning($"[BarrierMagic] {name} barrier timer not running, removing barrier");
+        }
+        
+        // 보호막이 없는데 효과가 남아있으면 제거
+        if (!HasBarrier && _barrierMoveSpeedEffectId != -1)
+        {
+            if (_effectManager != null)
+            {
+                _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+                _barrierMoveSpeedEffectId = -1;
+            }
         }
     }
     

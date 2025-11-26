@@ -17,8 +17,34 @@ public class EnemyState : MonoBehaviour
     #region Properties (EnemyController의 네트워크 변수 참조)
     public float CurrentHealth
     {
-        get => _controller != null ? _controller.CurrentHealth : 0;
-        set { if (_controller != null) _controller.CurrentHealth = value; }
+        get
+        {
+            // [안전성] NetworkObject가 완전히 스폰되었는지 확인
+            if (_controller == null || _controller.Object == null) return 0;
+            try
+            {
+                return _controller.CurrentHealth;
+            }
+            catch (System.InvalidOperationException)
+            {
+                // Spawned()가 호출되기 전이거나 디스폰된 경우
+                return 0;
+            }
+        }
+        set
+        {
+            if (_controller != null && _controller.Object != null)
+            {
+                try
+                {
+                    _controller.CurrentHealth = value;
+                }
+                catch (System.InvalidOperationException)
+                {
+                    // Spawned()가 호출되기 전이거나 디스폰된 경우 무시
+                }
+            }
+        }
     }
 
     public float MaxHealth

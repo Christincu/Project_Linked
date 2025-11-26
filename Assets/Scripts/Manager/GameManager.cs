@@ -11,7 +11,7 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance;
 
     // 현재 게임 상태 (GameState enum이 별도로 정의되어 있다고 가정)
-    public GameState State { get; private set; } = GameState.Lobby;
+    public GameStateType State { get; private set; } = GameStateType.Lobby;
     public ICanvas Canvas { get; private set; }
 
     [Header("Manager & UI Prefabs")]
@@ -20,6 +20,13 @@ public class GameManager : MonoBehaviour
     
     [Tooltip("타이틀 씬이 아닌 경우 자동으로 생성할 MainCanvas 프리팹")]
     [SerializeField] private GameObject _mainCanvasPrefab;
+    
+    [Header("Core Manager Prefabs")]
+    [Tooltip("GameDataManager 프리팹 (씬에 없으면 자동 생성)")]
+    [SerializeField] private GameObject _gameDataManagerPrefab;
+    
+    [Tooltip("FusionManager 프리팹 (씬에 없으면 자동 생성)")]
+    [SerializeField] private GameObject _fusionManagerPrefab;
     
     [SerializeField] private GameObject _warningPanelPrefab;
     [SerializeField] private GameObject _loadingPanelPrefab;
@@ -39,8 +46,111 @@ public class GameManager : MonoBehaviour
             return;
         }
 
+        // 핵심 매니저들을 순서대로 초기화
+        InitializeCoreManagers();
+        
         SetupNetworkEvents();
         SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+    
+    /// <summary>
+    /// 핵심 매니저들(GameDataManager, FusionManager)을 순서대로 초기화합니다.
+    /// </summary>
+    private void InitializeCoreManagers()
+    {
+        // 1. GameDataManager 초기화 (가장 먼저)
+        EnsureGameDataManager();
+        
+        // 2. FusionManager 초기화 (GameDataManager 이후)
+        EnsureFusionManager();
+    }
+    
+    /// <summary>
+    /// GameDataManager가 존재하는지 확인하고 없으면 생성한 후 초기화합니다.
+    /// </summary>
+    private void EnsureGameDataManager()
+    {
+        // 씬에서 찾기
+        if (GameDataManager.Instance == null)
+        {
+            GameDataManager existingManager = FindAnyObjectByType<GameDataManager>();
+            if (existingManager != null)
+            {
+                // 씬에 있으면 Awake가 호출되어 싱글톤이 설정됨
+                // 강제로 Awake 호출 (이미 호출되었을 수도 있지만 안전하게)
+                if (GameDataManager.Instance == null)
+                {
+                    // GameObject를 활성화하여 Awake가 호출되도록 함
+                    if (!existingManager.gameObject.activeSelf)
+                    {
+                        existingManager.gameObject.SetActive(true);
+                    }
+                }
+            }
+            else if (_gameDataManagerPrefab != null)
+            {
+                // 프리팹으로 생성 (Awake가 자동 호출됨)
+                GameObject managerObj = Instantiate(_gameDataManagerPrefab);
+                managerObj.name = "GameDataManager";
+                DontDestroyOnLoad(managerObj);
+                Debug.Log("[GameManager] GameDataManager created from prefab");
+            }
+            else
+            {
+                Debug.LogError("[GameManager] GameDataManager not found in scene and prefab is not set!");
+                return;
+            }
+        }
+        
+        // 초기화 (이미 초기화되었으면 스킵)
+        if (GameDataManager.Instance != null && !GameDataManager.Instance.IsInitialized)
+        {
+            GameDataManager.Instance.Initialize();
+        }
+    }
+    
+    /// <summary>
+    /// FusionManager가 존재하는지 확인하고 없으면 생성한 후 초기화합니다.
+    /// </summary>
+    private void EnsureFusionManager()
+    {
+        // 씬에서 찾기
+        if (FusionManager.Instance == null)
+        {
+            FusionManager existingManager = FindAnyObjectByType<FusionManager>();
+            if (existingManager != null)
+            {
+                // 씬에 있으면 Awake가 호출되어 싱글톤이 설정됨
+                // 강제로 Awake 호출 (이미 호출되었을 수도 있지만 안전하게)
+                if (FusionManager.Instance == null)
+                {
+                    // GameObject를 활성화하여 Awake가 호출되도록 함
+                    if (!existingManager.gameObject.activeSelf)
+                    {
+                        existingManager.gameObject.SetActive(true);
+                    }
+                }
+            }
+            else if (_fusionManagerPrefab != null)
+            {
+                // 프리팹으로 생성 (Awake가 자동 호출됨)
+                GameObject managerObj = Instantiate(_fusionManagerPrefab);
+                managerObj.name = "FusionManager";
+                DontDestroyOnLoad(managerObj);
+                Debug.Log("[GameManager] FusionManager created from prefab");
+            }
+            else
+            {
+                Debug.LogError("[GameManager] FusionManager not found in scene and prefab is not set!");
+                return;
+            }
+        }
+        
+        // 초기화 (이미 초기화되었으면 스킵)
+        if (FusionManager.Instance != null && !FusionManager.Instance.IsInitialized)
+        {
+            FusionManager.Instance.Initialize();
+        }
     }
     
     void Start()
@@ -171,7 +281,7 @@ public class GameManager : MonoBehaviour
 
     // ========== Game State & Data Management (이하 동일) ==========
 
-    public void SetGameState(GameState newState)
+    public void SetGameState(GameStateType newState)
     {
         State = newState;
         Debug.Log($"Game state changed: {State}");
@@ -197,7 +307,7 @@ public class GameManager : MonoBehaviour
             FusionManager.LocalRunner = null;
         }
         
-        SetGameState(GameState.Lobby);
+        SetGameState(GameStateType.Lobby);
         _playerData.Clear();
     }
 
@@ -210,7 +320,7 @@ public class GameManager : MonoBehaviour
             FusionManager.LocalRunner = null;
         }
         
-        SetGameState(GameState.Lobby);
+        SetGameState(GameStateType.Lobby);
         _playerData.Clear();
     }
 

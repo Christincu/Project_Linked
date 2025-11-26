@@ -16,6 +16,12 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
     private PlayerMagicController _magicController;
     private PlayerController _controller;
     private GameDataManager _gameDataManager;
+    
+    // 카메라 제어 관련
+    private MainCameraController _cameraController;
+    private Camera _mainCamera;
+    private bool _cameraLocked = false;
+    private float _originalCameraSize = 0f;
     #endregion
     
     #region Initialization
@@ -65,9 +71,41 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
         }
     }
     
-    public void Update() { }
+    public void Update()
+    {
+        // 카메라 제어 (Input Authority만)
+        if (_controller == null || !_controller.Object.HasInputAuthority) return;
+        
+        // Dash 스킬이 종료되었는데 카메라가 잠겨있으면 복원
+        if (!_controller.HasDashSkill && _cameraLocked)
+        {
+            RestoreCamera();
+            return;
+        }
+        
+        // Dash 스킬이 활성화되어 있고, 카메라가 아직 잠기지 않았으면 설정
+        if (_controller.HasDashSkill && !_cameraLocked)
+        {
+            SetupCamera();
+        }
+        
+        // 카메라 위치 업데이트 (카메라가 잠겨있고 Dash 스킬이 활성화되어 있을 때)
+        if (_cameraLocked && _controller.HasDashSkill)
+        {
+            UpdateCameraPosition();
+        }
+    }
+    
     public void OnMagicActivated() { }
-    public void OnMagicDeactivated() { }
+    
+    public void OnMagicDeactivated()
+    {
+        // Dash 스킬이 완전히 종료되었을 때만 카메라 복원 (Input Authority만)
+        if (_controller != null && _controller.Object.HasInputAuthority && !_controller.HasDashSkill)
+        {
+            RestoreCamera();
+        }
+    }
     
     /// <summary>
     /// 마법이 현재 시전 중인지 확인합니다.
@@ -174,6 +212,123 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
         
         MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(MagicCode);
         return combinationData as DashMagicCombinationData;
+    }
+    #endregion
+    
+    #region Camera Control
+    /// <summary>
+    /// 카메라를 두 플레이어의 중앙으로 설정하고 줌 아웃합니다.
+    /// </summary>
+    private void SetupCamera()
+    {
+        if (_mainCamera == null)
+        {
+            _mainCamera = Camera.main;
+        }
+        if (_mainCamera == null) return;
+        
+        if (_cameraController == null)
+        {
+            _cameraController = _mainCamera.GetComponent<MainCameraController>();
+        }
+        if (_cameraController == null) return;
+        
+        // 다른 플레이어 찾기
+        PlayerController otherPlayer = FindOtherDashPlayer();
+        if (otherPlayer == null) return;
+        
+        // 카메라 크기 저장 (아직 저장되지 않았을 때만)
+        if (_originalCameraSize <= 0f)
+        {
+            _originalCameraSize = _mainCamera.orthographicSize;
+        }
+        
+        // 카메라를 최대 사이즈로 설정 (MainCameraController에서 직접 처리)
+        if (_cameraController != null)
+        {
+            _cameraController.SetMaxSize();
+        }
+        
+        // 카메라 고정 (MainCameraController 비활성화)
+        _cameraController.enabled = false;
+        _cameraLocked = true;
+        
+        // 초기 카메라 위치 설정
+        UpdateCameraPosition();
+    }
+    
+    /// <summary>
+    /// 카메라 위치를 두 플레이어의 중앙으로 업데이트합니다.
+    /// </summary>
+    private void UpdateCameraPosition()
+    {
+        if (_mainCamera == null)
+        {
+            _mainCamera = Camera.main;
+        }
+        if (_mainCamera == null) return;
+        
+        // 다른 플레이어 찾기
+        PlayerController otherPlayer = FindOtherDashPlayer();
+        if (otherPlayer == null) return;
+        
+        // 두 플레이어의 중앙 계산
+        Vector3 center = (_controller.transform.position + otherPlayer.transform.position) * 0.5f;
+        
+        // 카메라를 중앙으로 이동
+        _mainCamera.transform.position = new Vector3(center.x, center.y, _mainCamera.transform.position.z);
+    }
+    
+    /// <summary>
+    /// 카메라를 원래 상태로 복원합니다.
+    /// </summary>
+    private void RestoreCamera()
+    {
+        if (!_cameraLocked) return;
+        
+        if (_mainCamera == null)
+        {
+            _mainCamera = Camera.main;
+        }
+        if (_mainCamera == null) return;
+        
+        // 카메라 크기 복원 (MainCameraController의 ResetCameraSize 사용)
+        if (_cameraController != null)
+        {
+            _cameraController.ResetCameraSize();
+        }
+        else if (_originalCameraSize > 0f)
+        {
+            // 폴백: 저장된 크기로 복원
+            _mainCamera.orthographicSize = _originalCameraSize;
+        }
+        
+        // 카메라 제어 복원
+        if (_cameraController != null)
+        {
+            _cameraController.enabled = true;
+        }
+        
+        _cameraLocked = false;
+        _originalCameraSize = 0f;
+    }
+    
+    /// <summary>
+    /// 다른 돌진 스킬 사용 플레이어를 찾습니다.
+    /// </summary>
+    private PlayerController FindOtherDashPlayer()
+    {
+        List<PlayerController> allPlayers = GetAllPlayers();
+        
+        foreach (var player in allPlayers)
+        {
+            if (player != null && player != _controller && player.HasDashSkill && !player.IsDead)
+            {
+                return player;
+            }
+        }
+        
+        return null;
     }
     #endregion
 }

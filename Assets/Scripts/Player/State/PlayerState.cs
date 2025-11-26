@@ -12,44 +12,69 @@ public class PlayerState : MonoBehaviour
     private InitialPlayerData _initialData;
     #endregion
 
-    #region Properties (PlayerController의 네트워크 변수 참조)
+    #region Properties
+    /// <summary>
+    /// State Authority 확인 헬퍼 프로퍼티 (중복 체크 제거)
+    /// </summary>
+    private bool IsServer => _controller != null && _controller.Object != null && _controller.Object.HasStateAuthority;
+
     public float CurrentHealth
     {
-        get => _controller != null ? _controller.CurrentHealth : 0;
-        // set 로직은 PlayerController에서만 실행되도록 보호
-        set { if (_controller != null) _controller.CurrentHealth = value; }
+        get => _controller?.CurrentHealth ?? 0;
+        private set { if (_controller != null) _controller.CurrentHealth = value; }
     }
 
     public float MaxHealth
     {
-        get => _controller != null ? _controller.MaxHealth : 0;
+        get => _controller?.MaxHealth ?? 0;
         set { if (_controller != null) _controller.MaxHealth = value; }
     }
 
     public bool IsDead
     {
         get => _controller != null && _controller.IsDead;
-        set { if (_controller != null) _controller.IsDead = value; }
+        private set { if (_controller != null) _controller.IsDead = value; }
     }
 
     public TickTimer InvincibilityTimer
     {
-        get => _controller != null ? _controller.InvincibilityTimer : default;
+        get => _controller?.InvincibilityTimer ?? default;
         set { if (_controller != null) _controller.InvincibilityTimer = value; }
     }
 
     public TickTimer RespawnTimer
     {
-        get => _controller != null ? _controller.RespawnTimer : default;
+        get => _controller?.RespawnTimer ?? default;
         set { if (_controller != null) _controller.RespawnTimer = value; }
     }
 
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
 
-    public bool IsInvincible => _controller != null && _controller.IsInvincible;
+    /// <summary>
+    /// 무적 상태인지 확인합니다.
+    /// 일반 무적 타이머 또는 Dash Magic 최종 강화 상태를 확인합니다.
+    /// </summary>
+    public bool IsInvincible
+    {
+        get
+        {
+            if (_controller == null) return false;
+            
+            // 1. 일반 무적 타이머 체크
+            if (_controller.IsInvincible) return true;
+            
+            // 2. Dash Magic 최종 강화 상태 체크
+            if (_controller.IsDashFinalEnhancement) return true;
+            
+            return false;
+        }
+    }
     #endregion
 
     #region Events
+    /// <summary>
+    /// UI 갱신용 (Network Change Detector에서 호출됨)
+    /// </summary>
     public System.Action<float, float> OnHealthChanged; // (current, max)
     public System.Action<PlayerRef> OnDeath; // (killer)
     public System.Action OnRespawned;
@@ -74,37 +99,31 @@ public class PlayerState : MonoBehaviour
     /// </summary>
     public void TakeDamage(float damage, PlayerRef attacker = default)
     {
-        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
-        if (IsDead || IsInvincible) return;
+        if (!IsServer || IsDead) return;
+        
+        // 무적 체크
+        if (IsInvincible)
+        {
+            Debug.Log($"[PlayerState] {_controller.name} took no damage (Invincible)");
+            return;
+        }
 
         // 데미지 적용
         CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
         
-        // 무적 타이머 시작
+        // 무적 타이머 시작 (피격 후 잠시 무적)
         if (_initialData != null && _controller.Runner != null)
         {
             InvincibilityTimer = TickTimer.CreateFromSeconds(_controller.Runner, _initialData.InvincibilityDuration);
         }
 
-        // 이벤트 발생
+        // 이벤트 (서버 로직용)
         OnDamageTaken?.Invoke(damage);
-        // 네트워크 변수가 변경되면 OnChanged 콜백을 통해 UI가 업데이트되므로, OnHealthChanged 이벤트는 로컬 UI에만 필요할 수 있습니다.
-        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth); 
 
-        // 체력이 0 이하면 사망 처리 (자폭 베리어 폭발 포함)
+        // 사망 처리
         if (CurrentHealth <= 0)
         {
-            // 자폭 베리어 폭발 처리
-            if (_controller != null && _controller.HasBarrier && _controller.BarrierTimer.IsRunning)
-            {
-                BarrierMagicHandler barrierHandler = _controller.MagicController?.GetBarrierMagicHandler();
-                if (barrierHandler != null)
-                {
-                    barrierHandler.HandleBarrierExplosion(_controller);
-                }
-            }
-            
-            Die(attacker);
+            HandleDeath(attacker);
         }
     }
 
@@ -113,59 +132,64 @@ public class PlayerState : MonoBehaviour
     /// </summary>
     public void Heal(float healAmount)
     {
-        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
-        if (IsDead) return;
+        if (!IsServer || IsDead) return;
 
-        // 치료 적용
         CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + healAmount);
-        
-        // 이벤트 발생
         OnHealed?.Invoke(healAmount);
-        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
     }
 
     /// <summary>
-    /// 플레이어를 완전 회복합니다 (서버/State Authority에서만 실행).
+    /// 최대 체력을 변경합니다 (서버/State Authority에서만 실행).
     /// </summary>
-    public void FullHeal()
+    public void SetMaxHealth(float newMaxHealth)
     {
-        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
-        
-        CurrentHealth = MaxHealth;
-        
-        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
-    }
+        if (!IsServer) return;
 
+        MaxHealth = newMaxHealth;
+        CurrentHealth = Mathf.Min(CurrentHealth, MaxHealth);
+    }
+    
+    /// <summary>
+    /// 현재 체력을 직접 설정합니다 (서버/State Authority에서만 실행).
+    /// 보호막 등 특수 상황에서 사용됩니다.
+    /// </summary>
+    public void SetHealth(float newHealth)
+    {
+        if (!IsServer) return;
+        
+        CurrentHealth = Mathf.Clamp(newHealth, 0, MaxHealth);
+    }
+    #endregion
+
+    #region Death & Respawn
     /// <summary>
     /// 플레이어를 사망 처리합니다 (서버/State Authority에서만 실행).
     /// </summary>
-    private void Die(PlayerRef killer = default)
+    private void HandleDeath(PlayerRef killer = default)
     {
-        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
-        if (IsDead) return;
-
         IsDead = true;
         CurrentHealth = 0;
         
-        // 사망 시 베리어 제거 (시각화 및 범위 표시 제거를 위해)
-        if (_controller.HasBarrier)
+        // [중요] 자폭 베리어 로직은 PlayerController나 Handler가 이벤트(OnDeath)를 구독해서 처리하는 것이 좋지만,
+        // 기존 로직 유지를 위해 여기서 호출합니다. (단, null 체크 간소화)
+        if (_controller.HasBarrier && _controller.BarrierTimer.IsRunning)
         {
+            // 자폭!
+            var barrierHandler = _controller.MagicController?.GetBarrierMagicHandler();
+            barrierHandler?.HandleBarrierExplosion(_controller);
+            
+            // 베리어 해제
             _controller.HasBarrier = false;
             _controller.BarrierTimer = TickTimer.None;
         }
         
         // 이벤트 발생
         OnDeath?.Invoke(killer);
-        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
 
-        // ⭐ [개선] 리스폰 타이머 설정 (결정론적 TickTimer 사용)
-        if (_initialData != null && _initialData.CanRespawn)
+        // 리스폰 타이머 설정
+        if (_initialData != null && _initialData.CanRespawn && _controller.Runner != null)
         {
-            if (_controller.Runner != null)
-            {
-                // RespawnTimer 설정, 실제 Respawn은 PlayerController의 FixedUpdateNetwork에서 처리
-                RespawnTimer = TickTimer.CreateFromSeconds(_controller.Runner, _initialData.RespawnDelay);
-            }
+            RespawnTimer = TickTimer.CreateFromSeconds(_controller.Runner, _initialData.RespawnDelay);
         }
     }
     
@@ -175,58 +199,19 @@ public class PlayerState : MonoBehaviour
     /// <param name="spawnPosition">리스폰 위치 (PlayerController가 처리할 수 있음)</param>
     public void Respawn(Vector3? spawnPosition = null)
     {
-        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
+        if (!IsServer) return;
         
         // 상태 초기화
         IsDead = false;
         CurrentHealth = _initialData != null ? _initialData.StartingHealth : MaxHealth;
+        RespawnTimer = TickTimer.None;
 
-        // ⭐ 리스폰 타이머 리셋
-        RespawnTimer = TickTimer.None; 
-
-        // PlayerController에 리스폰 위치 업데이트를 위임
-        if (spawnPosition.HasValue)
-        {
-            _controller.OnPlayerRespawned(spawnPosition.Value);
-        }
-        else
-        {
-            // 리스폰 위치를 PlayerController의 기본 로직에 맡김
-            _controller.OnPlayerRespawned(_controller.transform.position); 
-        }
+        // 위치 재설정
+        Vector3 pos = spawnPosition ?? _controller.transform.position;
+        _controller.OnPlayerRespawned(pos);
 
         // 이벤트 발생
         OnRespawned?.Invoke();
-        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
     }
-
-    /// <summary>
-    /// 최대 체력을 변경합니다 (서버/State Authority에서만 실행).
-    /// </summary>
-    public void SetMaxHealth(float newMaxHealth)
-    {
-        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
-
-        MaxHealth = newMaxHealth;
-        // 체력 감소 시 현재 체력 조정
-        CurrentHealth = Mathf.Min(CurrentHealth, MaxHealth);
-        
-        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
-    }
-    
-    /// <summary>
-    /// 현재 체력을 직접 설정합니다 (서버/State Authority에서만 실행).
-    /// 보호막 등 특수 상황에서 사용됩니다.
-    /// </summary>
-    public void SetHealth(float newHealth)
-    {
-        if (_controller == null || _controller.Object == null || !_controller.Object.HasStateAuthority) return;
-        
-        CurrentHealth = Mathf.Clamp(newHealth, 0, MaxHealth);
-        
-        // 이벤트 발생
-        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
-    }
-    
     #endregion
 }

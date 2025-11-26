@@ -25,8 +25,12 @@ public class MainCameraController : MonoBehaviour
     
     [Tooltip("Camera movement bounds (Min X, Min Y, Max X, Max Y)")]
     [SerializeField] private Vector4 _cameraBounds = new Vector4(-50f, -50f, 50f, 50f);
-    #endregion
+
+    [SerializeField] private float _initialSize = 5f;
+    [SerializeField] private float _maxSize = 10f;
     
+    #endregion
+
     #region Private Fields
     private PlayerController _targetPlayer;
     private Camera _camera;
@@ -315,6 +319,28 @@ public class MainCameraController : MonoBehaviour
     {
         _cameraBounds = new Vector4(minX, minY, maxX, maxY);
         _useBoundary = true;
+    }
+    
+    /// <summary>
+    /// 카메라 사이즈를 최대 사이즈로 설정합니다.
+    /// </summary>
+    public void SetMaxSize()
+    {
+        if (_camera != null)
+        {
+            _camera.orthographicSize = _maxSize;
+        }
+    }
+    
+    /// <summary>
+    /// 카메라 사이즈를 초기 사이즈로 무조건 리셋합니다.
+    /// </summary>
+    public void ResetCameraSize()
+    {
+        if (_camera != null)
+        {
+            _camera.orthographicSize = _initialSize;
+        }
     }
     #endregion
 }
