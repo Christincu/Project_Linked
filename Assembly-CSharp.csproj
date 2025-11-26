@@ -81,7 +81,6 @@
     <Compile Include="Assets\Scripts\Particle\Damageable.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\ChatController.cs" />
     <Compile Include="Assets\Scripts\Spawner\EnemySpawner.cs" />
-    <Compile Include="Assets\Scripts\Manager\MainGameManager.cs" />
     <Compile Include="Assets\Scripts\Magic\DashMagicObject\DashMagicObject.Movement.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_DigitValidator.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_FrameRateCounter.cs" />
@@ -94,6 +93,7 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark02.cs" />
     <Compile Include="Assets\Scripts\Player\Visual\PlayerAnimationController.cs" />
     <Compile Include="Assets\Particle\Script\FlameThrowerLightController.cs" />
+    <Compile Include="Assets\Scripts\Manager\GameDataManager\GameDataManager.cs" />
     <Compile Include="Assets\Scripts\Manager\GameManager.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\CameraController.cs" />
     <Compile Include="Assets\Scripts\Data\MagicCombinationData.cs" />
@@ -110,6 +110,7 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMPro_InstructionOverlay.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexShakeB.cs" />
     <Compile Include="Assets\Scripts\Type\CombatObjectiveType.cs" />
+    <Compile Include="Assets\Scripts\Manager\MainGameManger\MainGameManager.TestMode.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\DropdownSample.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexColorCycler.cs" />
     <Compile Include="Assets\Scripts\Data\InitialPlayerData.cs" />
@@ -120,6 +121,7 @@
     <Compile Include="Assets\Scripts\Common\Messages.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexJitter.cs" />
     <Compile Include="Assets\Scripts\Manager\TitleGameManager.cs" />
+    <Compile Include="Assets\Scripts\Manager\VisualManager.cs" />
     <Compile Include="Assets\Scripts\UI\ChapterBtn.cs" />
     <Compile Include="Assets\Scripts\Player\Magic\PlayerMagicController.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TextConsoleSimulator.cs" />
@@ -130,6 +132,7 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexZoom.cs" />
     <Compile Include="Assets\Scripts\Data\MagicData.cs" />
     <Compile Include="Assets\Scripts\Player\State\PlayerEffectManager.cs" />
+    <Compile Include="Assets\Scripts\Manager\MainGameManger\MainGameManager.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_B.cs" />
     <Compile Include="Assets\Scripts\Data\EnemyData.cs" />
     <Compile Include="Assets\Scripts\Data\PlayerData.cs" />
@@ -146,7 +149,6 @@
     <Compile Include="Assets\Scripts\Magic\DashMagicObject\DashMagicObject.Visual.cs" />
     <Compile Include="Assets\Scripts\Manager\FusionManager.cs" />
     <Compile Include="Assets\Scripts\Manager\GameDataManager\CharacterService.cs" />
-    <Compile Include="Assets\Scripts\Manager\GameDataManager.cs" />
     <Compile Include="Assets\Scripts\Player\Magic\Handlers\BarrierMagicHandler.cs" />
     <Compile Include="Assets\Scripts\Type\GameStateType.cs" />
     <Compile Include="Assets\Scripts\UI\TitleCanvas.cs" />

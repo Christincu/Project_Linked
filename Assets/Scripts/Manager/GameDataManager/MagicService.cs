@@ -91,17 +91,8 @@ public class MagicService
                 return combination.resultMagicCode;
             }
         }
-        
-        // 순서를 고려한 조합이 없으면 순서 무관 조합 찾기
-        foreach (var combination in combinations)
-        {
-            if (combination != null && combination.IsValid() && combination.Matches(magicCode1, magicCode2))
-            {
-                return combination.resultMagicCode;
-            }
-        }
-        
-        // 조합을 찾지 못함
+
+        // 순서를 고려한 조합을 찾지 못하면, 이 순서에서는 조합 마법이 없는 것으로 간주
         return -1;
     }
     

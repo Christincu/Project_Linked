@@ -32,6 +32,14 @@ public partial class DashMagicObject
         foreach (var hit in hitColliders)
         {
             if (hit == null) continue;
+
+            // [추가] 거리 기반 이중 체크 (물리 엔진 오차 및 레이어 설정 실수 보정)
+            // 내 중심점과 충돌체 중심점 사이의 거리가 (내 반지름 + 대략적인 여유)보다 크면 무시
+            float rawDistance = Vector3.Distance(transform.position, hit.transform.position);
+            if (rawDistance > attackColliderRadius + 1.0f)
+            {
+                continue;
+            }
             
             // 1. 적 충돌 처리
             var enemy = hit.GetComponent<EnemyController>();
@@ -232,8 +240,9 @@ public partial class DashMagicObject
         
         Debug.Log($"[DashMagicObject] {_owner.name} collided with {otherPlayer.name} - All checks passed, processing collision");
         
-        // 정면 판정 확인
-        bool isFrontCollision = CheckFrontCollision(otherPlayer);
+        // 정면 판정 확인 (+ 이유 로깅)
+        string frontReason;
+        bool isFrontCollision = CheckFrontCollision(otherPlayer, out frontReason);
         
         if (isFrontCollision)
         {
@@ -244,7 +253,9 @@ public partial class DashMagicObject
             HandleEnhancement(otherPlayer);
             
             // --- B. 정지(Freeze) 시작 ---
-            _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, _dashData.playerCollisionFreezeDuration);
+            // 시전 후에도 최소 0.5초는 대기 후 튕겨나가도록, 추가 지연을 포함
+            float totalFreeze = _dashData.playerCollisionFreezeDuration + 0.5f;
+            _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, totalFreeze);
             _owner.DashVelocity = Vector2.zero;
             _owner.DashIsMoving = false;
             UpdateRigidbodyVelocity(Vector2.zero);
@@ -275,7 +286,8 @@ public partial class DashMagicObject
         else
         {
             // 잘못된 충돌
-            Debug.LogWarning($"[DashCollision] {_owner.name} - Wrong collision with {otherPlayer.name}, skill ending and stun applied");
+            Debug.LogWarning($"[DashCollision] {_owner.name} - Wrong collision with {otherPlayer.name}, " +
+                             $"skill ending and stun applied. Reason: {frontReason}");
             HandleWrongCollision();
             
             if (otherPlayer.DashMagicObject != null)
@@ -305,7 +317,9 @@ public partial class DashMagicObject
             }
         }
         
-        _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, _dashData.playerCollisionFreezeDuration);
+        // 시전 후에도 최소 0.5초는 대기 후 튕겨나가도록, 추가 지연을 포함
+        float totalFreeze = _dashData.playerCollisionFreezeDuration + 0.5f;
+        _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, totalFreeze);
         _owner.DashVelocity = Vector2.zero;
         _owner.DashIsMoving = false;
         UpdateRigidbodyVelocity(Vector2.zero);
@@ -318,30 +332,84 @@ public partial class DashMagicObject
     }
     
     /// <summary>
-    /// 정면 충돌인지 확인합니다.
+    /// [수정됨] 정면 충돌 판정 + 실패 이유를 반환합니다.
+    /// (거리 체크는 Physics 충돌에 맡기고 별도 처리하지 않음)
     /// </summary>
-    private bool CheckFrontCollision(PlayerController otherPlayer)
+    private bool CheckFrontCollision(PlayerController otherPlayer, out string reason)
     {
-        if (_owner == null || otherPlayer == null || _dashData == null) return false;
-        
-        Vector2 toOther = (otherPlayer.transform.position - _owner.transform.position).normalized;
-        Vector2 myForward = _owner.DashVelocity.normalized;
+        reason = "Unknown";
 
-        if (myForward.sqrMagnitude < 0.01f)
+        if (_owner == null || otherPlayer == null || _dashData == null)
         {
-            myForward = _owner.DashLastInputDirection.normalized;
-            
-            if (myForward.sqrMagnitude < 0.01f)
-            {
-                myForward = new Vector2(_owner.ScaleX, 0).normalized;
-            }
+            reason = "Owner/Other/DashData is null";
+            return false;
         }
         
-        float dot = Vector2.Dot(myForward, toOther);
-        float angleThreshold = _dashData.playerCollisionFrontAngle * 0.5f;
-        float dotThreshold = Mathf.Cos(angleThreshold * Mathf.Deg2Rad);
+        // 1. 방향 벡터 계산 (입력 -> 속도 -> ScaleX 우선순위)
+        Vector2 myForward = GetForwardDirection(_owner);
+        Vector2 otherForward = GetForwardDirection(otherPlayer);
+
+        // 2. Heading Check (서로 마주보고 있는지)
+        // 두 벡터의 내적(Dot)이 -1에 가까울수록 정면 충돌
+        float headingDot = Vector2.Dot(myForward, otherForward);
         
-        return dot >= dotThreshold;
+        // 기준값을 0.0f 로 완화 (직각까지 허용)
+        float headingThreshold = 0.0f;
+
+        if (headingDot > headingThreshold) 
+        {
+            reason = $"Heading failed: dot={headingDot:F2} > threshold={headingThreshold:F2}";
+            Debug.LogWarning($"[DashCheck] Fail: Heading Check. Dot({headingDot:F2}) > Threshold({headingThreshold}). Players are not facing each other.");
+            return false; 
+        }
+
+        // 3. FOV Check (상대방이 내 시야각 안에 있는지)
+        Vector2 toOther = (otherPlayer.transform.position - _owner.transform.position).normalized;
+        float fovDot = Vector2.Dot(myForward, toOther);
+        
+        float angleThreshold = _dashData.playerCollisionFrontAngle * 0.5f;
+        float fovThreshold = Mathf.Cos(angleThreshold * Mathf.Deg2Rad);
+        
+        bool inFov = fovDot >= fovThreshold;
+
+        if (!inFov)
+        {
+             reason = $"FOV failed: dot={fovDot:F2} < threshold={fovThreshold:F2}";
+             Debug.LogWarning($"[DashCheck] Fail: FOV Check. Dot({fovDot:F2}) < Threshold({fovThreshold:F2}). Other player is not in front.");
+             return false;
+        }
+
+        reason = "OK";
+        return true;
+    }
+
+    /// <summary>
+    /// 플레이어의 전방 방향 벡터를 계산하는 헬퍼 메서드
+    /// [가속도/속도 기반] 실제 Rigidbody 이동 방향을 우선으로 사용합니다.
+    /// </summary>
+    private Vector2 GetForwardDirection(PlayerController p)
+    {
+        if (p == null) return Vector2.right;
+
+        // 1) 실제 물리 속도 기반 (가속도로 움직인 결과)
+        if (p.Movement != null)
+        {
+            Vector2 vel = p.Movement.GetVelocity();
+            if (vel.sqrMagnitude > 0.001f)
+            {
+                return vel.normalized;
+            }
+        }
+
+        // 2) 대시 전용 방향들
+        if (p.DashVelocity.sqrMagnitude > 0.001f)
+            return p.DashVelocity.normalized;
+
+        if (p.DashLastInputDirection.sqrMagnitude > 0.001f)
+            return p.DashLastInputDirection.normalized;
+
+        // 3) 마지막 fallback: 스프라이트 좌우 플립 값
+        return new Vector2(p.ScaleX, 0).normalized;
     }
     
     /// <summary>

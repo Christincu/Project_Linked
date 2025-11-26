@@ -166,27 +166,59 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
     }
     
     /// <summary>
-    /// 플레이어에게 돌진 스킬을 적용합니다.
+    /// 플레이어에게 돌진 스킬을 적용합니다. (Runner.Spawn 사용)
     /// </summary>
     private void ApplyDashSkillToPlayer(PlayerController player)
     {
+        // 1. 권한 및 데이터 체크
         if (player == null || !player.Object.HasStateAuthority) return;
         
         DashMagicCombinationData dashData = GetDashData();
-        if (dashData == null || dashData.dashBarrierPrefab == null) return;
-        
-        GameObject dashBarrier = Instantiate(dashData.dashBarrierPrefab, player.transform.position, Quaternion.identity);
-        dashBarrier.transform.SetParent(player.transform);
-        dashBarrier.transform.localPosition = Vector3.zero;
-        
-        var dashMagicObj = dashBarrier.GetComponent<DashMagicObject>();
-        if (dashMagicObj == null)
+        if (dashData == null || dashData.dashBarrierPrefab == null) 
         {
-            dashMagicObj = dashBarrier.AddComponent<DashMagicObject>();
+            Debug.LogError("[DashHandler] DashData or Prefab is missing!");
+            return;
         }
-        dashMagicObj.Initialize(player, dashData);
-        
-        player.DashMagicObject = dashMagicObj;
+
+        // 2. Runner 체크
+        var runner = player.Runner;
+        if (runner == null) return;
+
+        // 3. Prefab에 NetworkObject가 있는지 확인 (필수!)
+        var prefabNO = dashData.dashBarrierPrefab.GetComponent<NetworkObject>();
+        if (prefabNO == null)
+        {
+            Debug.LogError($"[DashHandler] Prefab {dashData.dashBarrierPrefab.name} is missing a NetworkObject component!");
+            return;
+        }
+
+        Debug.Log($"[DashHandler] Spawning Dash Object for {player.name}");
+
+        // 4. Runner.Spawn으로 네트워크 오브젝트 생성
+        NetworkObject spawnedObj = runner.Spawn(
+            prefabNO, 
+            player.transform.position, 
+            Quaternion.identity, 
+            player.Object.InputAuthority,
+            (runnerInner, obj) =>
+            {
+                // 필요시 스폰 직전 초기화 가능
+            }
+        );
+
+        // 5. 계층 구조 설정 및 초기화
+        if (spawnedObj != null)
+        {
+            spawnedObj.transform.SetParent(player.transform);
+            spawnedObj.transform.localPosition = Vector3.zero;
+
+            var dashMagicObj = spawnedObj.GetComponent<DashMagicObject>();
+            if (dashMagicObj != null)
+            {
+                dashMagicObj.Initialize(player, dashData);
+                player.DashMagicObject = dashMagicObj;
+            }
+        }
     }
     
     /// <summary>

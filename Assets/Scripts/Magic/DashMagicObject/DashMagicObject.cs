@@ -116,14 +116,23 @@ public partial class DashMagicObject : NetworkBehaviour
         if (_owner == null || Runner == null) return;
         if (!_owner.Object.HasStateAuthority) return;
         
-        // 데이터 로드 안전장치
-        if (_dashData == null) LoadDashData();
-        if (_dashData == null) return;
+        // [수정] 데이터가 없으면 로드 시도하고, 그래도 없으면 이번 프레임만 스킵
+        if (_dashData == null)
+        {
+            LoadDashData();
+            if (_dashData == null) return; // 이번 틱은 포기하지만 다음 틱에 다시 시도
+        }
         
         // 스킬 상태 확인
-        if (!_owner.HasDashSkill || _owner.DashSkillTimer.ExpiredOrNotRunning(Runner))
+        if (!_owner.HasDashSkill)
         {
-            // 스킬 종료
+            EndDashSkill();
+            return;
+        }
+
+        // 타이머가 만료되었을 때만 종료 (아직 시작되지 않은 경우는 제외)
+        if (_owner.DashSkillTimer.Expired(Runner))
+        {
             EndDashSkill();
             return;
         }
@@ -194,33 +203,27 @@ public partial class DashMagicObject : NetworkBehaviour
         _owner = owner;
         _dashData = dashData;
         
-        // GameDataManager 초기화 (에디터/클라이언트 대응)
-        if (_gameDataManager == null)
-        {
-            _gameDataManager = FindObjectOfType<GameDataManager>();
-            if (_gameDataManager == null)
-            {
-                _gameDataManager = GameDataManager.Instance;
-            }
-        }
-        
-        // _dashData가 null이면 로드 시도 (클라이언트 초기화 지연 대응)
-        if (_dashData == null)
-        {
-            LoadDashData();
-        }
-        
         if (_owner == null)
         {
             return;
+        }
+
+        // 데이터가 null이면 스스로 찾아봄
+        if (_dashData == null)
+        {
+            LoadDashData();
         }
         
         // 플레이어에게 부착
         transform.SetParent(_owner.transform);
         transform.localPosition = Vector3.zero;
         
-        // 공격 콜라이더 반지름 설정
-        if (_attackCollider != null)
+        // [중요] 공격 콜라이더 설정 (이게 없으면 충돌 감지 안됨)
+        if (_attackCollider == null)
+        {
+            _attackCollider = GetComponent<CircleCollider2D>();
+        }
+        if (_attackCollider != null && _dashData != null)
         {
             _attackCollider.radius = attackColliderRadius;
         }
@@ -250,20 +253,18 @@ public partial class DashMagicObject : NetworkBehaviour
             _barrierCollider.isTrigger = true;
             _barrierCollider.enabled = false; // 초기에는 비활성화 (스프라이트가 설정되면 활성화)
         }
+
+        // 렌더러 초기화
+        UpdateBarrierSprite();
         
         // 초기 강화 상태 추적
         _lastEnhancementCount = -999; // 첫 프레임 갱신 보장
         _lastIsFinalEnhancement = false;
-        
-        // 초기 스프라이트 설정 (모든 클라이언트에서)
-        if (_barrierSpriteRenderer != null && _dashData != null)
-        {
-            UpdateBarrierSprite();
-        }
-        
-        // 스킬 발동 (State Authority에서만)
+
+        // [핵심] 서버라면 즉시 스킬 활성화 로직 실행
         if (_owner.Object.HasStateAuthority)
         {
+            Debug.Log($"[DashMagicObject] Initialized and Activated for {_owner.name}");
             ActivateDashSkill();
         }
     }
@@ -345,7 +346,7 @@ public partial class DashMagicObject : NetworkBehaviour
         }
         
         // 시간 경과 체크
-        if (_owner.DashSkillTimer.ExpiredOrNotRunning(Runner))
+        if (_owner.DashSkillTimer.Expired(Runner))
         {
             EndDashSkill();
             return;

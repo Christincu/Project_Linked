@@ -54,9 +54,6 @@ public class BarrierVisualizationManager : MonoBehaviour
     private class ExplosionRangeVisualData
     {
         public GameObject explosionRangeObj;
-        public MeshFilter explosionRangeMeshFilter;
-        public MeshRenderer explosionRangeMeshRenderer;
-        public Mesh explosionRangeMesh;
         public bool isRangeVisible;
         public float lastExplosionRadius;
         public Vector3 lastPosition;
@@ -293,27 +290,29 @@ public class BarrierVisualizationManager : MonoBehaviour
                 _explosionRangeVisuals[player] = new ExplosionRangeVisualData
                 {
                     explosionRangeObj = null,
-                    explosionRangeMeshFilter = null,
-                    explosionRangeMeshRenderer = null,
-                    explosionRangeMesh = null,
                     isRangeVisible = false,
                     lastExplosionRadius = -1f,
                     lastPosition = player.transform.position
                 };
-                InitializeExplosionRangeVisual(player);
             }
             
             var visualData = _explosionRangeVisuals[player];
-            if (visualData.explosionRangeMesh == null) continue;
+            
+            // 필요 시 폭발 범위 오브젝트 생성
+            if (visualData.explosionRangeObj == null)
+            {
+                InitializeExplosionRangeVisual(player);
+                // 여전히 null이면 이 플레이어는 스킵
+                if (visualData.explosionRangeObj == null)
+                    continue;
+            }
             
             // 사망 시 범위 표시 제거
             if (player.IsDead)
             {
-                if (visualData.isRangeVisible)
-                {
-                    UpdateExplosionRangeVisibility(player, false);
-                    visualData.isRangeVisible = false;
-                }
+                // 역할 종료: 폭발 범위 오브젝트 완전히 제거
+                DestroyExplosionRangeVisual(player);
+                visualData.isRangeVisible = false;
                 continue;
             }
             
@@ -323,16 +322,34 @@ public class BarrierVisualizationManager : MonoBehaviour
             // 범위 표시 상태 업데이트
             if (shouldShow != visualData.isRangeVisible)
             {
-                UpdateExplosionRangeVisibility(player, shouldShow);
-                visualData.isRangeVisible = shouldShow;
-                
-                // 표시 상태가 변경되면 즉시 업데이트
-                if (shouldShow && player.Runner != null)
+                if (shouldShow)
                 {
-                    UpdateExplosionRangeVisualization(player);
-                    visualData.lastPosition = player.transform.position;
-                    float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
-                    visualData.lastExplosionRadius = GetExplosionRadius(remainingTime);
+                    // 새로 보여줘야 하는 경우: 필요 시 재생성 후 활성화
+                    if (visualData.explosionRangeObj == null)
+                    {
+                        InitializeExplosionRangeVisual(player);
+                        if (visualData.explosionRangeObj == null)
+                            continue;
+                    }
+
+                    UpdateExplosionRangeVisibility(player, true);
+                    visualData.isRangeVisible = true;
+
+                    // 표시 상태가 켜질 때 즉시 1회 업데이트
+                    if (player.Runner != null)
+                    {
+                        UpdateExplosionRangeVisualization(player);
+                        visualData.lastPosition = player.transform.position;
+                        float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
+                        visualData.lastExplosionRadius = GetExplosionRadius(remainingTime);
+                    }
+                }
+                else
+                {
+                    // 역할 종료: 폭발 범위 오브젝트 완전히 제거
+                    DestroyExplosionRangeVisual(player);
+                    visualData.isRangeVisible = false;
+                    continue;
                 }
             }
             
@@ -385,39 +402,46 @@ public class BarrierVisualizationManager : MonoBehaviour
         
         var visualData = _explosionRangeVisuals[player];
         
-        // 폭발 범위 Mesh 생성
-        visualData.explosionRangeObj = new GameObject("ExplosionRangeMesh");
-        visualData.explosionRangeObj.transform.SetParent(player.transform);
-        visualData.explosionRangeObj.transform.localPosition = Vector3.zero;
-        visualData.explosionRangeObj.transform.localRotation = Quaternion.identity;
-        visualData.explosionRangeObj.transform.localScale = Vector3.one;
-        
-        visualData.explosionRangeMeshFilter = visualData.explosionRangeObj.AddComponent<MeshFilter>();
-        visualData.explosionRangeMeshRenderer = visualData.explosionRangeObj.AddComponent<MeshRenderer>();
-        
-        // 메시 생성
-        visualData.explosionRangeMesh = new Mesh();
-        visualData.explosionRangeMesh.name = "ExplosionRangeMesh";
-        visualData.explosionRangeMeshFilter.mesh = visualData.explosionRangeMesh;
-        
-        // 머티리얼 설정 (반투명)
-        Material material = new Material(Shader.Find("Sprites/Default"));
-        material.color = new Color(1f, 0f, 0f, 0.3f); // 기본 빨간색
-        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        material.SetInt("_ZWrite", 0);
-        material.DisableKeyword("_ALPHATEST_ON");
-        material.EnableKeyword("_ALPHABLEND_ON");
-        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        material.renderQueue = 3000; // Transparent
-        visualData.explosionRangeMeshRenderer.material = material;
-        visualData.explosionRangeMeshRenderer.sortingOrder = -1; // 배경보다 앞에 표시
-        
-        // 초기화
+        // VisualManager에서 프리팹을 가져와서 사용
+        GameObject prefab = null;
+        if (VisualManager.Instance != null)
+        {
+            prefab = VisualManager.Instance.ExplosionRangePrefab;
+        }
+
+        if (prefab != null)
+        {
+            // 프리팹 인스턴스 생성 (레이어/소팅 오더는 프리팹 설정을 그대로 사용)
+            visualData.explosionRangeObj = Object.Instantiate(prefab, player.transform);
+            visualData.explosionRangeObj.name = "ExplosionRange";
+        }
+        else
+        {
+            // 프리팹이 없으면 최소한의 fallback 오브젝트 생성 (SpriteRenderer + 런타임 원형)
+            visualData.explosionRangeObj = new GameObject("ExplosionRangeFallback");
+            visualData.explosionRangeObj.transform.SetParent(player.transform);
+            visualData.explosionRangeObj.transform.localPosition = Vector3.zero;
+            visualData.explosionRangeObj.transform.localRotation = Quaternion.identity;
+
+            var rangeRenderer = visualData.explosionRangeObj.AddComponent<SpriteRenderer>();
+            Texture2D circleTexture = CreateCircleTexture(128, Color.white);
+            Sprite circleSprite = Sprite.Create(circleTexture, new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f), 128);
+            rangeRenderer.sprite = circleSprite;
+        }
+
+        // 초기 크기 0으로 시작 (Update에서 반지름에 맞게 스케일 조정)
+        visualData.explosionRangeObj.transform.localScale = Vector3.zero;
+
+        // 초기화 상태 설정
         visualData.lastExplosionRadius = -1f;
         visualData.lastPosition = player.transform.position;
-        UpdateExplosionRangeVisualization(player);
-        UpdateExplosionRangeVisibility(player, false); // 초기에는 숨김
+
+        // 초기에는 숨김 (SpriteRenderer가 있을 때만)
+        var initialRenderer = visualData.explosionRangeObj.GetComponent<SpriteRenderer>();
+        if (initialRenderer != null)
+        {
+            initialRenderer.enabled = false;
+        }
     }
     
     /// <summary>
@@ -428,14 +452,15 @@ public class BarrierVisualizationManager : MonoBehaviour
         if (player == null || !_explosionRangeVisuals.ContainsKey(player)) return;
         
         var visualData = _explosionRangeVisuals[player];
-        if (visualData.explosionRangeMeshRenderer != null)
+        if (visualData.explosionRangeObj != null)
         {
-            visualData.explosionRangeMeshRenderer.enabled = visible;
+            var renderer = visualData.explosionRangeObj.GetComponent<SpriteRenderer>();
+            if (renderer != null) renderer.enabled = visible;
         }
     }
     
     /// <summary>
-    /// 폭발 범위 시각화를 업데이트합니다 (원형 Mesh 생성).
+    /// 폭발 범위 시각화를 업데이트합니다 (SpriteRenderer + Scale 기반).
     /// </summary>
     private void UpdateExplosionRangeVisualization(PlayerController player)
     {
@@ -443,31 +468,22 @@ public class BarrierVisualizationManager : MonoBehaviour
         if (!_explosionRangeVisuals.ContainsKey(player)) return;
         
         var visualData = _explosionRangeVisuals[player];
-        if (visualData.explosionRangeMesh == null) return;
+        if (visualData.explosionRangeObj == null) return;
         
         float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
         float radius = GetExplosionRadius(remainingTime);
-        
-        // radius가 0이어도 메시는 업데이트 (초기화를 위해)
+
+        // 1. 크기 업데이트 (반지름 * 2 = 지름)
         if (radius < 0f) radius = 0f;
-        
+        float diameter = radius * 2f;
+        visualData.explosionRangeObj.transform.localScale = new Vector3(diameter, diameter, 1f);
+
+        // 2. 색상 업데이트
         Color color = GetExplosionColor(remainingTime);
-        
-        // 머티리얼 색상 업데이트
-        if (visualData.explosionRangeMeshRenderer != null && visualData.explosionRangeMeshRenderer.material != null)
+        var renderer = visualData.explosionRangeObj.GetComponent<SpriteRenderer>();
+        if (renderer != null)
         {
-            visualData.explosionRangeMeshRenderer.material.color = color;
-        }
-        
-        // 원형 Mesh 생성 (벽 감지 없이)
-        if (radius > 0f)
-        {
-            RangeVisualizationUtils.UpdateCircleMesh(visualData.explosionRangeMesh, radius, 64);
-        }
-        else
-        {
-            // radius가 0이면 빈 메시로 설정
-            visualData.explosionRangeMesh.Clear();
+            renderer.color = color;
         }
     }
     
@@ -482,6 +498,7 @@ public class BarrierVisualizationManager : MonoBehaviour
         if (visualData.explosionRangeObj != null)
         {
             Destroy(visualData.explosionRangeObj);
+            visualData.explosionRangeObj = null;
         }
     }
     #endregion

@@ -271,6 +271,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
+      propertyPath: _isTestMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
+      propertyPath: _mapDoorObject
+      value: 
+      objectReference: {fileID: 324234265}
+    - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
+      propertyPath: _mapDoorTriggerColider
+      value: 
+      objectReference: {fileID: 324234266}
     - target: {fileID: 1935061100617456413, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: m_Name
       value: MainGameManager
@@ -320,6 +332,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2805889569638641621, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+      propertyPath: m_BodyType
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6590728605844051902, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
       propertyPath: m_Name
       value: BattleTestRoomPrefab
@@ -364,11 +380,25 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8897143351908305458, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+      propertyPath: m_BodyType
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+--- !u!1 &324234265 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1994530843252613960, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+  m_PrefabInstance: {fileID: 324234264}
+  m_PrefabAsset: {fileID: 0}
+--- !u!61 &324234266 stripped
+BoxCollider2D:
+  m_CorrespondingSourceObject: {fileID: 2425777844429457747, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+  m_PrefabInstance: {fileID: 324234264}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1169034970
 GameObject:
   m_ObjectHideFlags: 0

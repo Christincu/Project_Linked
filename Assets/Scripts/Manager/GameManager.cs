@@ -27,6 +27,9 @@ public class GameManager : MonoBehaviour
     
     [Tooltip("FusionManager 프리팹 (씬에 없으면 자동 생성)")]
     [SerializeField] private GameObject _fusionManagerPrefab;
+
+    [Tooltip("VisualManager 프리팹 (씬에 없으면 자동 생성)")]
+    [SerializeField] private GameObject _visualManagerPrefab;
     
     [SerializeField] private GameObject _warningPanelPrefab;
     [SerializeField] private GameObject _loadingPanelPrefab;
@@ -63,6 +66,9 @@ public class GameManager : MonoBehaviour
         
         // 2. FusionManager 초기화 (GameDataManager 이후)
         EnsureFusionManager();
+
+        // 3. VisualManager 초기화 (시각 효과 전역 관리)
+        EnsureVisualManager();
     }
     
     /// <summary>
@@ -150,6 +156,43 @@ public class GameManager : MonoBehaviour
         if (FusionManager.Instance != null && !FusionManager.Instance.IsInitialized)
         {
             FusionManager.Instance.Initialize();
+        }
+    }
+
+    /// <summary>
+    /// VisualManager가 존재하는지 확인하고 없으면 생성합니다.
+    /// </summary>
+    private void EnsureVisualManager()
+    {
+        // 이미 싱글톤이 존재하면 아무 것도 하지 않음
+        if (VisualManager.Instance != null)
+        {
+            return;
+        }
+
+        // 씬에서 찾기
+        VisualManager existingManager = FindAnyObjectByType<VisualManager>();
+        if (existingManager != null)
+        {
+            // Awake에서 싱글톤이 설정되도록 활성화 보장
+            if (!existingManager.gameObject.activeSelf)
+            {
+                existingManager.gameObject.SetActive(true);
+            }
+            return;
+        }
+
+        // 프리팹으로 생성
+        if (_visualManagerPrefab != null)
+        {
+            GameObject managerObj = Instantiate(_visualManagerPrefab);
+            managerObj.name = "VisualManager";
+            DontDestroyOnLoad(managerObj);
+            Debug.Log("[GameManager] VisualManager created from prefab");
+        }
+        else
+        {
+            Debug.LogWarning("[GameManager] VisualManager not found in scene and prefab is not set. Explosion range visuals may not work correctly.");
         }
     }
     

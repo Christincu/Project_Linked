@@ -289,8 +289,14 @@ public class PlayerMagicController : MonoBehaviour
         
         if (magicCodeToCast == -1)
         {
-            // 시전할 마법이 없음
-            Debug.LogWarning($"[CastMagic] {_controller.name} tried to cast magic but no magic is activated");
+            // 시전할 마법이 없음 (조합 실패 또는 활성화된 마법 없음)
+            Debug.LogWarning($"[CastMagic] {_controller.name} tried to cast magic but no valid magic code (activation / combination failed)");
+            
+            // 현재 마법 상태를 종료하여 다른 조합을 준비할 수 있게 함
+            if (_controller.MagicActive)
+            {
+                _controller.RPC_DeactivateMagic();
+            }
             return;
         }
 
@@ -334,8 +340,8 @@ public class PlayerMagicController : MonoBehaviour
                 _controller.ActivatedMagicCode, 
                 _controller.AbsorbedMagicCode
             );
-            // 조합 마법이 있으면 반환, 없으면 활성화된 마법 반환
-            return combinedCode != -1 ? combinedCode : _controller.ActivatedMagicCode;
+            // 조합 마법이 없으면 -1 반환 (해당 순서의 조합이 없으므로 시전 무시)
+            return combinedCode;
         }
         return _controller.ActivatedMagicCode;
     }
@@ -603,6 +609,19 @@ public class PlayerMagicController : MonoBehaviour
         if (!_isInitialized || !controller.Object.HasInputAuthority) return;
         if (isTestMode && inputData.ControlledSlot != controller.PlayerSlot) return;
 
+        // [핵심 수정] 돌진 스킬 사용 중이면 모든 마법 입력 차단
+        // 이미 DashMagicObject가 생성되어 이동 중이라면 마법 조작을 막아야 함
+        if (controller.HasDashSkill)
+        {
+            // 클릭 상태만 업데이트하고 리턴 (다음 프레임을 위해)
+            _prevButtons = inputData.MouseButtons;
+
+            // 현재 실행 중인 핸들러(돌진) 업데이트는 계속 허용 (카메라 제어 등을 위해)
+            SyncHandler();
+            _currentHandler?.Update();
+            return;
+        }
+
         // 1. 핸들러 상태 동기화 (입력 처리 전 필수)
         SyncHandler();
 
@@ -688,6 +707,19 @@ public class PlayerMagicController : MonoBehaviour
         if (_currentHandler != null && _currentHandler.IsCasting()) return;
         
         int code = GetCurrentCombinedCode();
+
+        // 유효한 마법 코드가 없으면 시전하지 않음
+        // (조합 실패 또는 활성화된 마법 없음)
+        if (code == -1)
+        {
+            // 조합 실패 시 현재 활성화된 마법을 종료하여
+            // 플레이어가 새로운 조합을 시도할 수 있게 함
+            if (_controller.MagicActive)
+            {
+                _controller.RPC_DeactivateMagic();
+            }
+            return;
+        }
         
         // 1. 특수 핸들러(합체 마법) 처리
         if (_magicHandlers.TryGetValue(code, out var handler))

@@ -81,5 +81,18 @@ public partial class DashMagicObject
         }
     }
     #endregion
+
+    #region Gizmos
+    /// <summary>
+    /// 에디터에서 플레이어/적 충돌 판정 범위를 기즈모로 표시합니다.
+    /// 항상 그려지도록 OnDrawGizmos를 사용합니다.
+    /// </summary>
+    private void OnDrawGizmos()
+    {
+        // 공격/충돌 판정 범위 (적 & 플레이어 모두 같은 반지름 사용)
+        Gizmos.color = new Color(1f, 0.3f, 0.1f, 0.8f); // 주황색 계열
+        Gizmos.DrawWireSphere(transform.position, attackColliderRadius);
+    }
+    #endregion
 }
 

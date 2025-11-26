@@ -59,8 +59,6 @@ public class MainCanvas : MonoBehaviour, ICanvas
                 return;
             }
         }
-
-        Debug.Log($"[MainCanvas] Registering player: {player.name} (TestMode: {MainGameManager.Instance?.IsTestMode ?? false})");
         SetupPlayer(player);
     }
 

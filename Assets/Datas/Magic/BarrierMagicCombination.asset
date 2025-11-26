@@ -29,4 +29,4 @@ MonoBehaviour:
   nonReceiverHealth: 1
   barrierMagicObjectPrefab:
     RawGuidValue: 42ca306a686a8024a996cbe404f0a01f
-  explosionVfxPrefab: {fileID: 495353710250101849, guid: 42ca306a686a8024a996cbe404f0a01f, type: 3}
+  explosionVfxPrefab: {fileID: 495353710250101849, guid: 7afec738fee33bc44a549fdbf59fb04d, type: 3}

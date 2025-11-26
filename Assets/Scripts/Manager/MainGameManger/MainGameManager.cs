@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 /// 메인 게임 씬의 게임 관리자입니다.
 /// 테스트 모드(로컬 다중 플레이어 시뮬레이션)와 실제 네트워크 모드를 모두 처리합니다.
 /// </summary>
-public class MainGameManager : MonoBehaviour
+public partial class MainGameManager : MonoBehaviour
 {
     [Header("Mode & Settings")]
     [SerializeField] private bool _isTestMode = false;
@@ -44,6 +44,9 @@ public class MainGameManager : MonoBehaviour
     private NetworkObject _playerObj1;
     private NetworkObject _playerObj2;
     public bool IsTestMode => _isTestMode;
+
+    // 맵 문 상태
+    private bool _isMapDoorClosed = false;
     
     void Awake()
     {
@@ -68,6 +71,10 @@ public class MainGameManager : MonoBehaviour
         
         // BarrierVisualizationManager 초기화 (게임 씬에서만 필요)
         _ = BarrierVisualizationManager.Instance;
+
+        // 맵 문 초기 상태 설정: 시작 시 문은 "열린" 상태로 두고(비활성화),
+        // 모든 플레이어가 트리거 안에 들어오면 닫힐 때 활성화되도록 한다.
+        InitializeMapDoorState();
         
         if (_isTestMode)
         {
@@ -85,6 +92,9 @@ public class MainGameManager : MonoBehaviour
         {
             HandleTestModeInput();
         }
+
+        // 레벨 디자인: 모든 플레이어가 문 트리거에 들어왔는지 확인
+        UpdateMapDoorState();
     }
 
     void OnDestroy()
@@ -102,208 +112,24 @@ public class MainGameManager : MonoBehaviour
     }
     
     // =========================================================
-    // 테스트 모드 로직
-    // =========================================================
-
-    private async Task StartTestSession()
-    {
-        if (FusionManager.Instance == null) { Debug.LogError("[MainGameManager] FusionManager not found!"); return; }
-        
-        // Runner 생성 또는 가져오기
-        if (FusionManager.LocalRunner == null)
-        {
-            GameObject go = new GameObject("TestRunner");
-            _runner = go.AddComponent<NetworkRunner>();
-            _runner.AddCallbacks(FusionManager.Instance);
-        }
-        else
-        {
-            _runner = FusionManager.LocalRunner;
-        }
-
-        // Runner 시작 (Host 모드)
-        if (_runner != null && !_runner.IsRunning)
-        {
-            _runner.ProvideInput = true;
-            _runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
-            _runner.gameObject.AddComponent<NetworkObjectProviderDefault>();
-            
-            var physicsSimulator = _runner.gameObject.GetComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
-            if (physicsSimulator == null)
-            {
-                physicsSimulator = _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
-            }
-            
-            // Client Physics Simulation을 SimulateAlways로 설정 (가장 부드러운 움직임)
-            physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
-            
-            await _runner.StartGame(new StartGameArgs
-            {
-                GameMode = GameMode.Host,
-                SessionName = "EditorTestSession",
-                SceneManager = _runner.GetComponent<NetworkSceneManagerDefault>(),
-                ObjectProvider = _runner.GetComponent<NetworkObjectProviderDefault>()
-            });
-
-            FusionManager.LocalRunner = _runner;
-        }
-        
-        // 플레이어 스폰
-        if (_runner.IsServer)
-        {
-            // 씬 로드 완료까지 대기 (MainCanvas 초기화 등)
-            await Task.Delay(500); 
-            SpawnTestPlayers();
-        }
-        
-        GameManager.Instance?.FinishLoadingScreen();
-    }
-    
-    private void SpawnTestPlayers()
-    {
-        if (_runner == null || !_runner.IsServer) return;
-        
-        // 테스트 모드에서는 모든 플레이어가 localPlayer를 InputAuthority로 사용
-        var localPlayer = _runner.LocalPlayer;
-        
-        // 가상 PlayerRef 생성 (PlayerData 식별용)
-        PlayerRef player1Ref = PlayerRef.FromIndex(0);
-        PlayerRef player2Ref = PlayerRef.FromIndex(1);
-        
-        Vector3 spawnPos0 = GetSceneSpawnPosition(0);
-        Vector3 spawnPos1 = GetSceneSpawnPosition(1);
-        
-        // PlayerData 먼저 생성 (실제 멀티 환경과 동일한 순서)
-        NetworkObject playerData1 = null;
-        NetworkObject playerData2 = null;
-        
-        if (FusionManager.Instance != null && FusionManager.Instance.PlayerDataPrefab != null)
-        {
-            playerData1 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, player1Ref, (runner, obj) =>
-            {
-                if (obj.TryGetComponent(out PlayerData pd))
-                {
-                    pd.CharacterIndex = _firstCharacterIndex;
-                    Debug.Log($"[TestMode] PlayerData1 created for PlayerRef: {player1Ref}");
-                }
-            });
-            
-            playerData2 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, player2Ref, (runner, obj) =>
-            {
-                if (obj.TryGetComponent(out PlayerData pd))
-                {
-                    pd.CharacterIndex = _secondCharacterIndex;
-                    Debug.Log($"[TestMode] PlayerData2 created for PlayerRef: {player2Ref}");
-                }
-            });
-        }
-        
-        // Player 1 스폰 (InputAuthority는 localPlayer)
-        _playerObj1 = _runner.Spawn(_playerPrefab, spawnPos0, Quaternion.identity, localPlayer, (runner, obj) => 
-        {
-            var controller = obj.GetComponent<PlayerController>();
-            controller.SetCharacterIndex(_firstCharacterIndex);
-            controller.PlayerSlot = 0;
-        });
-        
-        // Player 2 스폰 (InputAuthority는 localPlayer)
-        _playerObj2 = _runner.Spawn(_playerPrefab, spawnPos1, Quaternion.identity, localPlayer, (runner, obj) => 
-        {
-            var controller = obj.GetComponent<PlayerController>();
-            controller.SetCharacterIndex(_secondCharacterIndex);
-            controller.PlayerSlot = 1;
-        });
-        
-        // PlayerData에 PlayerInstance 연결
-        if (playerData1 != null && playerData1.TryGetComponent(out PlayerData pd1))
-        {
-            pd1.PlayerInstance = _playerObj1;
-            Debug.Log($"[TestMode] PlayerData1 linked to Player1");
-        }
-        
-        if (playerData2 != null && playerData2.TryGetComponent(out PlayerData pd2))
-        {
-            pd2.PlayerInstance = _playerObj2;
-            Debug.Log($"[TestMode] PlayerData2 linked to Player2");
-        }
-        
-        // 첫 번째 플레이어를 딕셔너리에 추가
-        if (_playerObj1 != null) _spawnedPlayers[localPlayer] = _playerObj1; 
-
-        if (GameManager.Instance?.Canvas is MainCanvas canvas)
-        {
-            canvas.RegisterPlayer(_playerObj1.GetComponent<PlayerController>());
-        }
-        
-        InitializeMainCamera();
-    }
-    
-    private void InitializeMainCamera()
-    {
-        Camera mainCamera = Camera.main;
-        if (mainCamera != null)
-        {
-            MainCameraController cameraController = mainCamera.GetComponent<MainCameraController>();
-            if (cameraController != null)
-            {
-                cameraController.SetTarget(_playerObj1.GetComponent<PlayerController>());
-            }
-        }
-    }
-    
-    private void HandleTestModeInput()
-    {
-        // 1/2 키로 조작 대상 전환
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            SelectedSlot = 0;
-            Debug.Log($"Switched to Player 1 (Slot: {SelectedSlot})");
-            UpdateCanvasForSelectedPlayer();
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            SelectedSlot = 1;
-            Debug.Log($"Switched to Player 2 (Slot: {SelectedSlot})");
-            UpdateCanvasForSelectedPlayer();
-        }
-
-        // T/Y/U 키로 데미지/힐 테스트
-        if (Input.GetKeyDown(KeyCode.T)) ApplyTestHealthChange(-1f, "Damage");
-        if (Input.GetKeyDown(KeyCode.Y)) ApplyTestHealthChange(1f, "Heal");
-        if (Input.GetKeyDown(KeyCode.U)) ApplyTestHealthChange(999f, "Full Heal");
-    }
-    
-    /// <summary>
-    /// 테스트 모드에서 선택된 플레이어에 맞춰 Canvas를 업데이트합니다.
-    /// </summary>
-    private void UpdateCanvasForSelectedPlayer()
-    {
-        if (!_isTestMode) return;
-        
-        PlayerController selectedPlayer = GetSelectedPlayer();
-        if (selectedPlayer != null && GameManager.Instance?.Canvas is MainCanvas canvas)
-        {
-            canvas.RegisterPlayer(selectedPlayer);
-            Debug.Log($"[MainGameManager] Canvas updated for selected player (Slot: {SelectedSlot})");
-        }
-    }
-
-    private void ApplyTestHealthChange(float amount, string type)
-    {
-        var player = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
-        if (player != null && player.TryGetComponent(out PlayerController controller) && controller.State != null)
-        {
-            if (type == "Damage") controller.State.TakeDamage(amount);
-            else if (type == "Heal") controller.State.Heal(amount);
-            else if (type == "Full Heal") controller.State.SetHealth(controller.State.MaxHealth);
-            
-            Debug.Log($"[TestMode] {type} applied to Player {SelectedSlot + 1}");
-        }
-    }
-
-    // =========================================================
     // 네트워크 모드 로직
     // =========================================================
+
+    /// <summary>
+    /// 맵 문과 관련된 초기 상태를 설정합니다.
+    /// - 씬 시작 시 문은 열린 상태(비활성화)로 두고
+    /// - 모든 플레이어가 트리거에 들어왔을 때 닫히면서 활성화되도록 합니다.
+    /// </summary>
+    private void InitializeMapDoorState()
+    {
+        _isMapDoorClosed = false;
+
+        // 문 오브젝트가 설정되어 있다면 비활성화해서 "열린" 상태로 시작
+        if (_mapDoorObject != null)
+        {
+            _mapDoorObject.SetActive(false);
+        }
+    }
 
     private IEnumerator WaitForRunnerAndSpawn()
     {
@@ -517,6 +343,55 @@ public class MainGameManager : MonoBehaviour
     // =========================================================
     // 공용 메서드 및 이벤트 핸들러
     // =========================================================
+
+    /// <summary>
+    /// 맵 문 트리거에 모든 플레이어가 들어왔는지 체크하고, 들어왔다면 문을 닫습니다.
+    /// </summary>
+    private void UpdateMapDoorState()
+    {
+        // 문이 이미 닫혔거나, 문/트리거가 설정되지 않았다면 처리하지 않음
+        if (_isMapDoorClosed || _mapDoorObject == null || _mapDoorTriggerColider == null)
+            return;
+
+        // 현재 씬에 존재하는 모든 플레이어 가져오기
+        List<PlayerController> players = GetAllPlayers();
+        if (players == null || players.Count == 0)
+            return;
+
+        // 한 명이라도 트리거 영역 밖이면 아직 닫지 않음
+        foreach (var player in players)
+        {
+            if (player == null || player.IsDead) continue;
+
+            Vector2 pos = player.transform.position;
+            // Collider2D의 OverlapPoint를 사용해 포인트가 트리거 안에 있는지 검사
+            if (!_mapDoorTriggerColider.OverlapPoint(pos))
+            {
+                return; // 아직 모두 들어오지 않음
+            }
+        }
+
+        // 여기까지 왔으면 "모든 살아있는 플레이어"가 트리거 안에 있음 → 문 닫기
+        CloseMapDoor();
+    }
+
+    /// <summary>
+    /// 맵 문을 닫습니다. (애니메이션/상태 변경은 이 메서드 안에서 처리)
+    /// </summary>
+    private void CloseMapDoor()
+    {
+        if (_isMapDoorClosed) return;
+
+        _isMapDoorClosed = true;
+
+        if (_mapDoorObject != null)
+        {
+            // 기본 구현: 문 오브젝트 비활성화 (필요 시 애니메이션으로 교체 가능)
+            _mapDoorObject.SetActive(true);
+        }
+
+        Debug.Log("[MainGameManager] All players entered map door trigger. Door closed.");
+    }
     
     // 플레이어 제거 처리
     public void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
