@@ -2,6 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 /// <summary>
 /// 게임 전반에 걸쳐 사용되는 데이터를 관리하는 매니저입니다.
 /// 플레이어 초기 데이터, 캐릭터 서비스 등을 제공합니다.
@@ -92,20 +96,14 @@ public class GameDataManager : MonoBehaviour
         
         ValidateData();
         
-        // 각 서비스에서 데이터 자동 로드 (에디터에서만 작동)
-        _characterService.LoadDataFromAssets();
-        _enemyService.LoadDataFromAssets();
-        _magicService.LoadDataFromAssets();
-        _stageService.LoadDataFromAssets();
-        
-        // 각 서비스의 딕셔너리 초기화
+        // 런타임에는 딕셔너리만 구축 (파일 로드 X)
         _characterService.InitializeDictionary();
         _magicService.InitializeDictionary();
         _enemyService.InitializeDictionary();
         _stageService.InitializeDictionary();
         
         IsInitialized = true;
-        Debug.Log("[GameDataManager] Initialized");
+        Debug.Log("[GameDataManager] Initialized (Runtime)");
     }
 
     /// <summary>
@@ -119,7 +117,7 @@ public class GameDataManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("[GameDataManager] InitialPlayerData가 null입니다. 기본값으로 초기화합니다.");
+            Debug.LogWarning("[GameDataManager] InitialPlayerData is null. Initializing with default values.");
             _initialPlayerData = new InitialPlayerData();
             _initialPlayerData.SetDefaults();
         }
@@ -127,6 +125,35 @@ public class GameDataManager : MonoBehaviour
 
     #region Editor Methods
 #if UNITY_EDITOR
+    /// <summary>
+    /// [수동 로드 기능] 인스펙터 우클릭 메뉴에 추가됩니다.
+    /// 에디터에서 이 버튼을 눌러 데이터를 갱신하고 Ctrl+S로 씬을 저장하세요.
+    /// </summary>
+    [ContextMenu("Load All Data From Assets")]
+    public void LoadAllDataFromAssets()
+    {
+        Debug.Log("[GameDataManager] Starting to load all data from assets...");
+
+        // 각 서비스에 'this(GameDataManager)'를 넘겨주어 저장을 요청함
+        _characterService.LoadDataFromAssets(this);
+        _magicService.LoadDataFromAssets(this);
+        _enemyService.LoadDataFromAssets(this);
+        _stageService.LoadDataFromAssets(this);
+
+        // 마지막으로 강제 저장 표시
+        EditorUtility.SetDirty(this);
+        Debug.Log("[GameDataManager] All data loaded successfully. Please save the scene (Ctrl+S)!");
+    }
+
+    /// <summary>
+    /// [에디터 전용] 모든 스테이지 씬이 Build Settings에 등록되어 있는지 검증합니다.
+    /// </summary>
+    [ContextMenu("Validate Stage Build Settings")]
+    public void ValidateStageBuildSettings()
+    {
+        _stageService.ValidateBuildSettings();
+    }
+
     /// <summary>
     /// Unity Inspector에서 Reset 버튼을 누를 때 호출됩니다.
     /// </summary>
@@ -137,7 +164,7 @@ public class GameDataManager : MonoBehaviour
             _initialPlayerData = new InitialPlayerData();
         }
         _initialPlayerData.SetDefaults();
-        Debug.Log("[GameDataManager] 데이터가 기본값으로 리셋되었습니다.");
+        Debug.Log("[GameDataManager] Data has been reset to default values.");
     }
 
     /// <summary>

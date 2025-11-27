@@ -27,6 +27,10 @@ public partial class MainGameManager : MonoBehaviour
         new Vector2(0, -2)
     };
     [SerializeField] private List<EnemySpawner> _enemySpawners = new List<EnemySpawner>();
+    
+    [Header("Stage Settings")]
+    [Tooltip("현재 스테이지 데이터 (StageData)")]
+    [SerializeField] private StageData _currentStageData;
 
     [Header("Level Settings")]
     [SerializeField] private GameObject _mapDoorObject;
@@ -157,8 +161,85 @@ public partial class MainGameManager : MonoBehaviour
         }
         
         InitializeMainCameraForNetworkMode();
+        
+        // 스테이지 데이터 기반 적 스폰 초기화
+        InitializeStageEnemySpawning();
+        
         GameManager.Instance?.FinishLoadingScreen();
     }
+    
+    /// <summary>
+    /// 스테이지 데이터를 기반으로 적 스폰을 초기화합니다.
+    /// </summary>
+    private void InitializeStageEnemySpawning()
+    {
+        if (_currentStageData == null)
+        {
+            Debug.LogWarning("[MainGameManager] Current stage data is not set. Enemy spawning will be skipped.");
+            return;
+        }
+
+        if (_currentStageData.waveDataList == null || _currentStageData.waveDataList.Count == 0)
+        {
+            Debug.LogWarning($"[MainGameManager] Stage '{_currentStageData.stageName}' has no wave data.");
+            return;
+        }
+
+        // 첫 번째 웨이브 자동 시작 (추후 웨이브 진행 로직 추가 가능)
+        StartWave(0);
+    }
+    
+    /// <summary>
+    /// 특정 웨이브를 시작합니다.
+    /// </summary>
+    /// <param name="waveIndex">시작할 웨이브 인덱스</param>
+    public void StartWave(int waveIndex)
+    {
+        if (_currentStageData == null)
+        {
+            Debug.LogError("[MainGameManager] Current stage data is null!");
+            return;
+        }
+
+        if (waveIndex < 0 || waveIndex >= _currentStageData.waveDataList.Count)
+        {
+            Debug.LogError($"[MainGameManager] Invalid wave index: {waveIndex} (Total waves: {_currentStageData.waveDataList.Count})");
+            return;
+        }
+
+        WaveData waveData = _currentStageData.waveDataList[waveIndex];
+        if (waveData == null)
+        {
+            Debug.LogError($"[MainGameManager] Wave data at index {waveIndex} is null!");
+            return;
+        }
+
+        Debug.Log($"[MainGameManager] Starting wave {waveIndex} for stage '{_currentStageData.stageName}'");
+
+        // 모든 EnemySpawner에 웨이브 데이터 전달
+        foreach (var spawner in _enemySpawners)
+        {
+            if (spawner != null)
+            {
+                spawner.SpawnWave(waveData);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 현재 스테이지 데이터를 설정합니다.
+    /// </summary>
+    /// <param name="stageData">설정할 스테이지 데이터</param>
+    public void SetStageData(StageData stageData)
+    {
+        _currentStageData = stageData;
+        Debug.Log($"[MainGameManager] Stage data set to: {stageData?.stageName ?? "null"}");
+    }
+    
+    /// <summary>
+    /// 현재 스테이지 데이터를 가져옵니다.
+    /// </summary>
+    public StageData GetCurrentStageData() => _currentStageData;
     
     /// <summary>
     /// 클라이언트에서 이미 스폰된 플레이어를 찾아서 딕셔너리에 등록합니다.

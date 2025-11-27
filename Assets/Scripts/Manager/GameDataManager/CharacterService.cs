@@ -2,6 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 [System.Serializable]
 public class CharacterService
 {
@@ -11,26 +15,23 @@ public class CharacterService
     
     private Dictionary<string, CharacterData> _characterDict = new Dictionary<string, CharacterData>();
     private bool _isInitialized = false;
-    private bool _isDataLoaded = false;
     
     /// <summary>
-    /// Assets/Datas/Character 폴더에서 모든 CharacterData를 자동으로 로드합니다.
-    /// 에디터에서만 작동하며, 런타임에서는 Inspector에 할당된 리스트를 사용합니다.
+    /// Assets/Datas/Character 폴더에서 모든 CharacterData를 자동으로 로드합니다. (에디터 전용)
     /// </summary>
-    public void LoadDataFromAssets()
+    /// <param name="owner">데이터 저장을 위해 GameDataManager 인스턴스를 받습니다.</param>
+    public void LoadDataFromAssets(MonoBehaviour owner)
     {
-        if (_isDataLoaded) return;
-        
 #if UNITY_EDITOR
         _characters.Clear();
         
         // Assets/Datas/Character 폴더에서 모든 CharacterData 찾기
-        string[] guids = UnityEditor.AssetDatabase.FindAssets($"t:{nameof(CharacterData)}", new[] { "Assets/Datas/Character" });
+        string[] guids = AssetDatabase.FindAssets($"t:{nameof(CharacterData)}", new[] { "Assets/Datas/Character" });
         
         foreach (string guid in guids)
         {
-            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            CharacterData characterData = UnityEditor.AssetDatabase.LoadAssetAtPath<CharacterData>(assetPath);
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            CharacterData characterData = AssetDatabase.LoadAssetAtPath<CharacterData>(assetPath);
             
             if (characterData != null)
             {
@@ -41,25 +42,28 @@ public class CharacterService
         // 이름순으로 정렬 (0, 1, 2 순서 유지)
         _characters.Sort((a, b) => string.Compare(a.name, b.name, System.StringComparison.Ordinal));
         
-        Debug.Log($"[CharacterService] {_characters.Count}개의 캐릭터 데이터를 자동으로 로드했습니다.");
-        _isDataLoaded = true;
-#else
-        // 런타임에서는 이미 Inspector에 할당된 리스트를 사용
-        _isDataLoaded = true;
+        // [중요] 변경 사항 저장 표시 (Dirty Flag)
+        // 이 코드가 있어야 씬이나 프리팹 저장 시 리스트가 함께 저장됩니다.
+        if (owner != null)
+        {
+            EditorUtility.SetDirty(owner);
+        }
+        
+        Debug.Log($"[CharacterService] Loaded {_characters.Count} characters. Ready to save.");
 #endif
     }
     
     /// <summary>
-    /// 딕셔너리를 초기화합니다. GameDataManager의 Initialize에서 호출됩니다.
+    /// 딕셔너리를 초기화합니다. (런타임용)
     /// </summary>
     public void InitializeDictionary()
     {
         if (_isInitialized) return;
         
-        // 데이터가 로드되지 않았다면 먼저 로드
-        if (!_isDataLoaded)
+        // 런타임에서는 LoadDataFromAssets를 자동 호출하지 않음 (이미 저장된 리스트 사용)
+        if (_characters == null || _characters.Count == 0)
         {
-            LoadDataFromAssets();
+            Debug.LogWarning("[CharacterService] Character list is empty! Please run 'Load All Data From Assets' in the editor and save the scene.");
         }
         
         _characterDict.Clear();

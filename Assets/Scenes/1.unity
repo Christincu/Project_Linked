@@ -283,6 +283,18 @@ PrefabInstance:
       propertyPath: _mapDoorTriggerColider
       value: 
       objectReference: {fileID: 324234266}
+    - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
+      propertyPath: _enemySpawners.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
+      propertyPath: _enemySpawners.Array.data[0]
+      value: 
+      objectReference: {fileID: 324234272}
+    - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
+      propertyPath: _enemySpawners.Array.data[1]
+      value: 
+      objectReference: {fileID: 1824168695}
     - target: {fileID: 1935061100617456413, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: m_Name
       value: MainGameManager
@@ -391,6 +403,17 @@ BoxCollider2D:
   m_CorrespondingSourceObject: {fileID: 2425777844429457747, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
   m_PrefabInstance: {fileID: 324234264}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &324234272 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3528851260292451071, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+  m_PrefabInstance: {fileID: 324234264}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81efd6bed25e3fa459f7fd49bbf18043, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1169034970
 GameObject:
   m_ObjectHideFlags: 0
@@ -770,6 +793,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 695390244265830638, guid: e9283f047bef3754ca2fde9b919be557, type: 3}
   m_PrefabInstance: {fileID: 1761493957}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1824168695 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3954228600014245481, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+  m_PrefabInstance: {fileID: 324234264}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81efd6bed25e3fa459f7fd49bbf18043, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -1496,6 +1496,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4934417101293020395}
+  - component: {fileID: 3954228600014245481}
   m_Layer: 0
   m_Name: SpawnPointGroup2
   m_TagString: Untagged
@@ -1522,6 +1523,27 @@ Transform:
   - {fileID: 1518503088631522473}
   m_Father: {fileID: 7516029446042760410}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3954228600014245481
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 360212842422971691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81efd6bed25e3fa459f7fd49bbf18043, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _enemyData: {fileID: 0}
+  _enemyPrefab:
+    RawGuidValue: 58705ebc189c19d45bae0fbdfb9fd6da
+  _firstSpawnDelay: 0.5
+  _spawnTransforms:
+  - {fileID: 7064104604391447878}
+  - {fileID: 6415755064095764343}
+  - {fileID: 349054808140213316}
+  - {fileID: 1518503088631522473}
 --- !u!1 &375765830785961892
 GameObject:
   m_ObjectHideFlags: 0
@@ -6884,6 +6906,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6650594965259114141}
+  - component: {fileID: 3528851260292451071}
   m_Layer: 0
   m_Name: SpawnPointGroup1
   m_TagString: Untagged
@@ -6910,6 +6933,27 @@ Transform:
   - {fileID: 6317563722966130986}
   m_Father: {fileID: 7516029446042760410}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3528851260292451071
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3311085703046083516}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81efd6bed25e3fa459f7fd49bbf18043, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _enemyData: {fileID: 0}
+  _enemyPrefab:
+    RawGuidValue: 58705ebc189c19d45bae0fbdfb9fd6da
+  _firstSpawnDelay: 0.5
+  _spawnTransforms:
+  - {fileID: 7704537604827287461}
+  - {fileID: 926267853682012324}
+  - {fileID: 3934224132226591196}
+  - {fileID: 6317563722966130986}
 --- !u!1 &3463600069946647789
 GameObject:
   m_ObjectHideFlags: 0

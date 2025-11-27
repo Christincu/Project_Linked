@@ -17,6 +17,8 @@ public class MainCanvas : MonoBehaviour, ICanvas
     [SerializeField] private GameObject _hpImgObjPrefab;
     [SerializeField] private Transform _hpContent;
     [SerializeField] private TextMeshProUGUI _playerNameText;
+    [SerializeField] private TextMeshProUGUI _waveText;
+    [SerializeField] private TextMeshProUGUI _goalText;
 
     public Transform CanvasTransform => transform;
 

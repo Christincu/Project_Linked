@@ -11,9 +11,6 @@ public class StageData : ScriptableObject
     public string code;
 
     [Header("Stage Info")]
-    [Tooltip("Stage identifier code (integer)")]
-    public int stageCode = 0;
-    
     [Tooltip("Stage name")]
     public string stageName = string.Empty;
     

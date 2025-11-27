@@ -106,6 +106,7 @@
     <Compile Include="Assets\Scripts\Player\Detection\PlayerDetectionManager.cs" />
     <Compile Include="Assets\Making\CinemachineCameraController.cs" />
     <Compile Include="Assets\Scripts\Player\Magic\Handlers\ICombinedMagicHandler.cs" />
+    <Compile Include="Assets\Scripts\Camera\MainCameraController.cs" />
     <Compile Include="Assets\Scripts\Player\Core\PlayerController.cs" />
     <Compile Include="Assets\Scripts\Player\State\PlayerBehavior.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_ExampleScript_01.cs" />
@@ -147,7 +148,6 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TextMeshProFloatingText.cs" />
     <Compile Include="Assets\Scripts\UI\WarningPanel.cs" />
     <Compile Include="Assets\Scripts\Player\Core\PlayerInputData.cs" />
-    <Compile Include="Assets\Scripts\Player\Camera\MainCameraController.cs" />
     <Compile Include="Assets\Scripts\Player\Magic\Handlers\DashMagicHandler.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\ShaderPropAnimator.cs" />
     <Compile Include="Assets\Scripts\Magic\DashMagicObject\DashMagicObject.Visual.cs" />
