@@ -11,7 +11,7 @@ using TMPro;
 public class CutSceneDialogue : MonoBehaviour
 {
     #region Events / State
-    public event Action OnClosed;      // 대사 종료(UI 비활성) 시 알림
+    public event Action OnClosed;
     public bool IsPlaying => _isPlaying;
     #endregion
 
@@ -38,6 +38,10 @@ public class CutSceneDialogue : MonoBehaviour
     public float clickBlockDurationOnStart = 0.2f;
     private float _blockUntilTime = 0f;
     private bool _armedForClick = false;
+
+    [Header("Mid Timeline (Optional)")]
+    [Tooltip("대사 중간 연출을 담당하는 Zone (CutsceneZoneTimeline)")]
+    public CutsceneZoneTimeline midTimelineZone;
     #endregion
 
     #region CSV
@@ -75,6 +79,10 @@ public class CutSceneDialogue : MonoBehaviour
     private List<LineData> _cur = new();
     private int _idx = -1;
     private bool _isPlaying = false;
+
+    // 중간 타임라인 트리거용
+    private string _currentCategory = "";
+    private int _currentLineIndex = 0;
     #endregion
 
     #region UI
@@ -198,6 +206,10 @@ public class CutSceneDialogue : MonoBehaviour
         _armedForClick = false;
 
         _idx = -1;
+
+        _currentCategory = playByCsvOrder ? "" : category;
+        _currentLineIndex = 0;
+
         Advance(); // 첫 줄 표시(빈줄 자동 스킵 포함)
     }
 
@@ -214,6 +226,19 @@ public class CutSceneDialogue : MonoBehaviour
         _currentSprite = _previousSprite = null;
 
         OnClosed?.Invoke();
+    }
+
+    // 중간 타임라인에서 쓰는 Pause/Resume
+    public void PauseDialogue()
+    {
+        _isPlaying = false;
+    }
+
+    public void ResumeDialogue()
+    {
+        if (_isPlaying) return;
+        _isPlaying = true;
+        DrawCurrent();
     }
     #endregion
 
@@ -241,12 +266,30 @@ public class CutSceneDialogue : MonoBehaviour
             return;
         }
 
+        var line = _cur[_idx];
+
+        // playByCsvOrder 인 경우에도, 실제 라인에 적힌 category 를 사용
+        _currentCategory = string.IsNullOrEmpty(line.category) ? _currentCategory : line.category;
+        _currentLineIndex++;
+
+        // 존에 "지금 줄에서 midTimeline 실행할래?" 물어보기
+        if (midTimelineZone != null)
+        {
+            bool played = midTimelineZone.TryPlayMidTimeline(this, _currentCategory, _currentLineIndex);
+            if (played)
+            {
+                // 중간 타임라인이 실행되면, DrawCurrent는 ResumeDialogue에서 호출
+                return;
+            }
+        }
+
         DrawCurrent();
     }
 
     private void DrawCurrent()
     {
         if (!_isPlaying) return;
+        if (_idx < 0 || _idx >= _cur.Count) return;
 
         var line = _cur[_idx];
 
@@ -276,14 +319,46 @@ public class CutSceneDialogue : MonoBehaviour
 
         if (charNameText) charNameText.text = "";
         if (dialogueText) dialogueText.text = "";
+
+        _thirdCharacterSprite = null;
+        _thirdCharacterName = null;
     }
+
     #endregion
 
     #region Portrait
+
+    [Header("Special Third Character (항상 세 번째 슬롯에 고정)")]
+    [Tooltip("예: Mariel. 비워두면 기능 사용 안 함")]
+    public string thirdSlotCharacterName = "Mariel";
+
+    [Tooltip("마리엘이 말하지 않을 때도 항상 세 번째 슬롯에 희미하게 보일지 여부")]
+    public bool keepThirdCharacterAlwaysVisible = true;
+
+    private Sprite _thirdCharacterSprite;
+    private string _thirdCharacterName;
+
     private void ApplyPortrait(LineData line)
     {
-        Sprite s = LoadIllustrateSprite(line.character, line.illustrate);
-        bool hasSprite = s != null;
+        bool isThirdChar = !string.IsNullOrEmpty(thirdSlotCharacterName) &&
+                           string.Equals(line.character, thirdSlotCharacterName, StringComparison.OrdinalIgnoreCase);
+
+        if (isThirdChar)
+        {
+            Sprite s = LoadIllustrateSprite(line.character, line.illustrate);
+            _thirdCharacterSprite = s;
+            _thirdCharacterName = line.character;
+
+            if (thirdImage)
+            {
+                ShowImage(thirdImage, s, speakerColor, bringToFront: true);
+            }
+
+            return;
+        }
+
+        Sprite sp = LoadIllustrateSprite(line.character, line.illustrate);
+        bool hasSprite = sp != null;
 
         bool speakerChanged = (_currentSpeaker == null)
                            || !string.Equals(_currentSpeaker, line.character, StringComparison.OrdinalIgnoreCase);
@@ -301,23 +376,28 @@ public class CutSceneDialogue : MonoBehaviour
             else ClearImage(firstImage);
 
             _currentSpeaker = line.character;
-            _currentSprite = s;
+            _currentSprite = sp;
 
-            if (hasSprite) ShowImage(secondImage, s, speakerColor, bringToFront: true);
+            if (hasSprite) ShowImage(secondImage, sp, speakerColor, bringToFront: true);
             else ClearImage(secondImage);
-
-            ClearImage(thirdImage);
         }
         else
         {
-            _currentSprite = s;
+            _currentSprite = sp;
 
-            if (hasSprite) ShowImage(secondImage, s, speakerColor, bringToFront: true);
+            if (hasSprite) ShowImage(secondImage, sp, speakerColor, bringToFront: true);
             else ClearImage(secondImage);
 
             if (_previousSprite) ShowImage(firstImage, _previousSprite, dimColor, sendToBack: true);
             else ClearImage(firstImage);
+        }
 
+        if (keepThirdCharacterAlwaysVisible && _thirdCharacterSprite && thirdImage)
+        {
+            ShowImage(thirdImage, _thirdCharacterSprite, dimColor);
+        }
+        else if (!keepThirdCharacterAlwaysVisible)
+        {
             ClearImage(thirdImage);
         }
     }
@@ -478,14 +558,11 @@ public class CutSceneDialogue : MonoBehaviour
 
             var cells = ParseCsv(line);
 
-            // 최소 칼럼 체크(헤더 파일 기준)
             if (cells.Count <= Math.Max(colLine, Math.Max(colCategory, colOrder)))
                 continue;
 
-            // Line 이후는 모두 합쳐 콤마 내성 확보
             string mergedLine = string.Join(",", cells.Skip(colLine)).Trim();
 
-            // 완전 빈 레코드 스킵(캐릭터/일러/대사 모두 공백)
             bool allEmpty = string.IsNullOrWhiteSpace(cells[colCharacter])
                          && string.IsNullOrWhiteSpace(cells[colIllustrate])
                          && string.IsNullOrWhiteSpace(mergedLine);

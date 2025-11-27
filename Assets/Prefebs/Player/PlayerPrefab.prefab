@@ -393,6 +393,9 @@ MonoBehaviour:
     _value: 0
   _DashVelocity: {x: 0, y: 0}
   _DashLastInputDirection: {x: 0, y: 0}
+  _DashPendingRecoilDirection: {x: 0, y: 0}
+  _DashIsWaitingToRecoil:
+    _value: 0
   _ThreatScore: 0
   _magicViewObj: {fileID: 1215593109106226948}
   _magicAnchor: {fileID: 762830782927680907}
