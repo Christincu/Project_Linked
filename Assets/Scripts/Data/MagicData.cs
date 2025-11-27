@@ -1,8 +1,11 @@
+using System;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Magic", menuName = "Game/Magic Data")]
 public class MagicData : ScriptableObject
 {
+    public string code;
+
     [Header("Basic Info")]
     public int magicCode;
     public string magicName;
@@ -29,4 +32,14 @@ public class MagicData : ScriptableObject
     [Header("Prefabs")]
     [Tooltip("마법 발사체 프리팹 (일반 마법용)")]
     public GameObject magicProjectilePrefab;
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (string.IsNullOrEmpty(code))
+        {
+            code = Guid.NewGuid().ToString();
+        }
+    }
+#endif
 }

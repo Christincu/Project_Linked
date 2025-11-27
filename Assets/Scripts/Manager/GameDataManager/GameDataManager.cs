@@ -15,9 +15,14 @@ public class GameDataManager : MonoBehaviour
     [SerializeField] private InitialPlayerData _initialPlayerData = new InitialPlayerData();
     
     [Header("Services")]
+    [HideInInspector]
     [SerializeField] private CharacterService _characterService = new CharacterService();
+    [HideInInspector]
     [SerializeField] private MagicService _magicService = new MagicService();
+    [HideInInspector]
     [SerializeField] private EnemyService _enemyService = new EnemyService();
+    [HideInInspector]
+    [SerializeField] private StageService _stageService = new StageService();
 
     #region Properties
     public Material DefaltSpriteMat => _defaltSpriteMat;
@@ -41,6 +46,11 @@ public class GameDataManager : MonoBehaviour
     /// 적 서비스에 대한 접근을 제공합니다.
     /// </summary>
     public EnemyService EnemyService => _enemyService;
+    
+    /// <summary>
+    /// 스테이지 서비스에 대한 접근을 제공합니다.
+    /// </summary>
+    public StageService StageService => _stageService;
     #endregion
 
     #region Singleton
@@ -81,6 +91,19 @@ public class GameDataManager : MonoBehaviour
         }
         
         ValidateData();
+        
+        // 각 서비스에서 데이터 자동 로드 (에디터에서만 작동)
+        _characterService.LoadDataFromAssets();
+        _enemyService.LoadDataFromAssets();
+        _magicService.LoadDataFromAssets();
+        _stageService.LoadDataFromAssets();
+        
+        // 각 서비스의 딕셔너리 초기화
+        _characterService.InitializeDictionary();
+        _magicService.InitializeDictionary();
+        _enemyService.InitializeDictionary();
+        _stageService.InitializeDictionary();
+        
         IsInitialized = true;
         Debug.Log("[GameDataManager] Initialized");
     }

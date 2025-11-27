@@ -8,6 +8,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "New Magic Combination", menuName = "Game/Magic Combination Data")]
 public class MagicCombinationData : ScriptableObject
 {
+    public string code;
+
     [Header("Combination Info")]
     [Tooltip("첫 번째 마법 코드")]
     public int magicCode1;
@@ -45,5 +47,15 @@ public class MagicCombinationData : ScriptableObject
     {
         return magicCode1 != -1 && magicCode2 != -1 && resultMagicCode != -1;
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (string.IsNullOrEmpty(code))
+        {
+            code = Guid.NewGuid().ToString();
+        }
+    }
+#endif
 }
 

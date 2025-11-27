@@ -11,14 +11,15 @@ public class EnemySpawner : MonoBehaviour
 {
     [Header("Enemy Settings")]
     [Tooltip("스폰할 적 데이터")]
-    [SerializeField] private EnemyData enemyData;
+    [SerializeField] private EnemyData _enemyData;
     
     [Tooltip("적 프리팹 (NetworkObject 컴포넌트 포함)")]
-    [SerializeField] private NetworkPrefabRef enemyPrefab;
+    [SerializeField] private NetworkPrefabRef _enemyPrefab;
 
     [Header("Spawn Settings")]
     [Tooltip("스폰 지연 시간 (초)")]
-    [SerializeField] private float spawnDelay = 0.5f;
+    [SerializeField] private float _firstSpawnDelay = 0.5f;
+    [SerializeField] private List<Transform> _spawnTransforms = new List<Transform>();
 
     private NetworkRunner _runner;
     private bool _hasSpawned = false;
@@ -44,6 +45,11 @@ public class EnemySpawner : MonoBehaviour
         }
     }
 
+    public void Initialize()
+    {
+
+    }
+
     private IEnumerator WaitForRunnerAndSpawn()
     {
         while (_runner == null || !_runner.IsRunning)
@@ -60,10 +66,10 @@ public class EnemySpawner : MonoBehaviour
 
     private IEnumerator SpawnEnemyCoroutine()
     {
-        if (_hasSpawned || enemyData == null) yield break;
+        if (_hasSpawned || _enemyData == null) yield break;
 
         // 스폰 지연
-        yield return new WaitForSeconds(spawnDelay);
+        yield return new WaitForSeconds(_firstSpawnDelay);
 
         // 서버에서만 스폰
         if (_runner != null && _runner.IsServer)
@@ -76,13 +82,13 @@ public class EnemySpawner : MonoBehaviour
 
     private void SpawnEnemy()
     {
-        if (enemyData == null)
+        if (_enemyData == null)
         {
             Debug.LogError("[EnemySpawner] EnemyData가 설정되지 않았습니다!");
             return;
         }
 
-        if (enemyPrefab.IsValid == false)
+        if (_enemyPrefab.IsValid == false)
         {
             Debug.LogError("[EnemySpawner] EnemyPrefab이 설정되지 않았습니다!");
             return;
@@ -92,7 +98,7 @@ public class EnemySpawner : MonoBehaviour
 
         // 적 스폰
         NetworkObject enemyObject = _runner.Spawn(
-            enemyPrefab,
+            _enemyPrefab,
             spawnPosition,
             Quaternion.identity,
             null, // InputAuthority는 없음
@@ -101,7 +107,7 @@ public class EnemySpawner : MonoBehaviour
                 if (obj.TryGetComponent(out EnemyController controller))
                 {
                     // EnemyService에서 EnemyIndex 찾기
-                    int enemyIndex = FindEnemyIndex(enemyData);
+                    int enemyIndex = FindEnemyIndex(_enemyData);
                     if (enemyIndex >= 0)
                     {
                         controller.SetEnemyIndex(enemyIndex);
@@ -149,10 +155,10 @@ public class EnemySpawner : MonoBehaviour
         Gizmos.DrawWireSphere(transform.position, 0.5f);
 
         // 시야 범위 표시 (enemyData가 있으면)
-        if (enemyData != null)
+        if (_enemyData != null)
         {
             Gizmos.color = new Color(0f, 1f, 0f, 0.6f);
-            Gizmos.DrawWireSphere(transform.position, enemyData.detectionRange);
+            Gizmos.DrawWireSphere(transform.position, _enemyData.detectionRange);
         }
     }
     #endif

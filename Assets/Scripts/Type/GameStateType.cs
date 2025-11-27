@@ -1,6 +1,6 @@
 public enum GameStateType
 {
-    Lobby,      // ·Îºñ »óÅÂ
-    Playing,    // °ÔÀÓ Áß
-    Loading     // ·Îµù Áß
+    Lobby,      // ë¡œë¹„
+    Playing,    // í”Œë ˆì´ë§
+    Loading     // ë¡œë”©
 }

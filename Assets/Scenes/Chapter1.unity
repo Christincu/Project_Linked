@@ -332,10 +332,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 2805889569638641621, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
-      propertyPath: m_BodyType
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 6590728605844051902, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
       propertyPath: m_Name
       value: BattleTestRoomPrefab
@@ -379,10 +375,6 @@ PrefabInstance:
     - target: {fileID: 7516029446042760410, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8897143351908305458, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
-      propertyPath: m_BodyType
-      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

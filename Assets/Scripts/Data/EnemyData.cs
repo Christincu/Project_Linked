@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using WebSocketSharp;
 
 /// <summary>
 /// 적의 데이터를 정의하는 ScriptableObject입니다.
@@ -9,6 +11,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "New Enemy", menuName = "Game/Enemy Data")]
 public class EnemyData : ScriptableObject
 {
+    public string code;
+
     [Header("Enemy Info")]
     [Tooltip("Enemy name")]
     public string enemyName;
@@ -59,4 +63,14 @@ public class EnemyData : ScriptableObject
     
     [Tooltip("시작 체력")]
     public float startingHealth = 10f;
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (string.IsNullOrEmpty(code))
+        {
+            code = Guid.NewGuid().ToString();
+        }
+    }
+#endif
 }

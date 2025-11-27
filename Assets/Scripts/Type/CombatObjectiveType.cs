@@ -1,6 +1,6 @@
-public enum CombatObjectiveType
+public enum WaveGoalType
 {
-    Kill,
-    Survive,    // °ÔÀÓ Áß
-    Collect     // ·Îµù Áß
+    Kill,       // ì²˜ì¹˜
+    Survive,    // ìƒì¡´
+    Collect     // ìˆ˜ì§‘
 }

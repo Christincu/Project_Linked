@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,6 +6,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "New Character", menuName = "Game/Character Data")]
 public class CharacterData : ScriptableObject
 {
+    public string code;
+
     [Header("Character Info")]
     [Tooltip("Character name")]
     public string characterName;
@@ -24,5 +27,15 @@ public class CharacterData : ScriptableObject
 
     public MagicData magicData1;
     public MagicData magicData2;
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (string.IsNullOrEmpty(code))
+        {
+            code = Guid.NewGuid().ToString();
+        }
+    }
+#endif
 }
 
