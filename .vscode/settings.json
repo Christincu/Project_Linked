@@ -36,7 +36,6 @@
         "**/*.MA": true,
         "**/*.obj": true,
         "**/*.OBJ": true,
-        "**/*.asset": true,
         "**/*.cubemap": true,
         "**/*.flare": true,
         "**/*.mat": true,
@@ -57,5 +56,6 @@
         "Temp/": true
     },
     "dotnet.defaultSolution": "Project_Linked.sln",
-    "dotnet.preferCSharpExtension": true
+    "dotnet.preferCSharpExtension": true,
+    "csharp.suppressBuildAssetsNotification": false
 }

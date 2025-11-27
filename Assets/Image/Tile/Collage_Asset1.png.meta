@@ -1,0 +1,1720 @@
+fileFormatVersion: 2
+guid: a9b7c823039edc6498c66eab32c30f36
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 95
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 3
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Collage_Asset1_0
+      rect:
+        serializedVersion: 2
+        x: 78
+        y: 819
+        width: 279
+        height: 345
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bd3ebda5bf5cdf941b83b2bad6659602
+      internalID: 42683276
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_1
+      rect:
+        serializedVersion: 2
+        x: 399
+        y: 819
+        width: 279
+        height: 345
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7f44bcb14afb6cd408764f77de5afd15
+      internalID: -351479318
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_2
+      rect:
+        serializedVersion: 2
+        x: 771
+        y: 1038
+        width: 108
+        height: 123
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 58f3d79eb5537c84ab75682fc913cb58
+      internalID: 561018708
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_3
+      rect:
+        serializedVersion: 2
+        x: 1050
+        y: 1038
+        width: 108
+        height: 123
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 24acf06a0fd6d054d9d0d9d0f7e7ed8c
+      internalID: 46587084
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_4
+      rect:
+        serializedVersion: 2
+        x: 717
+        y: 834
+        width: 198
+        height: 177
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f817a66ac1d4de6458fca6a439633a68
+      internalID: 2031493837
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_5
+      rect:
+        serializedVersion: 2
+        x: 912
+        y: 942
+        width: 9
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 46df415670eafcd459563c69d25d1db4
+      internalID: -1234799273
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_6
+      rect:
+        serializedVersion: 2
+        x: 996
+        y: 834
+        width: 198
+        height: 177
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 75efc337d7d1a6841ac7a241a1f98a9d
+      internalID: 809564585
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_7
+      rect:
+        serializedVersion: 2
+        x: 1191
+        y: 942
+        width: 9
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4fd61b01b8e7a414494d18b9924d3053
+      internalID: 631553122
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_8
+      rect:
+        serializedVersion: 2
+        x: 63
+        y: 915
+        width: 15
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 91b33716f7a308748b3a43bfeeab1ec8
+      internalID: 1026208684
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_9
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 915
+        width: 15
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1aa078fbf88c87b429962427e6c21f80
+      internalID: 2139116646
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_10
+      rect:
+        serializedVersion: 2
+        x: 717
+        y: 903
+        width: 9
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7ac453a52c25b7b49ae81a9f89cf99ed
+      internalID: -515829052
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_11
+      rect:
+        serializedVersion: 2
+        x: 996
+        y: 903
+        width: 9
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dc8c3a47d82256740b8475fb6b811d0b
+      internalID: 1838021858
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_12
+      rect:
+        serializedVersion: 2
+        x: 57
+        y: 858
+        width: 24
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e7ec37ffc7eca7e45a3936a80bcbf47a
+      internalID: 447161275
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_13
+      rect:
+        serializedVersion: 2
+        x: 378
+        y: 858
+        width: 24
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b11e32068d58e9a4bb901d92046e55a3
+      internalID: 1186077344
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_14
+      rect:
+        serializedVersion: 2
+        x: 708
+        y: 852
+        width: 6
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1e18333096ca6b74f97b508f997fe506
+      internalID: 1204421430
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_15
+      rect:
+        serializedVersion: 2
+        x: 918
+        y: 849
+        width: 12
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 24bde085c9dde754bb2804dae92c9b15
+      internalID: 391311151
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_16
+      rect:
+        serializedVersion: 2
+        x: 987
+        y: 852
+        width: 6
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f81c545fcc1217040a5910d8e227aafd
+      internalID: 2030601513
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_17
+      rect:
+        serializedVersion: 2
+        x: 1197
+        y: 849
+        width: 12
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 38bfa3804eec89041b8d40cf7158011f
+      internalID: 713390281
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_18
+      rect:
+        serializedVersion: 2
+        x: 738
+        y: 825
+        width: 78
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 604530dd245dc414589a4b371580aef7
+      internalID: -1583635052
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_19
+      rect:
+        serializedVersion: 2
+        x: 879
+        y: 831
+        width: 27
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 38b9fd3cf1718b54d946456b87798fba
+      internalID: -817533575
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_20
+      rect:
+        serializedVersion: 2
+        x: 1017
+        y: 825
+        width: 78
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ea37acbaa2248e348bfc2e561740ee7e
+      internalID: -731662699
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_21
+      rect:
+        serializedVersion: 2
+        x: 1158
+        y: 831
+        width: 27
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5286e2a77e231e049a4d6c4c3d7a116e
+      internalID: -1303441816
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_22
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 720
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1d0fea33d7061ae46931b6e6b86a2ccc
+      internalID: -1829182603
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_23
+      rect:
+        serializedVersion: 2
+        x: 162
+        y: 720
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e2ce5d877e1c55d47b1d9411d8f5b9d1
+      internalID: -293646897
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_24
+      rect:
+        serializedVersion: 2
+        x: 177
+        y: 720
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 11632171343570c42aa4783944e835ed
+      internalID: 1915145360
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_25
+      rect:
+        serializedVersion: 2
+        x: 240
+        y: 720
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5a76a16a43be68e43b848fb784b5ec48
+      internalID: -567502286
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_26
+      rect:
+        serializedVersion: 2
+        x: 258
+        y: 720
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 68bac801610fccc469457a421b829c04
+      internalID: 310546983
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_27
+      rect:
+        serializedVersion: 2
+        x: 273
+        y: 720
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b5340b87134a75647bb0521f5a86c23b
+      internalID: -2007310264
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_28
+      rect:
+        serializedVersion: 2
+        x: 672
+        y: 480
+        width: 288
+        height: 288
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 29722553112fed04ca7e6b4475d9bdfe
+      internalID: -1748912608
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_29
+      rect:
+        serializedVersion: 2
+        x: 1044
+        y: 708
+        width: 48
+        height: 42
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6efb642932aaf9a4ab58c0d4a437cf3b
+      internalID: -359602115
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_30
+      rect:
+        serializedVersion: 2
+        x: 1119
+        y: 711
+        width: 48
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 64f22bdacb187fd42ac034768b1eead0
+      internalID: -964714320
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_31
+      rect:
+        serializedVersion: 2
+        x: 1170
+        y: 708
+        width: 18
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 075462d5e7457794bb9fe068d42ec673
+      internalID: 884819876
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_32
+      rect:
+        serializedVersion: 2
+        x: 57
+        y: 624
+        width: 30
+        height: 78
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bc01dd748620b5343ac10b0655a0f5c9
+      internalID: -337146835
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_33
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 624
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9734a61db7e3d8e41abf6d6188c6ad45
+      internalID: 1895560627
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_34
+      rect:
+        serializedVersion: 2
+        x: 162
+        y: 624
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b35c5de6f74fdaa409c3675ff33c55be
+      internalID: -613859217
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_35
+      rect:
+        serializedVersion: 2
+        x: 177
+        y: 624
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 94b9925e6b51e924c99cc11586a250ce
+      internalID: -1208137577
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_36
+      rect:
+        serializedVersion: 2
+        x: 240
+        y: 624
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: acf9703cabe707842b7514a4fd8d9c16
+      internalID: 180691709
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_37
+      rect:
+        serializedVersion: 2
+        x: 258
+        y: 624
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 526a7d81f201c83458173e404d48a137
+      internalID: 150714499
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_38
+      rect:
+        serializedVersion: 2
+        x: 273
+        y: 624
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9b38d49c0c9716f45808e46160b19bd1
+      internalID: -932382318
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_39
+      rect:
+        serializedVersion: 2
+        x: 1041
+        y: 657
+        width: 12
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 798b3831302e6f84dab796a44b046e78
+      internalID: 925781
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_40
+      rect:
+        serializedVersion: 2
+        x: 1068
+        y: 657
+        width: 39
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 85ad1a5013bf5a54da0561d5f3fcff45
+      internalID: 285011591
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_41
+      rect:
+        serializedVersion: 2
+        x: 1110
+        y: 657
+        width: 42
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 381957ab70a2f244b90c88081b41b9be
+      internalID: 212369102
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_42
+      rect:
+        serializedVersion: 2
+        x: 1164
+        y: 657
+        width: 36
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bb7dae4b6b81bfd47a8ef33aca064aa0
+      internalID: -937903162
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_43
+      rect:
+        serializedVersion: 2
+        x: 1041
+        y: 609
+        width: 18
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e850b677fd0a5514faa643e7a793d59b
+      internalID: 623243976
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_44
+      rect:
+        serializedVersion: 2
+        x: 1065
+        y: 606
+        width: 18
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 28e138676d8f4a6478536b484e5b0f4f
+      internalID: -2102047749
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_45
+      rect:
+        serializedVersion: 2
+        x: 1086
+        y: 606
+        width: 33
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 38875a3b12c75a640bfe3ee6d805af8c
+      internalID: -1797476245
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_46
+      rect:
+        serializedVersion: 2
+        x: 1131
+        y: 606
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5b07730eb705e85429da982364bab367
+      internalID: 1598965206
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_47
+      rect:
+        serializedVersion: 2
+        x: 1155
+        y: 606
+        width: 48
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 90444ebadb6fff44f8632f760520e26c
+      internalID: -1796040149
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_48
+      rect:
+        serializedVersion: 2
+        x: 1041
+        y: 555
+        width: 18
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 74f0a86b1a44b524e84f724cd31db250
+      internalID: 129988337
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_49
+      rect:
+        serializedVersion: 2
+        x: 1062
+        y: 555
+        width: 42
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 539bca3ac4b49e941905293e3a2ca7dd
+      internalID: -1703974389
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_50
+      rect:
+        serializedVersion: 2
+        x: 1131
+        y: 555
+        width: 9
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 096dabfc394c2134c88ba5f25b3ed166
+      internalID: -327370534
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_51
+      rect:
+        serializedVersion: 2
+        x: 1146
+        y: 555
+        width: 18
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 483481bfd0e0fe747846fd1db2c6fb0b
+      internalID: -1631575343
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_52
+      rect:
+        serializedVersion: 2
+        x: 1167
+        y: 555
+        width: 24
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1159238e6f603a744a5ab2fc2883c59b
+      internalID: -1543218675
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_53
+      rect:
+        serializedVersion: 2
+        x: 51
+        y: 384
+        width: 138
+        height: 126
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 834ca0110a9a8154ab8996b792534700
+      internalID: 135148819
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_54
+      rect:
+        serializedVersion: 2
+        x: 255
+        y: 384
+        width: 132
+        height: 168
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ea2e7891411eb444497e8b03acd72bfc
+      internalID: 336325692
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_55
+      rect:
+        serializedVersion: 2
+        x: 1041
+        y: 504
+        width: 42
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dda206ade0323d849b5451296838f577
+      internalID: 1456742476
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_56
+      rect:
+        serializedVersion: 2
+        x: 1101
+        y: 504
+        width: 48
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d59ffaa5de958eb439a162b598c8488b
+      internalID: -1665351582
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_57
+      rect:
+        serializedVersion: 2
+        x: 1155
+        y: 501
+        width: 9
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bf72263d51a2b854bad3e48768644f40
+      internalID: 147119347
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_58
+      rect:
+        serializedVersion: 2
+        x: 1170
+        y: 501
+        width: 33
+        height: 42
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 60d2a2c597cccfa40a40f898f5f0d715
+      internalID: -1358417872
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_59
+      rect:
+        serializedVersion: 2
+        x: 720
+        y: 336
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a5fe419ce23475b4da8876eed6a9c1e8
+      internalID: -1428480704
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_60
+      rect:
+        serializedVersion: 2
+        x: 864
+        y: 336
+        width: 96
+        height: 75
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d80450f74d806e148bc89c734c286a81
+      internalID: -2057727063
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_61
+      rect:
+        serializedVersion: 2
+        x: 1008
+        y: 336
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ea062c1f2a200554c95cf75390adc4ac
+      internalID: -1415222511
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_62
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 192
+        width: 60
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 469668dc63e33e344b25c093f968756d
+      internalID: 1779084073
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_63
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 192
+        width: 60
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9a1c0f56aae59ad41886f83dece5af41
+      internalID: 1748248516
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_64
+      rect:
+        serializedVersion: 2
+        x: 336
+        y: 96
+        width: 192
+        height: 192
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ca81d6029895fa74daaf0cbbdc6ccdf6
+      internalID: 792790561
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_65
+      rect:
+        serializedVersion: 2
+        x: 750
+        y: 192
+        width: 66
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ebc449198fab9ad409ab13fedccaf4b0
+      internalID: 2016448659
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_66
+      rect:
+        serializedVersion: 2
+        x: 864
+        y: 192
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8582878ea1aaad1479693f935614eaa1
+      internalID: 1776287084
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_67
+      rect:
+        serializedVersion: 2
+        x: 1008
+        y: 192
+        width: 66
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3c0aeadfc1124de4cb8cf63dd45bc904
+      internalID: -1655755542
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_68
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 48
+        width: 60
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e89868ff6d0d63f4fab3351672028f14
+      internalID: 252631076
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_69
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 48
+        width: 60
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 39a702b3989e59b4f9e3bb05fbb3b32b
+      internalID: -1532509030
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_70
+      rect:
+        serializedVersion: 2
+        x: 744
+        y: 48
+        width: 72
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3f95135d5df44f749b439bcc0eca9b2d
+      internalID: 1778797863
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_71
+      rect:
+        serializedVersion: 2
+        x: 864
+        y: 48
+        width: 96
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f6d42dcfc9c999141a176014115c3012
+      internalID: -568648837
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Collage_Asset1_72
+      rect:
+        serializedVersion: 2
+        x: 1008
+        y: 48
+        width: 72
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1332860f20375bd4f8ec7e3f08727406
+      internalID: -1189420212
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    nameFileIdTable:
+      Collage_Asset1_0: 42683276
+      Collage_Asset1_1: -351479318
+      Collage_Asset1_10: -515829052
+      Collage_Asset1_11: 1838021858
+      Collage_Asset1_12: 447161275
+      Collage_Asset1_13: 1186077344
+      Collage_Asset1_14: 1204421430
+      Collage_Asset1_15: 391311151
+      Collage_Asset1_16: 2030601513
+      Collage_Asset1_17: 713390281
+      Collage_Asset1_18: -1583635052
+      Collage_Asset1_19: -817533575
+      Collage_Asset1_2: 561018708
+      Collage_Asset1_20: -731662699
+      Collage_Asset1_21: -1303441816
+      Collage_Asset1_22: -1829182603
+      Collage_Asset1_23: -293646897
+      Collage_Asset1_24: 1915145360
+      Collage_Asset1_25: -567502286
+      Collage_Asset1_26: 310546983
+      Collage_Asset1_27: -2007310264
+      Collage_Asset1_28: -1748912608
+      Collage_Asset1_29: -359602115
+      Collage_Asset1_3: 46587084
+      Collage_Asset1_30: -964714320
+      Collage_Asset1_31: 884819876
+      Collage_Asset1_32: -337146835
+      Collage_Asset1_33: 1895560627
+      Collage_Asset1_34: -613859217
+      Collage_Asset1_35: -1208137577
+      Collage_Asset1_36: 180691709
+      Collage_Asset1_37: 150714499
+      Collage_Asset1_38: -932382318
+      Collage_Asset1_39: 925781
+      Collage_Asset1_4: 2031493837
+      Collage_Asset1_40: 285011591
+      Collage_Asset1_41: 212369102
+      Collage_Asset1_42: -937903162
+      Collage_Asset1_43: 623243976
+      Collage_Asset1_44: -2102047749
+      Collage_Asset1_45: -1797476245
+      Collage_Asset1_46: 1598965206
+      Collage_Asset1_47: -1796040149
+      Collage_Asset1_48: 129988337
+      Collage_Asset1_49: -1703974389
+      Collage_Asset1_5: -1234799273
+      Collage_Asset1_50: -327370534
+      Collage_Asset1_51: -1631575343
+      Collage_Asset1_52: -1543218675
+      Collage_Asset1_53: 135148819
+      Collage_Asset1_54: 336325692
+      Collage_Asset1_55: 1456742476
+      Collage_Asset1_56: -1665351582
+      Collage_Asset1_57: 147119347
+      Collage_Asset1_58: -1358417872
+      Collage_Asset1_59: -1428480704
+      Collage_Asset1_6: 809564585
+      Collage_Asset1_60: -2057727063
+      Collage_Asset1_61: -1415222511
+      Collage_Asset1_62: 1779084073
+      Collage_Asset1_63: 1748248516
+      Collage_Asset1_64: 792790561
+      Collage_Asset1_65: 2016448659
+      Collage_Asset1_66: 1776287084
+      Collage_Asset1_67: -1655755542
+      Collage_Asset1_68: 252631076
+      Collage_Asset1_69: -1532509030
+      Collage_Asset1_7: 631553122
+      Collage_Asset1_70: 1778797863
+      Collage_Asset1_71: -568648837
+      Collage_Asset1_72: -1189420212
+      Collage_Asset1_8: 1026208684
+      Collage_Asset1_9: 2139116646
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

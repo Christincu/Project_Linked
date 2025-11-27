@@ -91,17 +91,8 @@ public class MagicService
                 return combination.resultMagicCode;
             }
         }
-        
-        // 순서를 고려한 조합이 없으면 순서 무관 조합 찾기
-        foreach (var combination in combinations)
-        {
-            if (combination != null && combination.IsValid() && combination.Matches(magicCode1, magicCode2))
-            {
-                return combination.resultMagicCode;
-            }
-        }
-        
-        // 조합을 찾지 못함
+
+        // 순서를 고려한 조합을 찾지 못하면, 이 순서에서는 조합 마법이 없는 것으로 간주
         return -1;
     }
     
@@ -129,5 +120,64 @@ public class MagicService
     public List<MagicCombinationData> GetAllCombinations()
     {
         return combinations;
+    }
+    
+    /// <summary>
+    /// 두 마법 코드를 조합하여 결과 MagicCombinationData를 반환합니다.
+    /// </summary>
+    /// <param name="magicCode1">첫 번째 마법 코드</param>
+    /// <param name="magicCode2">두 번째 마법 코드</param>
+    /// <returns>조합 결과 MagicCombinationData, 조합이 없으면 null</returns>
+    public MagicCombinationData GetCombinationData(int magicCode1, int magicCode2)
+    {
+        // 하나라도 유효하지 않은 마법 코드면 조합 불가
+        if (magicCode1 == -1 || magicCode2 == -1)
+        {
+            return null;
+        }
+        
+        // 같은 마법끼리는 조합 불가
+        if (magicCode1 == magicCode2)
+        {
+            return null;
+        }
+        
+        // 먼저 순서를 고려한 조합 찾기 (정확한 순서)
+        foreach (var combination in combinations)
+        {
+            if (combination != null && combination.IsValid() && combination.MatchesOrdered(magicCode1, magicCode2))
+            {
+                return combination;
+            }
+        }
+        
+        // 순서를 고려한 조합이 없으면 순서 무관 조합 찾기
+        foreach (var combination in combinations)
+        {
+            if (combination != null && combination.IsValid() && combination.Matches(magicCode1, magicCode2))
+            {
+                return combination;
+            }
+        }
+        
+        // 조합을 찾지 못함
+        return null;
+    }
+    
+    /// <summary>
+    /// 결과 마법 코드로 조합 데이터를 찾습니다.
+    /// </summary>
+    /// <param name="resultMagicCode">결과 마법 코드</param>
+    /// <returns>조합 데이터, 없으면 null</returns>
+    public MagicCombinationData GetCombinationDataByResult(int resultMagicCode)
+    {
+        foreach (var combination in combinations)
+        {
+            if (combination != null && combination.IsValid() && combination.resultMagicCode == resultMagicCode)
+            {
+                return combination;
+            }
+        }
+        return null;
     }
 }

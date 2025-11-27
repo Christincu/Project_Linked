@@ -16,12 +16,13 @@ MonoBehaviour:
   enemySprite: {fileID: 21300000, guid: 588319d96cfd4b84ab3f604ccbf7672e, type: 3}
   viewObj: {fileID: 1971005420975565235, guid: 9215ae6df9359d842b66e2cc31d5bdec, type: 3}
   description: 
-  moveSpeed: 3
+  moveSpeed: 1
   maxVelocity: 5
   acceleration: 0.8
   detectionRange: 5
   detectionAngle: 120
+  visualizationTriggerRange: 10
   investigationWaitTime: 3
   stopDistance: 0.5
-  maxHealth: 10
+  maxHealth: 3000
   startingHealth: 10

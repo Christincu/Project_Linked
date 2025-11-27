@@ -25,4 +25,8 @@ public class MagicData : ScriptableObject
     [Header("Mana Settings")]
     [Tooltip("시전 시 마나 소모량")]
     public float manaCost = 20f;
+    
+    [Header("Prefabs")]
+    [Tooltip("마법 발사체 프리팹 (일반 마법용)")]
+    public GameObject magicProjectilePrefab;
 }

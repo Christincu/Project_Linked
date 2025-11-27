@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Fusion;
+using Fusion.Addons.Physics;
 using UnityEngine.AI;
 
 /// <summary>
@@ -11,6 +12,8 @@ public class EnemyMovement : MonoBehaviour
 {
     #region Private Fields
     private NavMeshAgent _navMeshAgent;
+    private NetworkRigidbody2D _networkRb;
+    private Rigidbody2D _rigidbody;
     private EnemyController _controller;
     private Vector2 _targetDirection;
 
@@ -52,6 +55,17 @@ public class EnemyMovement : MonoBehaviour
         if (_navMeshAgent == null)
         {
             _navMeshAgent = gameObject.AddComponent<NavMeshAgent>();
+        }
+
+        // NetworkRigidbody2D 및 Rigidbody2D 가져오기
+        _networkRb = GetComponent<NetworkRigidbody2D>();
+        if (_networkRb != null)
+        {
+            _rigidbody = _networkRb.Rigidbody;
+        }
+        else
+        {
+            _rigidbody = GetComponent<Rigidbody2D>();
         }
 
         ConfigureNavMeshAgent();
@@ -108,10 +122,17 @@ public class EnemyMovement : MonoBehaviour
             _navMeshAgent.ResetPath();
             _navMeshAgent.velocity = Vector3.zero;
         }
+        // Rigidbody2D 속도도 0으로 설정
+        if (_rigidbody != null)
+        {
+            _rigidbody.velocity = Vector2.zero;
+        }
     }
 
     /// <summary>
     /// 이동을 업데이트합니다. (FixedUpdateNetwork에서 호출)
+    /// NavMeshAgent의 desiredVelocity를 Rigidbody2D에 직접 적용하여 외부 힘(플레이어가 밀어낸 힘)을 무시합니다.
+    /// 단, 넉백 중일 때는 NavMeshAgent 속도를 무시합니다.
     /// </summary>
     public void UpdateMovement()
     {
@@ -122,6 +143,23 @@ public class EnemyMovement : MonoBehaviour
         {
             Stop();
             return;
+        }
+
+        // 넉백 중이면 NavMeshAgent 속도를 무시 (넉백이 우선)
+        if (_controller.Runner != null && _controller.KnockbackTimer.IsRunning && !_controller.KnockbackTimer.Expired(_controller.Runner))
+        {
+            // 넉백 중에는 NavMeshAgent를 정지시키고 Rigidbody 속도는 그대로 유지
+            if (_navMeshAgent != null)
+            {
+                _navMeshAgent.isStopped = true;
+            }
+            return;
+        }
+
+        // 넉백이 끝났으면 NavMeshAgent 다시 활성화
+        if (_navMeshAgent != null && _navMeshAgent.isStopped && _isMovingToTarget)
+        {
+            _navMeshAgent.isStopped = false;
         }
 
         // 이동 중이면 목표 위치로 이동
@@ -140,12 +178,25 @@ public class EnemyMovement : MonoBehaviour
                 }
             }
 
+            // NavMeshAgent의 desiredVelocity를 Rigidbody2D에 직접 적용
+            // 이렇게 하면 플레이어가 밀어낸 힘을 무시하고 AI 이동이 우선됩니다
+            if (_rigidbody != null && _navMeshAgent.desiredVelocity.sqrMagnitude > 0.01f)
+            {
+                Vector2 desiredVel = new Vector2(_navMeshAgent.desiredVelocity.x, _navMeshAgent.desiredVelocity.y);
+                _rigidbody.velocity = desiredVel;
+            }
+
             // 애니메이션 방향용
             Vector3 desired = _navMeshAgent.desiredVelocity;
             _targetDirection = new Vector2(desired.x, desired.y).normalized;
         }
         else
         {
+            // 이동 중이 아니면 Rigidbody2D 속도도 0으로 설정
+            if (_rigidbody != null)
+            {
+                _rigidbody.velocity = Vector2.zero;
+            }
             _targetDirection = Vector2.zero;
         }
     }
@@ -158,6 +209,10 @@ public class EnemyMovement : MonoBehaviour
         if (_navMeshAgent != null)
         {
             _navMeshAgent.velocity = Vector3.zero;
+        }
+        if (_rigidbody != null)
+        {
+            _rigidbody.velocity = Vector2.zero;
         }
     }
     #endregion

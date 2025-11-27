@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 771022882698380088}
   - component: {fileID: 4213512067562145536}
   - component: {fileID: 4633555525266518599}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicAnchor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -124,7 +124,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1807906658658722316}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicViewObj
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -145,7 +145,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5695113073828691201}
-  - {fileID: 6583694707900209318}
+  - {fileID: 505606467910863369}
   - {fileID: 2906999768297968146}
   m_Father: {fileID: 5415338093849273226}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -159,7 +159,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2906999768297968146}
   - component: {fileID: 3973978468496843040}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicInsideFloor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -243,7 +243,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5695113073828691201}
   - component: {fileID: 6385103628073754025}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: MagicIdleFirstFloor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -331,12 +331,7 @@ GameObject:
   - component: {fileID: 4924376003885490738}
   - component: {fileID: 7212694276323073538}
   - component: {fileID: 7930489244872943270}
-<<<<<<< HEAD
-=======
-  - component: {fileID: 5349171466248291276}
-  - component: {fileID: 6686904185407841743}
->>>>>>> 7c85a530ab50f21d43c4f9196d3c5c935f78b7f7
-  m_Layer: 0
+  m_Layer: 7
   m_Name: PlayerPrefab
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -391,14 +386,19 @@ MonoBehaviour:
   _DidTeleport:
     _value: 0
   _HasBarrier: 0
+  _HasDashSkill: 0
+  _DashEnhancementCount: 0
+  _IsDashFinalEnhancement: 0
+  _DashIsMoving:
+    _value: 0
+  _DashVelocity: {x: 0, y: 0}
+  _DashLastInputDirection: {x: 0, y: 0}
+  _ThreatScore: 0
   _magicViewObj: {fileID: 1215593109106226948}
   _magicAnchor: {fileID: 762830782927680907}
   _magicIdleFirstFloor: {fileID: 3898121682051865299}
-  _magicIdleSecondFloor: {fileID: 8041769154365455347}
+  _magicIdleSecondFloor: {fileID: 6215968946063405430}
   _magicActiveFloor: {fileID: 2424664468900087719}
-  _magicProjectilePrefab: {fileID: 495353710250101849, guid: 42ca306a686a8024a996cbe404f0a01f, type: 3}
-  _barrierMagicObjectPrefab:
-    RawGuidValue: 42ca306a686a8024a996cbe404f0a01f
 --- !u!70 &7159770031046681830
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -505,36 +505,7 @@ MonoBehaviour:
     Position: 0.01
     Rotation: 0.01
     Scale: 0.01
-<<<<<<< HEAD
-=======
---- !u!114 &5349171466248291276
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4305966876063921749}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 994f685904a4fb84794a4080991e075d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  magicProjectilePrefab: {fileID: 1215593109106226948}
---- !u!114 &6686904185407841743
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4305966876063921749}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6f018cfc53d440e4d81feada860d3721, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  vcamName: VC_PlayerFollow
->>>>>>> 7c85a530ab50f21d43c4f9196d3c5c935f78b7f7
---- !u!1 &8041769154365455347
+--- !u!1 &6215968946063405430
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -542,22 +513,22 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 6583694707900209318}
-  - component: {fileID: 1418941226691686467}
-  m_Layer: 0
+  - component: {fileID: 505606467910863369}
+  - component: {fileID: 1263447415796503997}
+  m_Layer: 7
   m_Name: MagicIdleSecondFloor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &6583694707900209318
+--- !u!4 &505606467910863369
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8041769154365455347}
+  m_GameObject: {fileID: 6215968946063405430}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -566,13 +537,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1807906658658722316}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!212 &1418941226691686467
+--- !u!212 &1263447415796503997
 SpriteRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8041769154365455347}
+  m_GameObject: {fileID: 6215968946063405430}
   m_Enabled: 1
   m_CastShadows: 0
   m_ReceiveShadows: 0
@@ -627,7 +598,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3972847840167599031}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: ViewObjParent
   m_TagString: Untagged
   m_Icon: {fileID: 0}

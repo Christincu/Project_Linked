@@ -1,0 +1,50 @@
+﻿Category,order,CharacterName,IllustrateSlot,IllustrateName,Line
+1ch_Test1,1,Lafi,FirstCharacterImage,Lafi_CutsceneIllustrate,Test1
+1ch_Test1,2,Garo,SecondCharacterImage,Garo_CutsceneIllustrate,"Test2, 1ch_Test End"
+1ch_Test2,1,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,Test3
+1ch_Test2,2,Lafi,ThirdCharacterImage,Lafi_CutsceneIllustrate,"Test4, 2ch_Test End"
+1ch_1_Lafi,1,Lafi,FirstCharacterImage,Lafi_CutsceneIllustrate,(...방 밖으로 나가기 싫어진다.)
+1ch_1_Lafi,2,Lafi,FirstCharacterImage,Lafi_CutsceneIllustrate,"(일주일 뒤면 졸업 심사인데,)"
+1ch_1_Lafi,3,Lafi,FirstCharacterImage,Lafi_CutsceneIllustrate,(이제 와서 준비를 한다고 해도 뭘 해낼 수 있을지.)
+1ch_1_Lafi,4,Lafi,FirstCharacterImage,Lafi_CutsceneIllustrate,(...교수님이 잠시 시간을 내달라고 하셨으니 일단 일어나야겠지.)
+1ch_1_Garo,1,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,...흐아암.
+1ch_1_Garo,2,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,(오늘 뭔가 약속이 있었던 것 같은데 기억이 나질 않아.)
+1ch_Stop1_Lafi,1,Lafi,FirstCharacterImage,Lafi_CutsceneIllustrate,"(가로랑 같이 오라고 하셔서 기다려야 하지만, 도대체 언제 나오는거지?)"
+1ch_Stop1_Garo,1,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,(...진짜 뭐였더라?)
+1ch_2,1,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,"아, 맞다."
+1ch_2,2,Lafi,SecondCharacterImage,Lafi_CutsceneIllustrate,뭐가.
+1ch_2,3,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,오늘 약속이 있었던게 너랑 같이 교수님에게 가는 거였지?
+1ch_2,4,Lafi,SecondCharacterImage,Lafi_CutsceneIllustrate,...설마 진짜로 까먹고 있었던건가?
+1ch_2,5,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,아니. 혹시 네가 까먹고 있을까봐 만난 김에 얘기 해준건데.
+1ch_2,6,Lafi,SecondCharacterImage,Lafi_CutsceneIllustrate,입에 말라붙은 침 자국부터 떼고 말해. 되지도 않는 연기 하지 말고.
+1ch_2,7,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,하여간 말이 곱지가 않아.
+1ch_3,1,Mariel,ThirdCharacterImage,Mariel_CutsceneIllustrate,"오? 웬일로 둘이 같이 다녀, 오늘 둘 다 공강 아니야?"
+1ch_3,2,Lafi,SecondCharacterImage,Lafi_CutsceneIllustrate,새치로 뒤덮인 뻥쟁이 데리고 교수님 봐야 해서.
+1ch_3,3,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,할 줄 아는 말이라고는 '나가'랑 독설밖에 없는 녀석이랑 교수님 봐야 해서.
+1ch_3,4,Lafi,SecondCharacterImage,Lafi_CutsceneIllustrate,... 나가.
+1ch_3,5,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,어딜 자꾸 나가래. 마법도 제대로 못쓰고 말도 똑바로 못끝내면서.
+1ch_3,6,Mariel,ThirdCharacterImage,Mariel_CutsceneIllustrate,빨리 가기나 해. 아까 수업 끝나서 왼쪽 교실에서 기다리고 계실거야.
+1ch_3,7,Lafi,SecondCharacterImage,Lafi_CutsceneIllustrate,"그럼, 실례할게. "
+1ch_3,8,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,"마리엘, 혹시 원소 마법 기초 서적은 도서관 책장 중 어디에 있는지 알아?"
+1ch_3,9,Mariel,ThirdCharacterImage,Mariel_CutsceneIllustrate,그건 왜? 마족이니까 정신 계열 마법은 쓸 줄 알거 아니야.
+1ch_3,10,Mariel,ThirdCharacterImage,Mariel_CutsceneIllustrate,그것만 졸업 심사 때 선보여도 되지 않아?
+1ch_3,11,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,"저 친구랑 지내다 보니, 이것저것 더 보며주면 표정 참 볼만하겠다 싶어서 그렇지."
+1ch_3,12,Mariel,ThirdCharacterImage,Mariel_CutsceneIllustrate,하여간 너도 성격 참 안좋아. 이따가 도서관에 오면 알려줄게.
+1ch_3,13,Garo,FirstCharacterImage,Garo_CutsceneIllustrate,"그래, 간다."
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,

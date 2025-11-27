@@ -32,6 +32,9 @@ public class EnemyController : NetworkBehaviour
     [Networked] public Vector2 InvestigatePosition { get; set; }
     [Networked] public TickTimer InvestigationTimer { get; set; }
     [Networked] public NetworkBool IsInvestigating { get; set; }
+    
+    // Knockback State
+    [Networked] public TickTimer KnockbackTimer { get; set; }
     #endregion
 
     #region Private Fields - Components
@@ -126,7 +129,10 @@ public class EnemyController : NetworkBehaviour
         _detector?.Initialize(this, enemyData);
         _movement?.Initialize(this, enemyData);
         
-        // 3. 적 감시 범위 트리거 콜리더 초기화 (플레이어의 트리거와 충돌하기 위해)
+        // 3. Rigidbody2D 물리 설정 (플레이어가 밀어도 관성이 빠르게 감소하도록)
+        ConfigureRigidbodyPhysics();
+        
+        // 4. 적 감시 범위 트리거 콜리더 초기화 (플레이어의 트리거와 충돌하기 위해)
         EnsureDetectionTriggerColliderExists();
     }
 
@@ -140,13 +146,36 @@ public class EnemyController : NetworkBehaviour
         // 사망하지 않은 경우에만 AI 동작
         if (!_state.IsDead && Object.HasStateAuthority)
         {
-            // 1. 플레이어 탐지
+            // 1. 플레이어 탐지 (위협점수 기반 우선순위)
             if (_detector.DetectPlayer(out PlayerController detectedPlayer))
             {
-                // 플레이어 탐지됨 - 플레이어 위치로 이동
-                Vector2 playerPos = (Vector2)detectedPlayer.transform.position;
-                _movement.MoveTo(playerPos);
-                IsInvestigating = false;
+                // 현재 추적 중인 플레이어와 비교하여 위협점수가 더 높은 플레이어가 있으면 타겟 변경
+                PlayerController currentTarget = _detector.DetectedPlayer;
+                if (currentTarget != null && detectedPlayer != null)
+                {
+                    // 위협점수가 더 높은 플레이어를 우선 선택
+                    if (detectedPlayer.ThreatScore > currentTarget.ThreatScore)
+                    {
+                        // 더 위협적인 플레이어 발견 - 타겟 변경
+                        Vector2 playerPos = (Vector2)detectedPlayer.transform.position;
+                        _movement.MoveTo(playerPos);
+                        IsInvestigating = false;
+                    }
+                    else
+                    {
+                        // 기존 타겟 유지
+                        Vector2 playerPos = (Vector2)currentTarget.transform.position;
+                        _movement.MoveTo(playerPos);
+                        IsInvestigating = false;
+                    }
+                }
+                else
+                {
+                    // 플레이어 탐지됨 - 플레이어 위치로 이동
+                    Vector2 playerPos = (Vector2)detectedPlayer.transform.position;
+                    _movement.MoveTo(playerPos);
+                    IsInvestigating = false;
+                }
             }
             else
             {
@@ -218,6 +247,13 @@ public class EnemyController : NetworkBehaviour
     public void SetEnemyIndex(int enemyIndex)
     {
         EnemyIndex = enemyIndex;
+        
+        // ViewObjParent가 없으면 먼저 생성
+        if (transform.Find("ViewObjParent") == null)
+        {
+            EnsureViewObjParentExists();
+        }
+        
         TryCreateView();
     }
     #endregion
@@ -268,8 +304,6 @@ public class EnemyController : NetworkBehaviour
             viewObjParentObj.transform.localScale = Vector3.one;
             
             viewObjParent = viewObjParentObj.transform;
-            
-            Debug.Log($"[EnemyController] ViewObjParent created");
         }
         
         // NetworkRigidbody2D의 Interpolation Target 설정
@@ -311,6 +345,22 @@ public class EnemyController : NetworkBehaviour
     }
     
     /// <summary>
+    /// Rigidbody2D 물리 설정을 구성합니다.
+    /// 플레이어가 적을 밀어도 관성이 빠르게 감소하여 NavMeshAgent 이동이 방해받지 않도록 합니다.
+    /// </summary>
+    private void ConfigureRigidbodyPhysics()
+    {
+        var networkRb = GetComponent<NetworkRigidbody2D>();
+        if (networkRb != null && networkRb.Rigidbody != null)
+        {
+            Rigidbody2D rb = networkRb.Rigidbody;
+            // drag를 높여서 외부 힘(플레이어가 밀어낸 힘)에 의한 관성을 빠르게 감소시킴
+            // 높은 값일수록 관성이 빠르게 감소 (기본값 0, 권장값 5~10)
+            rb.drag = 8f;
+        }
+    }
+    
+    /// <summary>
     /// 적 감시 범위 트리거 콜리더를 초기화합니다 (플레이어의 트리거와 충돌하기 위해).
     /// </summary>
     private void EnsureDetectionTriggerColliderExists()
@@ -330,6 +380,108 @@ public class EnemyController : NetworkBehaviour
         
         // EnemyDetector가 있는지 확인 (플레이어의 트리거가 감지할 수 있도록)
         // EnemyDetector는 자동으로 추가되므로 별도 체크 불필요
+        
+        // 충돌 감지를 위한 콜리더 확인 및 설정
+        EnsureCollisionColliderExists();
+    }
+    
+    /// <summary>
+    /// 플레이어와 충돌 감지를 위한 콜리더를 확인하고 설정합니다.
+    /// </summary>
+    private void EnsureCollisionColliderExists()
+    {
+        // 모든 Collider2D 확인
+        Collider2D[] colliders = GetComponents<Collider2D>();
+        bool hasNonTriggerCollider = false;
+        
+        foreach (var col in colliders)
+        {
+            if (!col.isTrigger)
+            {
+                hasNonTriggerCollider = true;
+                break;
+            }
+        }
+        
+        // 트리거가 아닌 콜리더가 없으면 추가 (충돌 감지용)
+        if (!hasNonTriggerCollider)
+        {
+            CircleCollider2D collisionCollider = gameObject.AddComponent<CircleCollider2D>();
+            collisionCollider.isTrigger = false; // 물리 충돌용
+            collisionCollider.radius = 0.5f;
+            Debug.Log("[EnemyController] Collision collider added for player damage");
+        }
+    }
+    
+    /// <summary>
+    /// 플레이어와 충돌 시 데미지를 줍니다.
+    /// PlayerDetectionTrigger는 제외합니다.
+    /// </summary>
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (!Object.HasStateAuthority) return;
+        if (_state == null || _state.IsDead) return;
+        
+        // PlayerDetectionTrigger는 무시 (플레이어 감지용 트리거)
+        if (collision.gameObject.GetComponent<PlayerDetectionTrigger>() != null) return;
+        
+        // PlayerController 찾기
+        PlayerController player = collision.gameObject.GetComponent<PlayerController>();
+        if (player == null)
+        {
+            player = collision.gameObject.GetComponentInParent<PlayerController>();
+        }
+        if (player == null && collision.rigidbody != null)
+        {
+            player = collision.rigidbody.GetComponent<PlayerController>();
+        }
+        if (player == null && collision.transform.root != null)
+        {
+            player = collision.transform.root.GetComponent<PlayerController>();
+        }
+        
+        // 플레이어와 충돌 시 데미지 적용
+        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerState.TakeDamage에서 처리)
+        if (player != null && !player.IsDead && player.State != null)
+        {
+            player.State.TakeDamage(1f);
+            Debug.Log($"[EnemyController] {name} hit {player.name}, dealt 1 damage");
+        }
+    }
+    
+    /// <summary>
+    /// 트리거 충돌 시에도 데미지를 줍니다 (트리거 콜리더가 있는 경우).
+    /// PlayerDetectionTrigger는 제외합니다.
+    /// </summary>
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (Object == null || !Object.HasStateAuthority) return;
+        if (_state == null || _state.IsDead) return;
+        
+        // PlayerDetectionTrigger는 무시 (플레이어 감지용 트리거)
+        if (other.GetComponent<PlayerDetectionTrigger>() != null) return;
+        
+        // PlayerController 찾기
+        PlayerController player = other.GetComponent<PlayerController>();
+        if (player == null)
+        {
+            player = other.GetComponentInParent<PlayerController>();
+        }
+        if (player == null && other.attachedRigidbody != null)
+        {
+            player = other.attachedRigidbody.GetComponent<PlayerController>();
+        }
+        if (player == null && other.transform.root != null)
+        {
+            player = other.transform.root.GetComponent<PlayerController>();
+        }
+        
+        // 플레이어와 충돌 시 데미지 적용
+        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerState.TakeDamage에서 처리)
+        if (player != null && !player.IsDead && player.State != null)
+        {
+            player.State.TakeDamage(1f);
+        }
     }
 
     /// <summary>
@@ -404,8 +556,12 @@ public class EnemyController : NetworkBehaviour
     {
         if (_animator != null && !string.IsNullOrEmpty(stateName) && _lastAnimationState != stateName)
         {
-            _animator.Play(stateName);
-            _lastAnimationState = stateName;
+            // AnimatorController가 있는지 확인
+            if (_animator.runtimeAnimatorController != null)
+            {
+                _animator.Play(stateName);
+                _lastAnimationState = stateName;
+            }
         }
     }
 

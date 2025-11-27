@@ -21,3 +21,4 @@ MonoBehaviour:
   speed: 10
   range: 20
   manaCost: 20
+  magicProjectilePrefab: {fileID: 495353710250101849, guid: 42ca306a686a8024a996cbe404f0a01f, type: 3}

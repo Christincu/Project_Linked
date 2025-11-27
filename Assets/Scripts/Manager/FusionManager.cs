@@ -20,19 +20,39 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     public static Action<NetworkRunner> OnDisconnectedEvent;
     public static Action<NetworkRunner> OnSceneLoadDoneEvent;
 
+    /// <summary>
+    /// 초기화 완료 여부를 나타냅니다.
+    /// </summary>
+    public bool IsInitialized { get; private set; }
+
     // Singleton initialization
     void Awake()
     {
+        // 싱글톤 인스턴스만 설정하고, 초기화는 GameManager에서 제어
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Debug.Log("FusionManager singleton created");
         }
-        else
+        else if (Instance != this)
         {
             Destroy(gameObject);
         }
+    }
+    
+    /// <summary>
+    /// FusionManager를 초기화합니다. (GameManager에서 호출)
+    /// </summary>
+    public void Initialize()
+    {
+        if (IsInitialized)
+        {
+            Debug.LogWarning("[FusionManager] Already initialized. Skipping.");
+            return;
+        }
+        
+        IsInitialized = true;
+        Debug.Log("[FusionManager] Initialized");
     }
 
     void Start()
