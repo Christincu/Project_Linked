@@ -134,6 +134,7 @@
     <Compile Include="Assets\Scripts\Player\State\PlayerEffectManager.cs" />
     <Compile Include="Assets\Scripts\Manager\MainGameManger\MainGameManager.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_B.cs" />
+    <Compile Include="Assets\Scripts\CutScene\PlayerDialogueOwner.cs" />
     <Compile Include="Assets\Scripts\Data\EnemyData.cs" />
     <Compile Include="Assets\Scripts\Data\PlayerData.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\SkewTextExample.cs" />
