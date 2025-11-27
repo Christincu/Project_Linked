@@ -45,12 +45,12 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     #region Zone Lifetime
     [Header("Zone Lifetime")]
-    [Tooltip("체크 시: 컷신이 끝난 뒤에도 이 존을 다시 사용할 수 있음 (반복 가능)")]
+    [Tooltip("체크 시: 컷신이 끝난 뒤에도 이 존을 다시 사용할 수 있음")]
     public bool repeatable = false;
     #endregion
 
     #region Control Lock
-    [Header("Control Lock (일반 컴포넌트)")]
+    [Header("Control Lock")]
     [Tooltip("컷신/대사 중 비활성화할 플레이어 컨트롤 스크립트들")]
     public List<Behaviour> controlsToDisable = new();
 
@@ -77,7 +77,7 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     #region Timeline UI
     [Header("Timeline UI (Optional)")]
-    [Tooltip("타임라인 재생 중에만 켤 UI 루트(TL_UI 등)")]
+    [Tooltip("타임라인 재생 중에만 켤 UI 루트")]
     public GameObject timelineUIRoot;
     #endregion
 
@@ -91,7 +91,7 @@ public class CutsceneZoneTimeline : MonoBehaviour
     }
 
     [Header("Dialogue (Optional)")]
-    [Tooltip("기본 CutSceneDialogue (필수는 아님, fallback 용)")]
+    [Tooltip("기본 CutSceneDialogue")]
     public CutSceneDialogue dialogue;
 
     [Tooltip("playByCsvOrder=false 일 때 기본 카테고리 이름")]
@@ -106,19 +106,19 @@ public class CutsceneZoneTimeline : MonoBehaviour
     [System.Serializable]
     public class CharacterDialogueConfig
     {
-        [Tooltip("플레이어의 PlayerDialogueOwner.characterId 와 동일한 값 (예: Lafi, Garo)")]
+        [Tooltip("플레이어의 PlayerDialogueOwner.characterId 와 동일한 값")]
         public string characterId;
 
         [Tooltip("이 존에서 해당 캐릭터가 들을 CSV 카테고리 이름")]
         public string categoryName;
     }
 
-    [Header("캐릭터별 대사 카테고리(존 전용)")]
+    [Header("캐릭터별 대사 목록")]
     public List<CharacterDialogueConfig> perCharacterCategories = new();
     #endregion
 
     #region Timeline
-    [Header("Timeline (Optional)")]
+    [Header("Timeline")]
     [Tooltip("첫 번째 컷신 타임라인(적 등장, 카메라 연출 등)")]
     public PlayableDirector cutscene1;
 
@@ -126,16 +126,16 @@ public class CutsceneZoneTimeline : MonoBehaviour
     public PlayableDirector cutscene2;
 
     [Header("Dialogue Mid-Timeline (Optional)")]
-    [Tooltip("대사 중간에 한 번 재생할 타임라인 (카메라, NPC 연출 등)")]
+    [Tooltip("대사 중간에 한 번 재생할 타임라인")]
     public PlayableDirector midTimeline;
     #endregion
 
     #region Enemy / Battle
-    [Header("Enemies / Battle (Optional)")]
-    [Tooltip("체크 시: cutscene1 이후 전투를 하고, 적이 모두 사라지면 cutscene2를 재생")]
+    [Header("Enemies / Battle ")]
+    [Tooltip(" cutscene1 이후 전투를 하고, 적이 모두 사라지면 cutscene2를 재생")]
     public bool useEnemyClearForSecondCutscene = false;
 
-    [Tooltip("감시할 적들(프리팹이 아니라 씬에 있는 Enemy 오브젝트들)")]
+    [Tooltip("감시할 적들")]
     public List<GameObject> enemiesToWatch = new List<GameObject>();
     #endregion
 
@@ -151,13 +151,13 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     #region Obstacle / Signal
     [Header("Obstacle (Signal Target)")]
-    [Tooltip("cutscene2 안에서 Signal로 비활성화할 오브젝트 (문/장애물 등)")]
+    [Tooltip("cutscene2 안에서 Signal로 비활성화할 오브젝트")]
     public GameObject obstacleToDisable;
     #endregion
 
     #region Fade & Lineup
     [Header("Fade / Lineup (Optional)")]
-    [Tooltip("컷신 시작 전에 잠깐 화면을 암전시킬 CanvasGroup (검은 패널)")]
+    [Tooltip("컷신 시작 전에 잠깐 화면을 암전시킬 CanvasGroup ")]
     public CanvasGroup fadeCanvasGroup;
 
     [Tooltip("암전/복귀에 걸리는 시간")]
@@ -189,7 +189,7 @@ public class CutsceneZoneTimeline : MonoBehaviour
     public bool useMidTimelineTrigger = false;
 
     [Tooltip("비워두면 모든 카테고리에서 동작, 채우면 해당 카테고리에서만 동작")]
-    public string midTimelineCategoryFilter = "";   // 예: "1ch_3"
+    public string midTimelineCategoryFilter = "";   
 
     [Tooltip("몇 번째 줄을 넘길 때 트리거할지 (1부터 시작). 0 이하이면 사용 안 함")]
     public int midTimelineLineIndex = 0;
@@ -205,7 +205,16 @@ public class CutsceneZoneTimeline : MonoBehaviour
     {
         _trigger = GetComponent<Collider2D>();
         _trigger.isTrigger = true;
+
+        if (fadeCanvasGroup != null)
+        {
+            fadeCanvasGroup.alpha = 1.0f;             
+            fadeCanvasGroup.blocksRaycasts = false;
+
+            fadeCanvasGroup.gameObject.SetActive(false);
+        }
     }
+
 
     private void OnTriggerEnter2D(Collider2D other)
     {
@@ -553,11 +562,6 @@ public class CutsceneZoneTimeline : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// CutSceneDialogue 쪽에서 "지금 카테고리 / 줄 index 이렇다" 하고 호출하면
-    /// 설정에 맞으면 midTimeline + 리더 이동을 실행하고 true 반환.
-    /// 안 맞으면 false 반환.
-    /// </summary>
     public bool TryPlayMidTimeline(CutSceneDialogue dlg, string category, int lineIndex)
     {
         if (!useMidTimelineTrigger) return false;
@@ -587,37 +591,22 @@ public class CutsceneZoneTimeline : MonoBehaviour
 
     private IEnumerator FadeAndLineupPlayers()
     {
-        if (!fadeCanvasGroup && (lineupPositions == null || lineupPositions.Length == 0))
+        bool hasPanel = (fadeCanvasGroup != null && fadeCanvasGroup.gameObject != null);
+        bool hasLineup = (lineupPositions != null && lineupPositions.Length > 0);
+
+        if (!hasPanel && !hasLineup)
             yield break;
 
-        if (fadeCanvasGroup)
-            yield return FadeCanvas(1f);
+        if (hasPanel)
+            fadeCanvasGroup.gameObject.SetActive(true);
 
-        if (lineupPositions != null && lineupPositions.Length > 0)
+        if (hasLineup)
             yield return LineupPlayers();
 
-        if (fadeCanvasGroup)
-            yield return FadeCanvas(0f);
+        if (hasPanel)
+            fadeCanvasGroup.gameObject.SetActive(false);
     }
-
-    private IEnumerator FadeCanvas(float targetAlpha)
-    {
-        if (!fadeCanvasGroup) yield break;
-
-        float start = fadeCanvasGroup.alpha;
-        float t = 0f;
-
-        while (t < fadeDuration)
-        {
-            t += Time.deltaTime;
-            float lerp = Mathf.Clamp01(t / fadeDuration);
-            fadeCanvasGroup.alpha = Mathf.Lerp(start, targetAlpha, lerp);
-            yield return null;
-        }
-
-        fadeCanvasGroup.alpha = targetAlpha;
-    }
-
+ 
     private IEnumerator LineupPlayers()
     {
         if (_inZonePlayers.Count == 0)
@@ -782,6 +771,14 @@ public class CutsceneZoneTimeline : MonoBehaviour
     {
         if (timelineUIRoot)
             timelineUIRoot.SetActive(on);
+
+        var dialogues = FindObjectsOfType<CutSceneDialogue>();
+        foreach (var dlg in dialogues)
+        {
+            if (dlg == null || dlg.cutsceneUIRoot == null) continue;
+
+            dlg.cutsceneUIRoot.SetActive(!on && dlg.IsPlaying);
+        }
     }
 
     public void LockPlayerControlFromSignal()
@@ -829,7 +826,6 @@ public class CutsceneZoneTimeline : MonoBehaviour
         LockControls(true, forceAll: true);
         SetTimelineUI(true);
 
-        // midTimeline 먼저 재생
         if (midTimeline)
         {
             midTimeline.Play();
@@ -837,13 +833,13 @@ public class CutsceneZoneTimeline : MonoBehaviour
                 yield return null;
         }
 
-        // 필요하면 리더를 웨이포인트 경로로 이동
         if (leaderMovePoints != null && leaderMovePoints.Length > 0)
             yield return MoveLeaderAlongPath();
 
-        SetTimelineUI(false);
-
         dlg.SendMessage("ResumeDialogue", SendMessageOptions.DontRequireReceiver);
+
+        SetTimelineUI(false);
     }
+
     #endregion
 }

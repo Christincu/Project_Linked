@@ -11,7 +11,7 @@ using TMPro;
 public class CutSceneDialogue : MonoBehaviour
 {
     #region Events / State
-    public event Action OnClosed;     
+    public event Action OnClosed;
     public bool IsPlaying => _isPlaying;
     #endregion
 
@@ -319,14 +319,46 @@ public class CutSceneDialogue : MonoBehaviour
 
         if (charNameText) charNameText.text = "";
         if (dialogueText) dialogueText.text = "";
+
+        _thirdCharacterSprite = null;
+        _thirdCharacterName = null;
     }
+
     #endregion
 
     #region Portrait
+
+    [Header("Special Third Character (항상 세 번째 슬롯에 고정)")]
+    [Tooltip("예: Mariel. 비워두면 기능 사용 안 함")]
+    public string thirdSlotCharacterName = "Mariel";
+
+    [Tooltip("마리엘이 말하지 않을 때도 항상 세 번째 슬롯에 희미하게 보일지 여부")]
+    public bool keepThirdCharacterAlwaysVisible = true;
+
+    private Sprite _thirdCharacterSprite;
+    private string _thirdCharacterName;
+
     private void ApplyPortrait(LineData line)
     {
-        Sprite s = LoadIllustrateSprite(line.character, line.illustrate);
-        bool hasSprite = s != null;
+        bool isThirdChar = !string.IsNullOrEmpty(thirdSlotCharacterName) &&
+                           string.Equals(line.character, thirdSlotCharacterName, StringComparison.OrdinalIgnoreCase);
+
+        if (isThirdChar)
+        {
+            Sprite s = LoadIllustrateSprite(line.character, line.illustrate);
+            _thirdCharacterSprite = s;
+            _thirdCharacterName = line.character;
+
+            if (thirdImage)
+            {
+                ShowImage(thirdImage, s, speakerColor, bringToFront: true);
+            }
+
+            return;
+        }
+
+        Sprite sp = LoadIllustrateSprite(line.character, line.illustrate);
+        bool hasSprite = sp != null;
 
         bool speakerChanged = (_currentSpeaker == null)
                            || !string.Equals(_currentSpeaker, line.character, StringComparison.OrdinalIgnoreCase);
@@ -344,23 +376,28 @@ public class CutSceneDialogue : MonoBehaviour
             else ClearImage(firstImage);
 
             _currentSpeaker = line.character;
-            _currentSprite = s;
+            _currentSprite = sp;
 
-            if (hasSprite) ShowImage(secondImage, s, speakerColor, bringToFront: true);
+            if (hasSprite) ShowImage(secondImage, sp, speakerColor, bringToFront: true);
             else ClearImage(secondImage);
-
-            ClearImage(thirdImage);
         }
         else
         {
-            _currentSprite = s;
+            _currentSprite = sp;
 
-            if (hasSprite) ShowImage(secondImage, s, speakerColor, bringToFront: true);
+            if (hasSprite) ShowImage(secondImage, sp, speakerColor, bringToFront: true);
             else ClearImage(secondImage);
 
             if (_previousSprite) ShowImage(firstImage, _previousSprite, dimColor, sendToBack: true);
             else ClearImage(firstImage);
+        }
 
+        if (keepThirdCharacterAlwaysVisible && _thirdCharacterSprite && thirdImage)
+        {
+            ShowImage(thirdImage, _thirdCharacterSprite, dimColor);
+        }
+        else if (!keepThirdCharacterAlwaysVisible)
+        {
             ClearImage(thirdImage);
         }
     }
