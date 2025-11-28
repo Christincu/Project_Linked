@@ -99,6 +99,7 @@
     <Compile Include="Assets\Scripts\Manager\GameManager.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\CameraController.cs" />
     <Compile Include="Assets\Scripts\Data\MagicCombinationData.cs" />
+    <Compile Include="Assets\Scripts\Data\RoundData.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark03.cs" />
     <Compile Include="Assets\Scripts\Spawner\ScenDespawner.cs" />
     <Compile Include="Assets\Scripts\Enemy\EnemyDetector.cs" />
@@ -107,6 +108,7 @@
     <Compile Include="Assets\Making\CinemachineCameraController.cs" />
     <Compile Include="Assets\Scripts\Player\Magic\Handlers\ICombinedMagicHandler.cs" />
     <Compile Include="Assets\Scripts\Camera\MainCameraController.cs" />
+    <Compile Include="Assets\Scripts\Object\RoundTrigger.cs" />
     <Compile Include="Assets\Scripts\Player\Core\PlayerController.cs" />
     <Compile Include="Assets\Scripts\Player\State\PlayerBehavior.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_ExampleScript_01.cs" />

@@ -344,6 +344,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 5538753182818963566, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+      propertyPath: m_Name
+      value: RoundTrigger
+      objectReference: {fileID: 0}
     - target: {fileID: 6590728605844051902, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
       propertyPath: m_Name
       value: BattleTestRoomPrefab
@@ -391,7 +395,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5538753182818963566, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 324234268}
   m_SourcePrefab: {fileID: 100100000, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
 --- !u!1 &324234265 stripped
 GameObject:
@@ -403,6 +410,25 @@ BoxCollider2D:
   m_CorrespondingSourceObject: {fileID: 2425777844429457747, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
   m_PrefabInstance: {fileID: 324234264}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &324234267 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5538753182818963566, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}
+  m_PrefabInstance: {fileID: 324234264}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &324234268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 324234267}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e858f86949918a04f9eabac030b91eb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _roundIndex: 0
+  _triggerOnce: 1
 --- !u!114 &324234272 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3528851260292451071, guid: 87ac78a94065fbf4b99924273a3cc27e, type: 3}

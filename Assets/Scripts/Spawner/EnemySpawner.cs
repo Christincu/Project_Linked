@@ -93,18 +93,14 @@ public class EnemySpawner : MonoBehaviour
             yield return new WaitForSeconds(spawnData.spawnDelay);
         }
 
-        // EnemyData 찾기
-        EnemyData enemyData = null;
-        if (!string.IsNullOrEmpty(spawnData.enemyCode))
+        // EnemyData 확인
+        if (spawnData.enemyData == null)
         {
-            enemyData = GameDataManager.Instance?.EnemyService?.GetEnemyByCode(spawnData.enemyCode);
-        }
-
-        if (enemyData == null)
-        {
-            Debug.LogError($"[EnemySpawner] EnemyData not found for code: {spawnData.enemyCode} (Spawner: {_spawnerIndex})");
+            Debug.LogError($"[EnemySpawner] EnemyData is not assigned in EnemySpawnData (Spawner: {_spawnerIndex})");
             yield break;
         }
+
+        EnemyData enemyData = spawnData.enemyData;
 
         if (_enemyPrefab.IsValid == false)
         {

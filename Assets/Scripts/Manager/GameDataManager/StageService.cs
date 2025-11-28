@@ -130,6 +130,37 @@ public class StageService
     }
     
     /// <summary>
+    /// Get stage data by scene name
+    /// </summary>
+    /// <param name="sceneName">Scene name</param>
+    /// <returns>StageData or null if not found</returns>
+    public StageData GetStageBySceneName(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            Debug.LogWarning("[StageService] Scene name is null or empty");
+            return null;
+        }
+        
+        if (_stages == null || _stages.Count == 0)
+        {
+            Debug.LogWarning("[StageService] Stage list is empty!");
+            return null;
+        }
+        
+        foreach (var stage in _stages)
+        {
+            if (stage != null && stage.SceneName == sceneName)
+            {
+                return stage;
+            }
+        }
+        
+        Debug.LogWarning($"[StageService] Stage with scene name '{sceneName}' not found");
+        return null;
+    }
+    
+    /// <summary>
     /// Get total number of stages
     /// </summary>
     public int StageCount => _stages.Count;
