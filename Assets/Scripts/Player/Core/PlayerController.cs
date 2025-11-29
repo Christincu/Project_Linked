@@ -6,11 +6,10 @@ using Fusion.Addons.Physics;
 
 /// <summary>
 /// 네트워크 동기화를 지원하는 플레이어 컨트롤러 (Photon Fusion)
-/// NetworkRigidbody를 사용하여 위치 및 속도를 동기화합니다.
+/// 캐릭터의 상태, 마법, 이동 등을 총괄하며 MainGameManager에 의해 관리됩니다.
 /// </summary>
 public class PlayerController : NetworkBehaviour, IPlayerLeft
 {
-
     #region Networked Properties
     // Animation
     [Networked] public NetworkString<_16> AnimationState { get; set; }
@@ -25,40 +24,36 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public float MaxHealth { get; set; }
     [Networked] public NetworkBool IsDead { get; set; }
     [Networked] public TickTimer InvincibilityTimer { get; set; }
-
     [Networked] public TickTimer RespawnTimer { get; set; }
 
     // Magic
     [Networked] public int ActiveMagicSlotNetworked { get; set; }
     [Networked] public int ActivatedMagicCode { get; set; }
     [Networked] public int AbsorbedMagicCode { get; set; }
-    [Networked] public Vector3 MagicAnchorLocalPosition { get; set; } // 앵커의 로컬 위치 동기화
+    [Networked] public Vector3 MagicAnchorLocalPosition { get; set; }
     [Networked] public bool MagicActive { get; set; }
     [Networked] public int MagicActivationTick { get; set; }
 
-    // Teleporter
+    // Teleporter & Barrier
     [Networked] public TickTimer TeleportCooldownTimer { get; set; }
     [Networked] public NetworkBool DidTeleport { get; set; }
-    
-    // Barrier (자폭 보호막)
     [Networked] public TickTimer BarrierTimer { get; set; }
     [Networked] public bool HasBarrier { get; set; }
-    private int _barrierMoveSpeedEffectId = -1; // 이동속도 효과 ID
     
-    // Dash Skill (화염 돌진 스킬)
+    // Dash Skill
     [Networked] public TickTimer DashSkillTimer { get; set; }
     [Networked] public bool HasDashSkill { get; set; }
-    [Networked] public int DashEnhancementCount { get; set; } // 강화 횟수 (0~3)
-    [Networked] public bool IsDashFinalEnhancement { get; set; } // 최종 강화 상태
-    [Networked] public TickTimer DashStunTimer { get; set; } // 정지/행동불능 타이머
-    [Networked] public NetworkBool DashIsMoving { get; set; } // 이동 상태 (false = 정지, true = 이동)
-    [Networked] public Vector2 DashVelocity { get; set; } // 돌진 속도
-    [Networked] public Vector2 DashLastInputDirection { get; set; } // 마지막 입력 방향
-    [Networked] public Vector2 DashPendingRecoilDirection { get; set; } // 튕겨나갈 방향 (플레이어 충돌 후)
-    [Networked] public NetworkBool DashIsWaitingToRecoil { get; set; } // 반동 대기 중인지 여부
-    public DashMagicObject DashMagicObject { get; set; } // 돌진 마법 오브젝트 참조
+    [Networked] public int DashEnhancementCount { get; set; }
+    [Networked] public bool IsDashFinalEnhancement { get; set; }
+    [Networked] public TickTimer DashStunTimer { get; set; }
+    [Networked] public NetworkBool DashIsMoving { get; set; }
+    [Networked] public Vector2 DashVelocity { get; set; }
+    [Networked] public Vector2 DashLastInputDirection { get; set; }
+    [Networked] public Vector2 DashPendingRecoilDirection { get; set; }
+    [Networked] public NetworkBool DashIsWaitingToRecoil { get; set; }
+    public DashMagicObject DashMagicObject { get; set; }
     
-    // Threat Score (위협점수)
+    // Threat Score
     [Networked] public float ThreatScore { get; set; }
     #endregion
 
@@ -72,7 +67,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     private GameDataManager _gameDataManager;
     private ChangeDetector _changeDetector;
 
-    // Player Components
+    // Sub-Components
     private PlayerBehavior _behavior;
     private PlayerMagicController _magicController;
     private PlayerState _state;
@@ -81,10 +76,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     private PlayerViewManager _viewManager;
     private PlayerDetectionManager _detectionManager;
     private PlayerEffectManager _effectManager;
-    #endregion
-
-    #region Private Fields - State
+    
+    // Internal State
     private bool _isTestMode;
+    private int _barrierMoveSpeedEffectId = -1;
     #endregion
 
     #region Properties
@@ -101,65 +96,60 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public float MoveSpeed => _movement != null ? _movement.GetMoveSpeed() : 0f;
     public ChangeDetector MagicChangeDetector => _changeDetector;
 
-    // Health Properties
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
     public bool IsInvincible => !InvincibilityTimer.ExpiredOrNotRunning(Runner);
-
-    // Test Mode Property
     public bool IsTestMode => _isTestMode;
-    
-    // Threat Score Property
     public float CurrentThreatScore => ThreatScore;
     #endregion
 
     #region Fusion Callbacks
-    /// <summary>
-    /// 네트워크 오브젝트 생성 시 호출됩니다.
-    /// </summary>
+
     public override void Spawned()
     {
-        // MainGameManager의 테스트 모드 확인
+        base.Spawned();
+        
+        // 1. 기본 설정
+        Runner.SetIsSimulated(Object, true);
         _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
         _gameDataManager = GameDataManager.Instance;
 
-        // Fusion Physics 시뮬레이션에 포함시킴 (NetworkRigidbody2D가 있을 때 필요)
-        // 클라이언트 물리 예측 모드에서 NetworkRigidbody 경고 제거
-        if (Runner != null && Object != null)
-        {
-            Runner.SetIsSimulated(Object, true);
-        }
-
+        // 2. 컴포넌트 캐싱 및 생성
         InitializeComponents();
+
+        // 3. 네트워크 변수 초기값 설정 (서버 권한)
         InitializeNetworkState();
 
-        // 초기화 및 데이터 동기화 대기
-        StartCoroutine(InitializeAllComponents());
+        // 4. 하위 시스템 초기화 (데이터 로드 등)
+        InitializeSubSystems();
     }
 
     /// <summary>
-    /// 모든 컴포넌트를 초기화하고 데이터 동기화를 처리합니다.
+    /// PlayerController의 내부 하위 시스템들을 초기화합니다.
+    /// UI 등록 로직은 MainGameManager가 담당하므로 제거되었습니다.
     /// </summary>
-    private IEnumerator InitializeAllComponents()
+    private void InitializeSubSystems()
     {
-        yield return null;
-
         InitialPlayerData initialData = GameDataManager.Instance?.InitialPlayerData;
 
         if (initialData == null)
         {
-            Debug.LogError("[PlayerController] GameDataManager or InitialPlayerData is null!");
-            yield break;
+            Debug.LogError("[PlayerController] InitialPlayerData is null! Check GameDataManager.");
+            return;
         }
 
-        // 1. 네트워크 변수 초기화 (서버만)
+        // 서버: 체력 초기화
         if (Object.HasStateAuthority)
         {
-            MaxHealth = initialData.MaxHealth;
-            CurrentHealth = initialData.StartingHealth;
-            IsDead = false;
+            // 이미 설정된 값이 없다면 초기값 적용 (재접속 시 데이터 보존 고려)
+            if (MaxHealth <= 0)
+            {
+                MaxHealth = initialData.MaxHealth;
+                CurrentHealth = initialData.StartingHealth;
+                IsDead = false;
+            }
         }
 
-        // 2. 종속 컴포넌트 초기화
+        // 로컬/리모트 공통: 하위 컴포넌트 의존성 주입
         _state?.Initialize(this, initialData);
         _movement?.Initialize(this, initialData);
         _behavior?.Initialize(this);
@@ -167,12 +157,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _detectionManager?.Initialize(this, _gameDataManager);
         _animationController?.Initialize(this);
         _effectManager?.Initialize(this);
-        
-        // NetworkRigidbody2D 초기화 후 시뮬레이션 설정 보장
-        if (Runner != null && Object != null && _movement != null && _movement.NetworkRigidbody2D != null)
-        {
-            Runner.SetIsSimulated(Object, true);
-        }
 
         if (_magicController != null)
         {
@@ -180,63 +164,26 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             _magicController.SetMagicUIReferences(_magicViewObj, _magicAnchor, _magicIdleFirstFloor, _magicIdleSecondFloor, _magicActiveFloor);
         }
 
-        // ViewObj 생성
+        // View Object(외형) 생성
         _viewManager?.TryCreateView();
-        
-        // Canvas 등록
-        if (Object.HasStateAuthority)
-        {
-            RegisterToCanvas();
-        }
-        else
-        {
-            StartCoroutine(WaitForNetworkSyncAndRegister());
-        }
     }
 
-    private IEnumerator WaitForNetworkSyncAndRegister()
-    {
-        while (MaxHealth <= 0)
-        {
-            yield return null;
-        }
-
-        RegisterToCanvas();
-    }
-
-    private void RegisterToCanvas()
-    {
-        if (GameManager.Instance?.Canvas is MainCanvas canvas)
-        {
-            canvas.RegisterPlayer(this);
-        }
-        else
-        {
-            Debug.LogWarning($"[PlayerController] GameManager, Canvas, or MainCanvas type not found");
-        }
-    }
-
-    /// <summary>
-    /// Fusion 네트워크 입력 처리 (매 틱마다 호출)
-    /// </summary>
     public override void FixedUpdateNetwork()
     {
         if (_movement == null || _state == null) return;
 
         InputData? inputData = null;
-        bool hasInput = GetInput<InputData>(out var data);
-        if (hasInput)
+        if (GetInput<InputData>(out var data))
         {
             inputData = data;
         }
 
+        // 1. 사망 상태가 아닐 때만 동작
         if (!_state.IsDead)
         {
-            // 1. 이동 로직 처리
             HandleMovement(inputData);
             
-            // 2. 마법 입력 처리 (MagicController로 위임)
-            // 돌진 중에는 마법 조작 불가 (이미 DashMagicObject에서 처리)
+            // 돌진 중이 아닐 때만 마법 사용 가능
             if (inputData.HasValue && !HasDashSkill)
             {
                 _magicController?.ProcessInput(inputData.Value, this, _isTestMode);
@@ -244,64 +191,41 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         }
         else
         {
-            // 사망 시 즉시 이동 정지 (관성 제거)
-            if (_movement != null && _movement.Rigidbody != null)
+            // 사망 시 이동 정지
+            if (_movement?.Rigidbody != null)
             {
                 _movement.Rigidbody.velocity = Vector2.zero;
             }
         }
 
-        if (Object.HasStateAuthority && _state.IsDead)
+        // 2. 서버 권한 로직 (리스폰, 애니메이션, 상태 업데이트)
+        if (Object.HasStateAuthority)
         {
-            if (_state.RespawnTimer.Expired(Runner))
+            if (_state.IsDead && _state.RespawnTimer.Expired(Runner))
             {
                 _state.Respawn();
             }
-        }
 
-        if (Object.HasStateAuthority)
-        {
             _animationController?.UpdateAnimation();
-        }
 
-        if (Object.HasStateAuthority && DidTeleport)
-        {
-            DidTeleport = false;
-        }
+            if (DidTeleport) DidTeleport = false;
 
-        // 자폭 베리어 타이머 체크 및 이동속도 효과 관리 (State Authority)
-        if (Object.HasStateAuthority)
-        {
             UpdateBarrierState();
-        }
-        
-        // 위협점수 업데이트 (매 프레임)
-        if (Object.HasStateAuthority)
-        {
             UpdateThreatScore();
-        }
-        
-        // 효과 업데이트 (만료된 효과 제거)
-        if (Object.HasStateAuthority)
-        {
             _effectManager?.UpdateEffects();
         }
     }
 
     public override void Render()
     {
+        // 네트워크 변수 변경 감지 및 시각적 동기화
         DetectNetworkChanges();
         _viewManager?.SyncViewObjPosition();
-        
-        // 마법 컨트롤러의 시각적 업데이트 (렌더링 틱에서 처리)
         _magicController?.OnRender();
     }
-    /// <summary>
-    /// 이동 로직을 처리합니다.
-    /// </summary>
+
     private void HandleMovement(InputData? inputData)
     {
-        // 대쉬 스킬 사용 중이면 대쉬 오브젝트가 이동 제어
         if (HasDashSkill && DashMagicObject != null)
         {
             DashMagicObject.FixedUpdateNetwork();
@@ -312,12 +236,11 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             _movement.Move();
         }
     }
+
     #endregion
 
-    #region Public Methods - Network
-    /// <summary>
-    /// 플레이어가 나갔을 때 호출됩니다.
-    /// </summary>
+    #region Public Methods - Network & Game Logic
+
     public void PlayerLeft(PlayerRef player)
     {
         if (player == Object.InputAuthority)
@@ -326,35 +249,22 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         }
     }
 
-    /// <summary>
-    /// MapTeleporter가 순간이동을 요청합니다. (State Authority에서 호출)
-    /// </summary>
     public void RequestTeleport(Vector3 targetPosition)
     {
-        // PlayerController는 NetworkBehaviour이므로, RPC를 호출하여 서버에 요청합니다.
         if (Object.HasStateAuthority)
         {
             RPC_TeleportPlayer(targetPosition);
         }
     }
-    #endregion
 
-    #region Public Methods - Character & State Callbacks
-    /// <summary>
-    /// 캐릭터 인덱스를 설정하고 뷰 오브젝트를 생성합니다.
-    /// </summary>
     public void SetCharacterIndex(int characterIndex)
     {
         CharacterIndex = characterIndex;
         _viewManager?.TryCreateView();
     }
 
-    /// <summary>
-    /// PlayerState에서 리스폰 시 호출됩니다. 위치를 업데이트하고 움직임을 리셋합니다.
-    /// </summary>
     public void OnPlayerRespawned(Vector3 spawnPosition)
     {
-        // Rigidbody 위치를 설정하여 동기화를 보장합니다.
         if (Movement?.Rigidbody != null)
         {
             Movement.Rigidbody.position = spawnPosition;
@@ -365,28 +275,20 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         }
 
         AnimationState = "idle";
-
         _movement?.ResetVelocity();
-        _animationController?.Initialize(this); // 위치 초기화를 위해 재초기화
-
+        _animationController?.Initialize(this);
     }
 
     #endregion
 
     #region RPC Methods
-    /// <summary>
-    /// 마법 앵커 로컬 위치를 업데이트합니다. (Input Authority → State Authority)
-    /// </summary>
+
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_UpdateMagicAnchorPosition(Vector3 localPosition)
     {
         MagicAnchorLocalPosition = localPosition;
     }
 
-    /// <summary>
-    /// 마법 UI를 활성화합니다. (Input Authority → State Authority)
-    /// 서버가 MagicActive를 변경하면 자동으로 모든 클라이언트에 동기화됨
-    /// </summary>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_ActivateMagic(int magicSlot, int activatedMagicCode)
     {
@@ -395,51 +297,31 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         AbsorbedMagicCode = -1;
         MagicActivationTick = Runner.Tick;
         ActiveMagicSlotNetworked = magicSlot;
-        // [수정] 마법 활성화 시 앵커 위치를 초기화하여 이전 위치가 남아있지 않도록 함
         MagicAnchorLocalPosition = Vector3.zero;
     }
 
-    /// <summary>
-    /// 마법 UI를 비활성화합니다. (Input Authority → State Authority)
-    /// 서버가 MagicActive를 변경하면 자동으로 모든 클라이언트에 동기화됨
-    /// </summary>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_DeactivateMagic()
     {
-        MagicActive = false;
-        MagicActivationTick = 0;
-        ActivatedMagicCode = -1;
-        AbsorbedMagicCode = -1;
-        ActiveMagicSlotNetworked = 0;
+        DeactivateMagicInternal();
     }
 
-    /// <summary>
-    /// 마법을 시전합니다. (Input Authority → State Authority)
-    /// </summary>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_CastMagic(Vector3 targetPosition)
     {
         if (_magicController != null)
         {
-            // CastMagic에서 마법 코드를 결정하므로 여기서는 바로 호출
             _magicController.CastMagic(targetPosition);
             
-            // CastMagic에서 결정된 마법 코드를 확인하여 보호막 마법이 아닌 경우에만 비활성화
-            // 보호막 마법은 선택 후에 비활성화됨
+            // 보호막 마법(코드 10)은 선택 후 비활성화되므로 즉시 끄지 않음
             int magicCodeToCast = GetCurrentMagicCodeToCast();
             if (magicCodeToCast != 10)
             {
-                // RPC를 직접 호출하는 대신 네트워크 변수를 직접 설정
-                // (State Authority에서 실행 중이므로 직접 설정 가능)
                 DeactivateMagicInternal();
             }
         }
     }
-    
-    /// <summary>
-    /// 마법을 비활성화합니다. (내부 메서드, State Authority에서 직접 호출)
-    /// 다른 NetworkBehaviour에서 호출할 때 사용합니다.
-    /// </summary>
+
     public void DeactivateMagicInternal()
     {
         MagicActive = false;
@@ -448,114 +330,50 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         AbsorbedMagicCode = -1;
         ActiveMagicSlotNetworked = 0;
     }
-    
-    /// <summary>
-    /// 보호막을 플레이어에게 적용합니다. (Input Authority → State Authority)
-    /// BarrierMagicHandler에서 호출됩니다.
-    /// </summary>
+
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_ApplyBarrier(NetworkId targetPlayerId)
     {
-        if (_magicController == null) return;
+        if (_magicController == null || Runner == null) return;
         
-        // 타겟 플레이어 찾기
-        PlayerController targetPlayer = null;
-        if (Runner != null)
+        var targetObj = Runner.FindObject(targetPlayerId);
+        if (targetObj != null)
         {
-            var targetObj = Runner.FindObject(targetPlayerId);
-            if (targetObj != null)
+            var targetPlayer = targetObj.GetComponent<PlayerController>();
+            if (targetPlayer != null && !targetPlayer.IsDead)
             {
-                targetPlayer = targetObj.GetComponent<PlayerController>();
+                _magicController.GetBarrierMagicHandler()?.ApplyBarrierToPlayer(targetPlayer);
             }
         }
-        
-        if (targetPlayer == null || targetPlayer.IsDead) return;
-        
-        // BarrierMagicHandler를 통해 보호막 적용
-        var barrierHandler = _magicController.GetBarrierMagicHandler();
-        if (barrierHandler != null)
-        {
-            barrierHandler.ApplyBarrierToPlayer(targetPlayer);
-        }
-    }
-    
-    /// <summary>
-    /// 현재 시전할 마법 코드를 가져옵니다.
-    /// </summary>
-    private int GetCurrentMagicCodeToCast()
-    {
-        if (AbsorbedMagicCode != -1 && ActivatedMagicCode != -1)
-        {
-            int combinedMagicCode = _gameDataManager.MagicService.GetCombinedMagic(
-                ActivatedMagicCode, 
-                AbsorbedMagicCode
-            );
-            if (combinedMagicCode != -1)
-            {
-                return combinedMagicCode;
-            }
-        }
-        
-        if (ActivatedMagicCode != -1)
-        {
-            return ActivatedMagicCode;
-        }
-        
-        return -1;
     }
 
-    /// <summary>
-    /// 서버가 모든 클라이언트에게 폭발 이펙트를 재생하라고 명령합니다.
-    /// </summary>
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     public void RPC_TriggerExplosionVfx(Vector3 position, float radius)
     {
-        // BarrierMagicCombinationData에서 폭발 이펙트 프리팹 가져오기
         BarrierMagicCombinationData barrierData = GetBarrierData();
-        if (barrierData == null || barrierData.explosionVfxPrefab == null)
+        if (barrierData?.explosionVfxPrefab != null)
         {
-            Debug.LogWarning($"[RPC_TriggerExplosionVfx] Explosion VFX prefab is not assigned in BarrierMagicCombinationData! Position: {position}, Radius: {radius}");
-            return;
+            GameObject vfx = Instantiate(barrierData.explosionVfxPrefab, position, Quaternion.identity);
+            vfx.transform.localScale = Vector3.one * radius;
+            Destroy(vfx, 2.0f);
         }
-        
-        // 1. 이펙트 프리팹 생성 (로컬 GameObject)
-        GameObject vfx = Instantiate(barrierData.explosionVfxPrefab, position, Quaternion.identity);
-        
-        // 2. 크기 조정 (필요 시)
-        vfx.transform.localScale = Vector3.one * radius;
-        
-        // 3. 파티클 재생 후 파괴 (파티클 설정에 Auto Destruct가 있다면 생략 가능)
-        Destroy(vfx, 2.0f);
     }
 
-    /// <summary>
-    /// 텔레포트하는 플레이어에게만 로딩 패널을 표시합니다.
-    /// (MapTeleporter에서 호출)
-    /// </summary>
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     public void RPC_ShowLoadingPanel(float duration)
     {
-        // 해당 플레이어만 로딩 패널 표시
         if (Object.HasInputAuthority)
         {
             LoadingPanel.ShowForSeconds(duration);
         }
     }
 
-    /// <summary>
-    /// 모든 플레이어에게 로딩 패널을 표시합니다.
-    /// (ScenDespawner에서 호출)
-    /// </summary>
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     public void RPC_ShowLoadingPanelToAll()
     {
         LoadingPanel.Show();
     }
 
-    /// <summary>
-    /// 서버에서 호출되어 플레이어의 위치를 강제로 설정합니다. (MapTeleporter 사용)
-    /// 로딩 화면은 MapTeleporter에서 관리합니다.
-    /// </summary>
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     public void RPC_TeleportPlayer(Vector3 targetPosition)
     {
@@ -565,7 +383,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     private void ExecuteTeleport(Vector3 targetPosition)
     {
         var networkRb = GetComponent<NetworkRigidbody2D>();
-        if (networkRb != null && networkRb.Rigidbody != null)
+        if (networkRb?.Rigidbody != null)
         {
             networkRb.Teleport(targetPosition);
             networkRb.Rigidbody.velocity = Vector2.zero;
@@ -577,15 +395,13 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
         Movement?.ResetVelocity();
         DidTeleport = true;
-        _animationController?.Initialize(this); // 위치 초기화를 위해 재초기화
-
+        _animationController?.Initialize(this);
     }
+
     #endregion
 
-    #region Private Methods - Initialization
-    /// <summary>
-    /// 컴포넌트를 초기화합니다 (없으면 추가).
-    /// </summary>
+    #region Private Methods - Initialization & Helper
+
     private void InitializeComponents()
     {
         _state = GetComponent<PlayerState>() ?? gameObject.AddComponent<PlayerState>();
@@ -596,95 +412,57 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _viewManager = GetComponent<PlayerViewManager>() ?? gameObject.AddComponent<PlayerViewManager>();
         _detectionManager = GetComponent<PlayerDetectionManager>() ?? gameObject.AddComponent<PlayerDetectionManager>();
         _effectManager = GetComponent<PlayerEffectManager>() ?? gameObject.AddComponent<PlayerEffectManager>();
-
-
+        
         _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
     }
-    
-    /// <summary>
-    /// 네트워크 상태 초기값을 설정합니다. (State Authority 전용)
-    /// </summary>
+
     private void InitializeNetworkState()
     {
-        if (Object.HasStateAuthority)
-        {
-            ScaleX = 1f;
-            AnimationState = "idle";
-            IsDead = false;
-            TeleportCooldownTimer = TickTimer.None;
-            DidTeleport = false;
-            BarrierTimer = TickTimer.None;
-            HasBarrier = false;
-            DashSkillTimer = TickTimer.None;
-            HasDashSkill = false;
-            DashEnhancementCount = 0;
-            IsDashFinalEnhancement = false;
-            DashStunTimer = TickTimer.None;
-            DashIsMoving = false;
-            DashVelocity = Vector2.zero;
-            DashLastInputDirection = Vector2.zero;
-            DashPendingRecoilDirection = Vector2.zero;
-            DashIsWaitingToRecoil = false;
-            ThreatScore = 0f;
-        }
+        if (!Object.HasStateAuthority) return;
+
+        ScaleX = 1f;
+        AnimationState = "idle";
+        IsDead = false;
+        
+        // 타이머 및 상태 초기화
+        TeleportCooldownTimer = TickTimer.None;
+        BarrierTimer = TickTimer.None;
+        DashSkillTimer = TickTimer.None;
+        DashStunTimer = TickTimer.None;
+        
+        DidTeleport = false;
+        HasBarrier = false;
+        HasDashSkill = false;
+        DashIsMoving = false;
+        
+        DashEnhancementCount = 0;
+        IsDashFinalEnhancement = false;
+        ThreatScore = 0f;
+        
+        DashVelocity = Vector2.zero;
+        DashLastInputDirection = Vector2.zero;
+        DashPendingRecoilDirection = Vector2.zero;
     }
-    
-    /// <summary>
-    /// 특정 적이 근처에 있는지 확인합니다.
-    /// </summary>
+
     public bool IsEnemyNearby(EnemyDetector enemy)
     {
         return _detectionManager != null && _detectionManager.IsEnemyNearby(enemy);
     }
-    
-    /// <summary>
-    /// 보호막 만료 시 모든 플레이어의 HP를 3으로 회복합니다.
-    /// </summary>
-    private void RestoreAllPlayersHealthOnBarrierExpire()
+
+    private int GetCurrentMagicCodeToCast()
     {
-        if (Runner == null) return;
-        
-        // 모든 플레이어 가져오기
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
-        if (MainGameManager.Instance != null)
+        if (AbsorbedMagicCode != -1 && ActivatedMagicCode != -1)
         {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
+            int combined = _gameDataManager.MagicService.GetCombinedMagic(ActivatedMagicCode, AbsorbedMagicCode);
+            if (combined != -1) return combined;
         }
-        
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
-        
-        // 모든 플레이어의 HP를 3으로 회복
-        foreach (var player in allPlayers)
-        {
-            if (player == null || player.IsDead) continue;
-            
-            // PlayerState의 SetHealth를 사용하여 이벤트 발생
-            if (player.State != null)
-            {
-                player.State.SetHealth(3f);
-            }
-            else
-            {
-                player.CurrentHealth = 3f;
-            }
-            
-            // 보호막 상태 제거 (FixedUpdateNetwork에서 이동속도 효과도 자동 제거됨)
-            player.HasBarrier = false;
-            player.BarrierTimer = TickTimer.None;
-            
-            Debug.Log($"[BarrierMagic] {player.name} HP restored to 3 (barrier expired)");
-        }
+        return ActivatedMagicCode;
     }
+    
     #endregion
 
-    #region Private Methods - Network Synchronization
-    /// <summary>
-    /// 네트워크 상태 변경을 감지하고 처리합니다. (렌더링 틱)
-    /// </summary>
+    #region Network Sync Logic (Change Detector)
+
     private void DetectNetworkChanges()
     {
         bool magicStateChanged = false;
@@ -696,216 +474,134 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                 case nameof(AnimationState):
                     _animationController?.PlayAnimation(AnimationState.ToString());
                     break;
-
                 case nameof(ScaleX):
                     _animationController?.UpdateScale();
                     break;
-
                 case nameof(CharacterIndex):
                     _viewManager?.TryCreateView();
                     break;
-
                 case nameof(CurrentHealth):
                 case nameof(MaxHealth):
-                    // 체력 변경 시 UI 업데이트를 위한 이벤트 발생 (모든 클라이언트에서)
-                    if (_state != null)
-                    {
-                        _state.OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
-                    }
+                    _state?.OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
                     break;
-
                 case nameof(MagicActive):
-                    MagicController.UpdateMagicUIState(MagicActive);
-                    magicStateChanged = true;
-                    break;
-
                 case nameof(ActiveMagicSlotNetworked):
                     MagicController.UpdateMagicUIState(MagicActive);
                     magicStateChanged = true;
                     break;
-
                 case nameof(MagicAnchorLocalPosition):
                     _magicController.UpdateMagicUIState(MagicActive);
                     _magicController.UpdateAnchorPosition(MagicAnchorLocalPosition);
                     break;
-
                 case nameof(AbsorbedMagicCode):
                     _magicController.UpdateMagicUIState(MagicActive);
                     break;
-
                 case nameof(HasBarrier):
-                    UpdateThreatScore(); // 위협점수 업데이트
+                    UpdateThreatScore();
                     break;
             }
         }
 
-        // 마법 상태가 변경되었을 때만 한 번 호출 (중복 방지)
         if (magicStateChanged)
         {
             MagicController.UpdateMagicUIState(MagicActive);
         }
     }
-    
-    /// <summary>
-    /// 베리어 상태를 업데이트합니다. (PlayerController를 깔끔하게 유지하기 위해 메서드로 분리)
-    /// </summary>
+
+    #endregion
+
+    #region Barrier Logic (Cleaned up)
+
     private void UpdateBarrierState()
     {
         if (!HasBarrier || IsDead) return;
-        
+
         if (BarrierTimer.IsRunning)
         {
             float remainingTime = BarrierTimer.RemainingTime(Runner) ?? 0f;
+            var barrierData = GetBarrierData();
             
-            // 베리어 조합 데이터 가져오기
-            BarrierMagicCombinationData barrierData = GetBarrierData();
-            if (barrierData != null)
-            {
-                // 이동속도 효과 적용 구간 계산
-                float moveSpeedEffectEndTime = barrierData.barrierDuration - barrierData.moveSpeedEffectDuration;
-                
-                // 이동속도 효과 적용 구간 (예: 10초~3초)
-                if (remainingTime > moveSpeedEffectEndTime)
-                {
-                    // 이동속도 효과가 없으면 추가
-                    if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
-                    {
-                        float effectDuration = remainingTime - moveSpeedEffectEndTime;
-                        _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, barrierData.moveSpeedMultiplier, effectDuration);
-                        Debug.Log($"[BarrierMagic] {name} barrier move speed effect applied ({barrierData.moveSpeedMultiplier * 100f}%)");
-                    }
-                }
-                // 이동속도 정상화 구간
-                else
-                {
-                    // 이동속도 효과 제거
-                    if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-                    {
-                        _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                        _barrierMoveSpeedEffectId = -1;
-                        Debug.Log($"[BarrierMagic] {name} barrier move speed effect removed (normalized)");
-                    }
-                }
-            }
-            else
-            {
-                // 데이터가 없으면 기본값 사용 (하위 호환성)
-                if (remainingTime > 3f)
-                {
-                    if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
-                    {
-                        _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, 1.5f, remainingTime - 3f);
-                    }
-                }
-                else
-                {
-                    if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-                    {
-                        _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                        _barrierMoveSpeedEffectId = -1;
-                    }
-                }
-            }
-            
-            // 타이머 만료 확인
+            // 데이터가 없으면 기본값 처리 (MoveSpeedEffect 관리)
+            ManageBarrierMoveSpeedEffect(remainingTime, barrierData);
+
             if (BarrierTimer.Expired(Runner))
             {
-                // 보호막 만료 처리
-                HasBarrier = false;
-                BarrierTimer = TickTimer.None;
-                
-                // 이동속도 효과 제거
-                if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-                {
-                    _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                    _barrierMoveSpeedEffectId = -1;
-                }
-                
-                UpdateThreatScore();
+                ClearBarrierState();
                 Debug.Log($"[BarrierMagic] {name} barrier expired");
             }
         }
-        else if (!BarrierTimer.IsRunning)
+        else
         {
-            // 타이머가 실행되지 않으면 보호막 제거
-            HasBarrier = false;
-            
-            // 이동속도 효과 제거
-            if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
-            {
-                _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                _barrierMoveSpeedEffectId = -1;
-            }
-            
-            UpdateThreatScore();
-            Debug.LogWarning($"[BarrierMagic] {name} barrier timer not running, removing barrier");
-        }
-        
-        // 보호막이 없는데 효과가 남아있으면 제거
-        if (!HasBarrier && _barrierMoveSpeedEffectId != -1)
-        {
-            if (_effectManager != null)
-            {
-                _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
-                _barrierMoveSpeedEffectId = -1;
-            }
+            // 타이머가 돌지 않는데 베리어 상태라면 강제 해제
+            ClearBarrierState();
         }
     }
-    
-    /// <summary>
-    /// 위협점수를 업데이트합니다.
-    /// 자폭 베리어에 따라 위협점수가 결정됩니다.
-    /// </summary>
+
+    private void ManageBarrierMoveSpeedEffect(float remainingTime, BarrierMagicCombinationData data)
+    {
+        float speedUpDuration = data != null ? data.moveSpeedEffectDuration : 3f; // 기본 3초
+        float barrierDuration = data != null ? data.barrierDuration : 15f;
+        float speedEndTime = barrierDuration - speedUpDuration;
+
+        // 속도 증가 구간 (시작 직후 N초간)
+        if (remainingTime > speedEndTime)
+        {
+            if (_barrierMoveSpeedEffectId == -1 && _effectManager != null)
+            {
+                float multiplier = data != null ? data.moveSpeedMultiplier : 1.5f;
+                float duration = remainingTime - speedEndTime;
+                _barrierMoveSpeedEffectId = _effectManager.AddEffect(EffectType.MoveSpeed, multiplier, duration);
+            }
+        }
+        else
+        {
+            RemoveBarrierSpeedEffect();
+        }
+    }
+
+    private void ClearBarrierState()
+    {
+        HasBarrier = false;
+        BarrierTimer = TickTimer.None;
+        RemoveBarrierSpeedEffect();
+        UpdateThreatScore();
+    }
+
+    private void RemoveBarrierSpeedEffect()
+    {
+        if (_barrierMoveSpeedEffectId != -1 && _effectManager != null)
+        {
+            _effectManager.RemoveEffect(_barrierMoveSpeedEffectId);
+            _barrierMoveSpeedEffectId = -1;
+        }
+    }
+
     private void UpdateThreatScore()
     {
         if (!Object.HasStateAuthority) return;
-        
-        float threatScore = 0f;
-        
-        // 1. 자폭 베리어 보너스
-        if (HasBarrier)
-        {
-            // 베리어 조합 데이터에서 위협점수 가져오기
-            BarrierMagicCombinationData barrierData = GetBarrierData();
-            if (barrierData != null)
-            {
-                threatScore = barrierData.threatScore;
-            }
-            else
-            {
-                // 데이터가 없으면 기본값 사용 (하위 호환성)
-                threatScore = 200f;
-            }
-        }
-        
-        // 2. 사망 상태는 위협점수 0
+
         if (IsDead)
         {
-            threatScore = 0f;
+            ThreatScore = 0f;
+            return;
         }
-        
-        ThreatScore = threatScore;
+
+        if (HasBarrier)
+        {
+            var data = GetBarrierData();
+            ThreatScore = data != null ? data.threatScore : 200f;
+        }
+        else
+        {
+            ThreatScore = 0f;
+        }
     }
-    
-    /// <summary>
-    /// 베리어 조합 데이터를 가져옵니다.
-    /// </summary>
+
     private BarrierMagicCombinationData GetBarrierData()
     {
-        if (_gameDataManager == null || _gameDataManager.MagicService == null) return null;
-        
-        // 베리어 마법 코드는 10 (Air + Soil 조합)
-        // MagicService에서 조합 데이터 찾기
-        MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(10);
-        
-        // BarrierMagicCombinationData로 캐스팅
-        if (combinationData is BarrierMagicCombinationData barrierData)
-        {
-            return barrierData;
-        }
-        
-        return null;
+        if (_gameDataManager?.MagicService == null) return null;
+        return _gameDataManager.MagicService.GetCombinationDataByResult(10) as BarrierMagicCombinationData;
     }
+
     #endregion
 }
-

@@ -273,7 +273,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: _isTestMode
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: _roundTriggers.Array.data[0]

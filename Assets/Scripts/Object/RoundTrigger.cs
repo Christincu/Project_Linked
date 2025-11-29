@@ -24,7 +24,7 @@ public class RoundTrigger : MonoBehaviour
 
     [Header("Doors")]
     [Tooltip("이 라운드에서 제어할 문 컨트롤러들 (RoundDoorNetworkController)")]
-    [SerializeField] private List<RoundDoorNetworkController> _doorObjects = new List<RoundDoorNetworkController>();
+    [SerializeField] private List<GameObject> _doorObjects = new List<GameObject>();
 
     private bool _hasTriggered = false;
     private readonly HashSet<PlayerController> _playersInside = new HashSet<PlayerController>();
@@ -47,7 +47,7 @@ public class RoundTrigger : MonoBehaviour
     /// <summary>
     /// 이 트리거가 제어하는 문 컨트롤러 리스트를 반환합니다.
     /// </summary>
-    public List<RoundDoorNetworkController> DoorObjects => _doorObjects;
+    public List<GameObject> DoorObjects => _doorObjects;
     
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -79,19 +79,10 @@ public class RoundTrigger : MonoBehaviour
             {
                 if (MainGameManager.Instance != null)
                 {
-                    // 라운드 시작
-                    MainGameManager.Instance.StartRound(_roundIndex, _enemySpawners, _goalSpawners);
-
-                    // 문 닫기: 네트워크 컨트롤러를 직접 참조하여 Networked 상태로 닫기
-                    foreach (var door in _doorObjects)
-                    {
-                        if (door == null) continue;
-
-                        door.SetClosed(true);
-                    }
+                    MainGameManager.Instance.StartRound(_roundIndex, _enemySpawners, _goalSpawners, _doorObjects);
 
                     _hasTriggered = true;
-                    Debug.Log($"[RoundTrigger] Round {_roundIndex} started (EnemySpawners: {_enemySpawners.Count}, GoalSpawners: {_goalSpawners.Count})");
+                    Debug.Log($"[RoundTrigger] Round {_roundIndex} started (EnemySpawners: {_enemySpawners.Count}, GoalSpawners: {_goalSpawners.Count}, Doors: {_doorObjects.Count})");
                 }
                 else
                 {

@@ -100,6 +100,7 @@ public class RoundDoorNetworkController : NetworkBehaviour
     /// </summary>
     public void SetClosed(bool closed)
     {
+        Debug.Log($"[RoundDoorNetworkController] SetClosed: {closed}");
         // StateAuthority 확인 (서버 권한 체크)
         if (Object == null || !Object.HasStateAuthority)
         {

@@ -123,7 +123,6 @@
     <Compile Include="Assets\Scripts\Manager\MainGameManger\MainGameManager.TestMode.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\DropdownSample.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexColorCycler.cs" />
-    <Compile Include="Assets\Scripts\Manager\MainGameManger\MainGameManager.Door.cs" />
     <Compile Include="Assets\Scripts\Data\InitialPlayerData.cs" />
     <Compile Include="Assets\Scripts\Common\RangeVisualizationUtils.cs" />
     <Compile Include="Assets\Scripts\Magic\DashMagicObject\DashMagicObject.Collision.cs" />

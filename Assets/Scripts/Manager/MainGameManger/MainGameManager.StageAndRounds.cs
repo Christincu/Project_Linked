@@ -1,249 +1,196 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Fusion;
+using WaveGoalTypeEnum = WaveGoalType;
 
-/// <summary>
-/// 스테이지, 라운드, 웨이브 및 목표 진행 관련 기능을 모은 partial 클래스입니다.
-/// </summary>
 public partial class MainGameManager
 {
+    // ============================================================================================
+    // [Door & Wave Logic Merged]
+    // 문 관리와 웨이브 진행 로직 통합 (검색 로직 제거 버전)
+    // ============================================================================================
+
     /// <summary>
     /// 스테이지 데이터를 기반으로 적 스폰을 초기화합니다.
-    /// StageData가 이미 로드되어 있다면 재로딩하지 않습니다.
     /// </summary>
     private void InitializeStageEnemySpawning()
     {
-        // StageData가 이미 로드되어 있다면 재로딩하지 않습니다.
         if (_currentStageData != null) return;
-        
+
         string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         StageData stageData = GetStageDataBySceneName(currentSceneName);
-        
+
         if (stageData == null)
         {
-            Debug.LogWarning($"[MainGameManager] Stage data not found for scene: {currentSceneName}. Enemy spawning will be skipped.");
+            Debug.LogWarning($"[MainGameManager] Stage data not found for scene: {currentSceneName}.");
             return;
         }
-        
+
         _currentStageData = stageData;
     }
-    
-    /// <summary>
-    /// 씬 이름으로 StageData를 가져옵니다.
-    /// 이미 로드된 경우 캐시된 데이터를 반환합니다.
-    /// </summary>
-    /// <param name="sceneName">씬 이름</param>
-    /// <returns>StageData or null</returns>
+
     private StageData GetStageDataBySceneName(string sceneName)
     {
-        // 이미 로드된 경우 바로 반환 (캐시 활용)
-        // 주의: StageData에 SceneName 필드가 있다면 더 정확한 검증 가능
         if (_currentStageData != null)
         {
-            // 현재 씬 이름과 일치하는지 확인 (씬 전환 시 재로드 필요)
             string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            if (currentSceneName == sceneName)
-            {
-                return _currentStageData;
-            }
+            if (currentSceneName == sceneName) return _currentStageData;
         }
-        
-        if (GameDataManager.Instance == null)
-        {
-            Debug.LogError("[MainGameManager] GameDataManager.Instance is null!");
-            return null;
-        }
-        
+
+        if (GameDataManager.Instance == null) return null;
+
         return GameDataManager.Instance.StageService.GetStageBySceneName(sceneName);
     }
-    
+
     /// <summary>
-    /// 특정 라운드를 시작합니다.
+    /// 특정 라운드를 시작합니다. (RoundTrigger에서 전달받은 문만 사용)
     /// </summary>
-    /// <param name="roundIndex">시작할 라운드 인덱스 (StageData.roundDataList의 인덱스)</param>
-    /// <param name="enemySpawners">사용할 EnemySpawner 리스트 (RoundTrigger에서 전달)</param>
-    /// <param name="goalSpawners">사용할 GoalSpawner 리스트 (Collect 목표용, null이면 사용 안 함)</param>
-    public void StartRound(int roundIndex, List<EnemySpawner> enemySpawners, List<GoalSpawner> goalSpawners = null)
+    public void StartRound(int roundIndex, List<EnemySpawner> enemySpawners, List<GoalSpawner> goalSpawners = null, List<GameObject> doors = null)
     {
-        // StageData가 초기화되지 않은 경우 재시도
-        if (_currentStageData == null)
-        {
-            InitializeStageEnemySpawning();
-            if (_currentStageData == null)
-            {
-                Debug.LogError($"[MainGameManager] Stage data is null. Cannot start round {roundIndex}.");
-                return;
-            }
-        }
-        
-        // roundDataList 검사
+        // 1. 데이터 검증
+        if (_currentStageData == null) InitializeStageEnemySpawning();
+        if (_currentStageData == null) return;
+
         var roundDataList = _currentStageData.roundDataList;
-        if (roundDataList == null || roundDataList.Count == 0)
+        if (roundDataList == null || roundIndex < 0 || roundIndex >= roundDataList.Count)
         {
-            Debug.LogError($"[MainGameManager] Stage '{_currentStageData.stageName}' has no round data!");
+            Debug.LogError($"[MainGameManager] Invalid round index: {roundIndex}");
             return;
         }
-        
-        // 라운드 인덱스 유효성 검사 및 RoundData 가져오기
-        if (roundIndex < 0 || roundIndex >= roundDataList.Count)
-        {
-            Debug.LogError($"[MainGameManager] Invalid round index: {roundIndex} (Total rounds: {roundDataList.Count})");
-            return;
-        }
-        
+
         RoundData roundData = roundDataList[roundIndex];
-        if (roundData == null)
-        {
-            Debug.LogError($"[MainGameManager] Round data at index {roundIndex} is null!");
-            return;
-        }
-        
-        if (roundData.waveDataList == null || roundData.waveDataList.Count == 0)
-        {
-            Debug.LogWarning($"[MainGameManager] Round {roundIndex} has no wave data!");
-            return;
-        }
-        
-        // Enemy Spawner 유효성 검사
-        if (enemySpawners == null || enemySpawners.Count == 0)
-        {
-            Debug.LogWarning($"[MainGameManager] No enemy spawners available for round {roundIndex}!");
-            return;
-        }
-        
-        // 현재 라운드/웨이브 인덱스 및 사용 중인 스포너/문 저장
+        if (roundData == null || roundData.waveDataList == null || roundData.waveDataList.Count == 0) return;
+
+        // 2. 변수 설정
         _currentRoundIndex = roundIndex;
         _currentWaveIndex = 0;
-        
-        // 네트워크 변수 업데이트 (서버만)
-        if (_runner != null && _runner.IsServer && Object != null && Object.IsValid)
+
+        // 네트워크 변수 업데이트 (서버)
+        if (_runner != null && _runner.IsServer)
         {
-            NetworkRoundIndex = roundIndex;
-            NetworkWaveIndex = 0;
+            RoundIndex = roundIndex;
+            WaveIndex = 0;
         }
-        _currentRoundEnemySpawners = enemySpawners != null ? new List<EnemySpawner>(enemySpawners) : new List<EnemySpawner>();
-        _currentRoundGoalSpawners = goalSpawners != null ? new List<GoalSpawner>(goalSpawners) : new List<GoalSpawner>();
 
-        // 현재 라운드에 연결된 문 컨트롤러들 수집
-        var currentRoundDoors = new List<RoundDoorNetworkController>();
-        if (_roundTriggers != null)
+        _currentRoundEnemySpawners = enemySpawners ?? new List<EnemySpawner>();
+        _currentRoundGoalSpawners = goalSpawners ?? new List<GoalSpawner>();
+
+        // 3. [문 로직 수정] 검색 로직 삭제, 전달받은 리스트만 사용
+        _currentRoundDoorObjects.Clear();
+
+        if (doors != null && doors.Count > 0)
         {
-            foreach (var trigger in _roundTriggers)
+            foreach (var door in doors)
             {
-                if (trigger != null && trigger.RoundIndex == roundIndex)
+                // 리스트 내부에 null이 섞여있을 수 있으므로 필터링
+                if (door != null)
                 {
-                    var doors = trigger.DoorObjects;
-                    if (doors == null) continue;
-
-                    foreach (var door in doors)
-                    {
-                        if (door != null && !currentRoundDoors.Contains(door))
-                        {
-                            currentRoundDoors.Add(door);
-                        }
-                    }
+                    _currentRoundDoorObjects.Add(door.GetComponent<RoundDoorNetworkController>());
                 }
             }
         }
-
-        // 모든 문을 열린 상태로 시작 (네트워크 컨트롤러 기준)
-        _isMapDoorClosed = false;
-        foreach (var door in currentRoundDoors)
+        else
         {
-            if (door != null)
+            Debug.LogWarning($"[MainGameManager] Round {roundIndex} has no doors assigned.");
+        }
+
+        // 4. 문 닫기 실행 (즉시 실행)
+        CloseMapDoor();
+
+        // 5. 웨이브 시작
+        _activeWaves.Clear();
+        StartCurrentWave();
+    }
+
+    /// <summary>
+    /// 현재 라운드의 모든 문을 닫습니다. (즉시 실행)
+    /// </summary>
+    private void CloseMapDoor()
+    {
+        _isMapDoorClosed = true;
+
+        if (_currentRoundDoorObjects == null || _currentRoundDoorObjects.Count == 0) return;
+
+        // 서버 권한이 있을 때만 상태 변경
+        if (_runner != null && _runner.IsServer)
+        {
+            int closedCount = 0;
+            foreach (var door in _currentRoundDoorObjects)
             {
-                // 서버에서만 Networked 상태를 변경 (클라이언트는 Spawned 기본값 사용)
-                if (FusionManager.LocalRunner == null || FusionManager.LocalRunner.IsServer)
+                if (door != null && door.Object != null && door.Object.IsValid)
+                {
+                    door.SetClosed(true);
+                    closedCount++;
+                }
+            }
+            Debug.Log($"[MainGameManager] Closed {closedCount} doors for Round {_currentRoundIndex}.");
+        }
+    }
+
+    /// <summary>
+    /// 현재 라운드의 모든 문을 엽니다. (즉시 실행)
+    /// </summary>
+    private void OpenMapDoor()
+    {
+        _isMapDoorClosed = false;
+
+        if (_currentRoundDoorObjects == null || _currentRoundDoorObjects.Count == 0) return;
+
+        if (_runner != null && _runner.IsServer)
+        {
+            foreach (var door in _currentRoundDoorObjects)
+            {
+                if (door != null && door.Object != null && door.Object.IsValid)
                 {
                     door.SetClosed(false);
                 }
             }
         }
-        // 메인 게임 매니저 쪽에서 현재 라운드의 문들을 추적할 수 있도록 필드 업데이트
-        _currentRoundDoorObjects = currentRoundDoors;
-
-        // 이전 웨이브 진행 상태 초기화 (웨이브가 시작되기 전에 초기화하는 것이 명확합니다)
-        _activeWaves.Clear();
-
-        // 첫 번째 웨이브 시작
-        StartCurrentWave();
     }
-    
+
+    // 외부 호출용 (이전 코드 호환성 유지)
+    public void CloseCurrentRoundDoors() => CloseMapDoor();
+
     /// <summary>
     /// 현재 라운드에서 _currentWaveIndex에 해당하는 웨이브를 시작합니다.
-    /// 모든 웨이브를 완료했다면 라운드를 종료합니다.
     /// </summary>
     private void StartCurrentWave()
     {
-        // StageData 유효성 검사 (StartRound에서 로드되었어야 함)
-        if (_currentStageData == null)
-        {
-            Debug.LogWarning("[MainGameManager] StageData is null. Attempting re-initialization.");
-            InitializeStageEnemySpawning();
-            if (_currentStageData == null)
-            {
-                Debug.LogError("[MainGameManager] StartCurrentWave failed: StageData is still null.");
-                return;
-            }
-        }
-        
-        // 라운드/웨이브 데이터 유효성 검사
+        if (_currentStageData == null) return;
+
         var roundDataList = _currentStageData.roundDataList;
-        if (_currentRoundIndex < 0 || _currentRoundIndex >= roundDataList.Count)
-        {
-            Debug.LogError($"[MainGameManager] Invalid round index ({_currentRoundIndex}) in StartCurrentWave.");
-            return;
-        }
-
         RoundData roundData = roundDataList[_currentRoundIndex];
-        if (roundData == null || roundData.waveDataList == null || roundData.waveDataList.Count == 0)
-        {
-            Debug.LogWarning($"[MainGameManager] Round {_currentRoundIndex} has no valid wave data.");
-            OnRoundCompleted();
-            return;
-        }
 
-        // 모든 웨이브를 완료한 경우 라운드 종료
-        if (_currentWaveIndex < 0 || _currentWaveIndex >= roundData.waveDataList.Count)
+        // 라운드 종료 체크
+        if (_currentWaveIndex >= roundData.waveDataList.Count)
         {
             OnRoundCompleted();
             return;
         }
 
-        // WaveData 가져오기 및 유효성 검사
         WaveData currentWave = roundData.waveDataList[_currentWaveIndex];
         if (currentWave == null)
         {
-            Debug.LogWarning($"[MainGameManager] Wave data at index {_currentWaveIndex} is null. Skipping to next wave.");
             _currentWaveIndex++;
-            StartCurrentWave(); // 재귀 호출로 다음 웨이브 시도
+            StartCurrentWave();
             return;
         }
 
         _activeWaves.Clear();
-        
-        // 네트워크 변수 업데이트 (서버만, 웨이브 인덱스)
-        if (_runner != null && _runner.IsServer && Object != null && Object.IsValid)
+
+        if (_runner != null && _runner.IsServer)
         {
-            NetworkWaveIndex = _currentWaveIndex;
+            WaveIndex = _currentWaveIndex;
         }
-        
+
         StartWave(currentWave, _currentRoundEnemySpawners, _currentRoundGoalSpawners);
     }
-    
-    /// <summary>
-    /// 특정 웨이브를 시작합니다.
-    /// </summary>
-    /// <param name="waveData">시작할 웨이브 데이터</param>
-    /// <param name="enemySpawners">사용할 EnemySpawner 리스트</param>
-    /// <param name="goalSpawners">사용할 GoalSpawner 리스트 (Collect 목표일 때 사용, null이면 사용 안 함)</param>
+
     public void StartWave(WaveData waveData, List<EnemySpawner> enemySpawners, List<GoalSpawner> goalSpawners = null)
     {
-        if (waveData == null)
-        {
-            Debug.LogError("[MainGameManager] Wave data is null!");
-            return;
-        }
-        
+        if (waveData == null) return;
+
         int waveId = waveData.GetHashCode();
         if (waveData.waveGoalCount > 0 && !_activeWaves.ContainsKey(waveId))
         {
@@ -251,324 +198,160 @@ public partial class MainGameManager
             UpdateWaveGoalUI(waveData, _activeWaves[waveId]);
         }
 
-        if (waveData.enemySpawnDataList != null && waveData.enemySpawnDataList.Count > 0 &&
-            enemySpawners != null && enemySpawners.Count > 0)
+        // 적 스폰
+        if (waveData.enemySpawnDataList != null)
         {
             foreach (var spawnData in waveData.enemySpawnDataList)
             {
-                if (spawnData.spawnerIndex >= 0 && spawnData.spawnerIndex < enemySpawners.Count)
+                if (enemySpawners != null && spawnData.spawnerIndex >= 0 && spawnData.spawnerIndex < enemySpawners.Count)
                 {
-                    EnemySpawner spawner = enemySpawners[spawnData.spawnerIndex];
-                    if (spawner != null)
+                    enemySpawners[spawnData.spawnerIndex]?.SpawnWave(new WaveData
                     {
-                        WaveData singleSpawnWave = new WaveData
-                        {
-                            waveGoalType = waveData.waveGoalType,
-                            waveGoalCount = waveData.waveGoalCount,
-                            enemySpawnDataList = new List<EnemySpawnData> { spawnData }
-                        };
-                        spawner.SpawnWave(singleSpawnWave);
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[MainGameManager] EnemySpawner at index {spawnData.spawnerIndex} is null!");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning($"[MainGameManager] Invalid spawnerIndex {spawnData.spawnerIndex} (Available spawners: {enemySpawners.Count})");
+                        waveGoalType = waveData.waveGoalType,
+                        waveGoalCount = waveData.waveGoalCount,
+                        enemySpawnDataList = new List<EnemySpawnData> { spawnData }
+                    });
                 }
             }
         }
 
-        // Collect 목표 타입인 경우 GoalSpawner들에 목표 오브젝트 스폰 요청
-        if (waveData.waveGoalType == WaveGoalType.Collect && goalSpawners != null && goalSpawners.Count > 0)
+        // 목표 오브젝트 스폰
+        if (waveData.waveGoalType == WaveGoalTypeEnum.Collect && goalSpawners != null)
         {
-            foreach (var goalSpawner in goalSpawners)
+            foreach (var spawner in goalSpawners)
             {
-                if (goalSpawner != null)
-                {
-                    goalSpawner.SpawnGoals(waveData);
-                }
+                spawner?.SpawnGoals(waveData);
             }
         }
     }
 
-    /// <summary>
-    /// Kill/Collect 타입 웨이브의 목표 진행 카운트를 증가시킵니다. (외부에서 호출 예정)
-    /// - Kill: 적 처치 시 1 증가
-    /// - Collect: 목표 오브젝트 수집 시 1 증가
-    /// Survive 타입은 시간을 기반으로 자동 처리됩니다.
-    /// </summary>
-    /// <param name="waveData">진행을 업데이트할 웨이브 데이터</param>
-    /// <param name="amount">증가할 양 (기본값: 1)</param>
     public void AddWaveGoalProgress(WaveData waveData, int amount = 1)
     {
-        if (waveData == null)
-        {
-            Debug.LogWarning("[MainGameManager] AddWaveGoalProgress called with null WaveData");
-            return;
-        }
-        
-        // Survive 타입은 이 메서드 대신 시간으로만 진행합니다.
-        if (waveData.waveGoalType == WaveGoalType.Survive)
-        {
-            Debug.LogWarning("[MainGameManager] AddWaveGoalProgress called for Survive wave. Survive goals are time-based.");
-            return;
-        }
-        
+        if (waveData == null || waveData.waveGoalType == WaveGoalTypeEnum.Survive) return;
+
         int waveId = waveData.GetHashCode();
-        
-        if (!_activeWaves.ContainsKey(waveId))
-        {
-            Debug.LogWarning("[MainGameManager] Wave is not being tracked!");
-            return;
-        }
-        
+        if (!_activeWaves.ContainsKey(waveId)) return;
+
         WaveProgress progress = _activeWaves[waveId];
-        if (progress.isCompleted)
-        {
-            return; // 이미 완료된 웨이브
-        }
-        
+        if (progress.isCompleted) return;
+
         progress.currentGoalCount += amount;
         UpdateWaveGoalUI(waveData, progress);
-        
-        // 목표 달성 확인
+
         if (progress.currentGoalCount >= progress.waveData.waveGoalCount)
         {
             OnWaveGoalCompleted(waveData);
         }
     }
 
-    /// <summary>
-    /// 적이 사망했을 때 호출됩니다.
-    /// 현재 활성화된 Kill 타입 웨이브들의 진행도를 1 증가시킵니다.
-    /// </summary>
     public void OnEnemyKilled()
     {
-        if (_activeWaves == null || _activeWaves.Count == 0) return;
-
-        List<WaveData> killWaves = new List<WaveData>();
+        if (_activeWaves == null) return;
 
         foreach (var kvp in _activeWaves)
         {
-            WaveProgress progress = kvp.Value;
-            if (progress == null || progress.isCompleted) continue;
-
-            WaveData waveData = progress.waveData;
-            if (waveData == null) continue;
-
-            if (waveData.waveGoalType == WaveGoalType.Kill)
+            if (!kvp.Value.isCompleted && kvp.Value.waveData.waveGoalType == WaveGoalTypeEnum.Kill)
             {
-                killWaves.Add(waveData);
+                AddWaveGoalProgress(kvp.Value.waveData, 1);
             }
         }
-
-        foreach (var waveData in killWaves)
-        {
-            AddWaveGoalProgress(waveData, 1);
-        }
     }
-    
-    /// <summary>
-    /// 웨이브 목표가 완료되었을 때 호출됩니다.
-    /// </summary>
-    /// <param name="waveData">완료된 웨이브 데이터</param>
+
     private void OnWaveGoalCompleted(WaveData waveData)
     {
-        if (waveData == null)
-        {
-            return;
-        }
-        
+        if (waveData == null) return;
+
         int waveId = waveData.GetHashCode();
-        
-        if (!_activeWaves.ContainsKey(waveId))
-        {
-            return;
-        }
-        
-        WaveProgress progress = _activeWaves[waveId];
-        progress.isCompleted = true;
-        
+        if (!_activeWaves.ContainsKey(waveId)) return;
+
+        _activeWaves[waveId].isCompleted = true;
+
         CleanupCurrentWaveObjects();
         _currentWaveIndex++;
-        
-        // 다음 웨이브 시작 (또는 라운드 완료)
+
         StartCurrentWave();
     }
-    
-    /// <summary>
-    /// Survive 타입 웨이브의 생존 시간 목표를 갱신합니다. (Update에서 deltaTime으로 호출)
-    /// </summary>
-    /// <param name="deltaTime">경과 시간 (초)</param>
+
     private void UpdateSurviveWaveGoals(float deltaTime)
     {
-        if (_activeWaves == null || _activeWaves.Count == 0) return;
+        if (_activeWaves == null) return;
 
         List<WaveData> completedWaves = null;
 
         foreach (var kvp in _activeWaves)
         {
-            WaveProgress progress = kvp.Value;
-            if (progress == null || progress.isCompleted) continue;
-
-            WaveData waveData = progress.waveData;
-            if (waveData == null || waveData.waveGoalType != WaveGoalType.Survive) continue;
+            var progress = kvp.Value;
+            if (progress.isCompleted || progress.waveData.waveGoalType != WaveGoalTypeEnum.Survive) continue;
 
             progress.elapsedTime += deltaTime;
-            UpdateWaveGoalUI(waveData, progress);
+            UpdateWaveGoalUI(progress.waveData, progress);
 
-            if (progress.elapsedTime >= waveData.waveGoalCount)
+            if (progress.elapsedTime >= progress.waveData.waveGoalCount)
             {
                 progress.isCompleted = true;
-                
                 if (completedWaves == null) completedWaves = new List<WaveData>();
-                completedWaves.Add(waveData);
+                completedWaves.Add(progress.waveData);
             }
         }
 
-        if (completedWaves != null && completedWaves.Count > 0)
+        if (completedWaves != null)
         {
-            CleanupCurrentWaveObjects();
-            _currentWaveIndex++;
-            StartCurrentWave();
+            foreach (var wave in completedWaves) OnWaveGoalCompleted(wave);
         }
     }
-    
-    /// <summary>
-    /// 라운드가 완료되었을 때 호출됩니다.
-    /// </summary>
+
     private void OnRoundCompleted()
     {
+        // 1. 오브젝트 정리
         CleanupCurrentWaveObjects();
-
         _currentRoundEnemySpawners.Clear();
         _currentRoundGoalSpawners.Clear();
-
-        // 웨이브 추적 초기화
         _activeWaves.Clear();
-        
-        // 문 열기
+
+        // 2. [문 로직] 문 열기 (즉시 실행)
         OpenMapDoor();
-        
-        // 라운드 인덱스 리셋
+        _currentRoundDoorObjects.Clear();
+
+        // 3. 상태 리셋
         _currentRoundIndex = -1;
         _currentWaveIndex = -1;
-        
-        // 네트워크 변수 리셋 (서버만)
-        if (_runner != null && _runner.IsServer && Object != null && Object.IsValid)
+
+        if (_runner != null && _runner.IsServer)
         {
             ResetNetworkedWaveVariables();
         }
-        
-        // UI 초기화
+
         if (GameManager.Instance?.Canvas is MainCanvas canvas)
         {
             canvas.SetWaveText(string.Empty);
             canvas.SetGoalText(string.Empty);
         }
-
     }
-    
-    /// <summary>
-    /// 현재 웨이브/라운드 및 목표 상태를 UI(MainCanvas)로 전달합니다.
-    /// </summary>
+
     private void UpdateWaveGoalUI(WaveData waveData, WaveProgress progress)
     {
-        if (GameManager.Instance?.Canvas is not MainCanvas canvas || waveData == null || progress == null)
-        {
-            return;
-        }
+        if (GameManager.Instance?.Canvas is not MainCanvas canvas || waveData == null) return;
 
-        if (_currentStageData == null)
-        {
-            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            _currentStageData = GetStageDataBySceneName(sceneName);
-        }
-
-        int roundIndex = _currentRoundIndex;
-        int waveIndex = -1;
-
-        if (_currentStageData != null &&
-            roundIndex >= 0 && roundIndex < _currentStageData.roundDataList.Count)
-        {
-            var roundData = _currentStageData.roundDataList[roundIndex];
-            if (roundData != null && roundData.waveDataList != null)
-            {
-                waveIndex = roundData.waveDataList.IndexOf(waveData);
-            }
-        }
-
-        string waveLabel = (roundIndex >= 0 && waveIndex >= 0)
-            ? $"Wave {waveIndex + 1}"
-            : "Wave";
-
-        canvas.SetWaveText(waveLabel);
-
-        // 목표 텍스트 구성
-        string goalText = string.Empty;
-        switch (waveData.waveGoalType)
-        {
-            case WaveGoalType.Kill:
-                goalText = $"Kill {progress.currentGoalCount}/{waveData.waveGoalCount}";
-                break;
-            case WaveGoalType.Collect:
-                goalText = $"Collect {progress.currentGoalCount}/{waveData.waveGoalCount}";
-                break;
-            case WaveGoalType.Survive:
-                int elapsedSec = Mathf.FloorToInt(progress.elapsedTime);
-                goalText = $"Survive {elapsedSec}/{waveData.waveGoalCount} sec";
-                break;
-            default:
-                goalText = string.Empty;
-                break;
-        }
-
-        canvas.SetGoalText(goalText);
-        
-        if (_runner != null && _runner.IsServer && _runner.IsRunning)
+        if (_runner != null && _runner.IsServer)
         {
             UpdateNetworkedWaveVariables(
-                roundIndex,
-                waveIndex,
-                waveData.waveGoalType,
-                progress.currentGoalCount,
-                waveData.waveGoalCount,
-                progress.elapsedTime
+                _currentRoundIndex, _currentWaveIndex,
+                waveData.waveGoalType, progress.currentGoalCount,
+                waveData.waveGoalCount, progress.elapsedTime
             );
         }
     }
-    
 
-    /// <summary>
-    /// 현재 라운드에서 생성된 적 및 목표 오브젝트를 정리합니다.
-    /// </summary>
     private void CleanupCurrentWaveObjects()
     {
         if (_currentRoundEnemySpawners != null)
         {
-            foreach (var spawner in _currentRoundEnemySpawners)
-            {
-                if (spawner != null)
-                {
-                    spawner.KillAllEnemies();
-                }
-            }
+            foreach (var spawner in _currentRoundEnemySpawners) spawner?.KillAllEnemies();
         }
 
         if (_currentRoundGoalSpawners != null)
         {
-            foreach (var goalSpawner in _currentRoundGoalSpawners)
-            {
-                if (goalSpawner != null)
-                {
-                    goalSpawner.DestroyAllGoals();
-                }
-            }
+            foreach (var spawner in _currentRoundGoalSpawners) spawner?.DestroyAllGoals();
         }
     }
 }
-
-

@@ -1,77 +1,77 @@
 using UnityEngine;
+using Fusion;
+using WaveGoalTypeEnum = WaveGoalType; // 네트워크 변수 WaveGoalType(int)과 구분하기 위한 별칭
 
 /// <summary>
 /// UI 업데이트 관련 기능을 모은 partial 클래스입니다.
 /// </summary>
 public partial class MainGameManager
 {
-    /// <summary>
-    /// 네트워크 변수에서 UI를 업데이트합니다. (클라이언트에서 호출)
-    /// </summary>
-    private void UpdateUIFromNetworkedVariables()
-    {
-        if (GameManager.Instance?.Canvas is not MainCanvas canvas) return;
-        
-        string waveLabel = (NetworkRoundIndex >= 0 && NetworkWaveIndex >= 0) 
-            ? $"Wave {NetworkWaveIndex + 1}" 
-            : "Wave";
-        canvas.SetWaveText(waveLabel);
-        
-        if (NetworkWaveGoalType < 0 || NetworkWaveTotalGoal <= 0)
-        {
-            canvas.SetGoalText(string.Empty);
-            return;
-        }
-        
-        string goalText = string.Empty;
-        WaveGoalType goalType = (WaveGoalType)NetworkWaveGoalType;
-        switch (goalType)
-        {
-            case WaveGoalType.Kill:
-                goalText = $"Kill {NetworkWaveCurrentGoal}/{NetworkWaveTotalGoal}";
-                break;
-            case WaveGoalType.Collect:
-                goalText = $"Collect {NetworkWaveCurrentGoal}/{NetworkWaveTotalGoal}";
-                break;
-            case WaveGoalType.Survive:
-                int elapsedSec = Mathf.FloorToInt(NetworkWaveElapsedTime);
-                goalText = $"Survive {elapsedSec}/{NetworkWaveTotalGoal} sec";
-                break;
-            default:
-                goalText = string.Empty;
-                break;
-        }
-        canvas.SetGoalText(goalText);
-    }
+    // Note: UpdateUIFromNetworkedVariables() 메서드는 사용되지 않으므로 제거됨
+    // UpdateWaveUI() 메서드가 동일한 기능을 수행함
     
     /// <summary>
     /// 서버에서 네트워크 변수를 업데이트합니다. (웨이브 정보 동기화)
+    /// 주의: 서버에서만 호출 가능하며, 클라이언트는 자동으로 동기화된 값을 받습니다.
     /// </summary>
-    private void UpdateNetworkedWaveVariables(int roundIndex, int waveIndex, WaveGoalType goalType, int currentGoal, int totalGoal, float elapsedTime)
+    private void UpdateNetworkedWaveVariables(int roundIndex, int waveIndex, WaveGoalTypeEnum goalType, int currentGoal, int totalGoal, float elapsedTime)
     {
-        if (Runner == null || !Runner.IsServer || !Object.IsValid) return;
+        if (_runner == null)
+        {
+            Debug.LogError("[MainGameManager] UpdateNetworkedWaveVariables: _runner is null!");
+            return;
+        }
         
-        NetworkRoundIndex = roundIndex;
-        NetworkWaveIndex = waveIndex;
-        NetworkWaveGoalType = (int)goalType;
-        NetworkWaveCurrentGoal = currentGoal;
-        NetworkWaveTotalGoal = totalGoal;
-        NetworkWaveElapsedTime = elapsedTime;
+        if (!_runner.IsServer)
+        {
+            Debug.LogWarning("[MainGameManager] UpdateNetworkedWaveVariables: Called on client! Only server can update networked variables.");
+            return;
+        }
+        
+        if (Object == null || !Object.IsValid)
+        {
+            Debug.LogWarning("[MainGameManager] UpdateNetworkedWaveVariables: NetworkObject is null or not valid!");
+            return;
+        }
+        
+        RoundIndex = roundIndex;
+        WaveIndex = waveIndex;
+        WaveGoalType = (int)goalType;
+        WaveCurrentGoal = currentGoal;
+        WaveTotalGoal = totalGoal;
+        WaveElapsedTime = elapsedTime;
     }
     
     /// <summary>
     /// 서버에서 네트워크 변수를 초기화합니다. (웨이브/라운드 종료 시)
+    /// 주의: 서버에서만 호출 가능합니다.
     /// </summary>
     private void ResetNetworkedWaveVariables()
     {
-        if (Runner == null || !Runner.IsServer || !Object.IsValid) return;
+        if (_runner == null)
+        {
+            Debug.LogError("[MainGameManager] ResetNetworkedWaveVariables: _runner is null!");
+            return;
+        }
         
-        NetworkRoundIndex = -1;
-        NetworkWaveIndex = -1;
-        NetworkWaveGoalType = -1;
-        NetworkWaveCurrentGoal = 0;
-        NetworkWaveTotalGoal = 0;
-        NetworkWaveElapsedTime = 0f;
+        if (!_runner.IsServer)
+        {
+            Debug.LogWarning("[MainGameManager] ResetNetworkedWaveVariables: Called on client! Only server can reset networked variables.");
+            return;
+        }
+        
+        if (Object == null || !Object.IsValid)
+        {
+            Debug.LogWarning("[MainGameManager] ResetNetworkedWaveVariables: NetworkObject is null or not valid!");
+            return;
+        }
+        
+        RoundIndex = -1;
+        WaveIndex = -1;
+        WaveGoalType = -1;
+        WaveCurrentGoal = 0;
+        WaveTotalGoal = 0;
+        WaveElapsedTime = 0f;
     }
 }
 

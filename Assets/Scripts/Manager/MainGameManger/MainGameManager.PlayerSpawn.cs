@@ -5,558 +5,370 @@ using UnityEngine;
 using Fusion;
 using UnityEngine.SceneManagement;
 
-/// <summary>
-/// 플레이어 스폰 및 관리 관련 기능을 모은 partial 클래스입니다.
-/// </summary>
 public partial class MainGameManager
 {
+    // ==================================================================================
+    // 1. [새로운 초기화 흐름] Spawned()에서 직접 호출 (Runner 대기 없음)
+    // ==================================================================================
+
     /// <summary>
-    /// 게임 세션 초기화 메인 코루틴
+    /// [수정된 초기화 흐름] 대기 없이 바로 실행
+    /// Spawned()에서 호출되므로 Runner가 이미 준비되어 있습니다.
     /// </summary>
+    private IEnumerator Co_InitializeGameSession_Direct()
+    {
+        // 1. (Server) 접속한 플레이어 스폰 처리
+        if (_runner.IsServer)
+        {
+            yield return StartCoroutine(Server_VerifyAndSpawnAllPlayers());
+        }
+
+        // 2. (Client) 내 로컬 플레이어 객체 찾기 (비상 대책 포함)
+        yield return StartCoroutine(Client_WaitForLocalPlayerObject_ForceFind());
+
+        // 3. 컴포넌트 연결
+        InitializeLocalPlayerComponents();
+
+        // 4. 로딩 종료
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.FinishLoadingScreen();
+        }
+        else
+        {
+            Debug.LogError("[MainGameManager] GameManager 인스턴스가 없어 로딩 패널을 끌 수 없습니다.");
+        }
+    }
+
+    /// <summary>
+    /// [강력한 찾기] Runner 대기 없이 씬을 직접 뒤져서라도 내 캐릭터를 찾아냅니다.
+    /// </summary>
+    private IEnumerator Client_WaitForLocalPlayerObject_ForceFind()
+    {
+        var localRef = _runner.LocalPlayer;
+        float timeout = 20f;
+        float timer = 0f;
+
+        while (timer < timeout)
+        {
+            NetworkObject myObj = null;
+
+            // 1. Runner 정석 확인
+            myObj = _runner.GetPlayerObject(localRef);
+
+            // 2. 씬 검색 (Fallback)
+            if (myObj == null)
+            {
+                var controllers = FindObjectsOfType<PlayerController>();
+                foreach (var pc in controllers)
+                {
+                    if (pc.Object != null && pc.Object.IsValid && pc.Object.HasInputAuthority)
+                    {
+                        myObj = pc.Object;
+                        // Runner에 강제 등록 (다음번엔 정석으로 찾게)
+                        _runner.SetPlayerObject(localRef, myObj);
+                        break;
+                    }
+                }
+            }
+
+            // 3. 찾음 확인 및 처리
+            if (myObj != null && myObj.IsValid)
+            {
+                if (!_spawnedPlayers.ContainsKey(localRef))
+                {
+                    _spawnedPlayers[localRef] = myObj;
+                }
+
+                // [중요] Rigidbody 경고 해결 코드
+                _runner.SetIsSimulated(myObj, true);
+                yield break; // 성공!
+            }
+
+            yield return new WaitForSeconds(0.1f);
+            timer += 0.1f;
+        }
+
+        Debug.LogError($"[MainGameManager] 타임아웃! 내 캐릭터를 찾지 못했습니다.");
+        GameManager.Instance?.ShowWarningPanel("캐릭터 생성 실패 (타임아웃)");
+    }
+
+    // ==================================================================================
+    // 2. 기존 초기화 메인 흐름 (테스트 모드 또는 레거시용)
+    // ==================================================================================
+
     private IEnumerator Co_InitializeGameSession()
     {
-        System.Exception initException = null;
-        NetworkRunner runner = null;
-        
-        int runnerWaitAttempts = 0;
-        int maxRunnerWaitAttempts = 300;
-        
-        while (runnerWaitAttempts < maxRunnerWaitAttempts)
+        // 1. NetworkRunner 찾기 (무조건 필수)
+        yield return StartCoroutine(Co_WaitForRunner());
+
+        // 2. (Host/Server) 접속한 플레이어 스폰 처리
+        if (_runner.IsServer)
         {
-            runner = FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
-            if (runner != null && runner.IsRunning) break;
-            yield return null;
-            runnerWaitAttempts++;
+            yield return StartCoroutine(Server_VerifyAndSpawnAllPlayers());
         }
-        
-        if (runner == null || !runner.IsRunning)
+
+        // 3. (Client) 내 로컬 플레이어 객체가 생성되고 매핑될 때까지 대기
+        yield return StartCoroutine(Client_WaitForLocalPlayerObject());
+
+        // 4. 컴포넌트 연결 (카메라, UI 등)
+        InitializeLocalPlayerComponents();
+
+        // 5. 로딩 종료
+        if (GameManager.Instance != null)
         {
-            Debug.LogError("[MainGameManager] Failed to find valid NetworkRunner after timeout");
-            initException = new System.Exception("NetworkRunner not found or not running");
+            GameManager.Instance.FinishLoadingScreen();
         }
         else
         {
-            _runner = runner;
-            yield return new WaitForSeconds(0.5f);
-
-            if (runner.IsServer)
-            {
-                yield return StartCoroutine(SafeRunCoroutine(Server_VerifyAndSpawnPlayers(runner)));
-            }
-            else
-            {
-                yield return StartCoroutine(SafeRunCoroutine(Client_WaitForServerToSpawnPlayers(runner)));
-            }
-            
-            var localPlayerRef = runner.LocalPlayer;
-            float timeout = 15f;
-            bool playerFound = false;
-
-            while (timeout > 0 && runner != null && runner.IsRunning)
-            {
-                FindAndRegisterSpawnedPlayersSafe(runner);
-                
-                var myObj = runner.GetPlayerObject(localPlayerRef);
-                
-                if (myObj != null && myObj.IsValid)
-                {
-                    if (myObj.InputAuthority == localPlayerRef)
-                    {
-                        _spawnedPlayers[localPlayerRef] = myObj;
-                        playerFound = true;
-                        break;
-                    }
-                }
-                
-                if (_spawnedPlayers.ContainsKey(localPlayerRef))
-                {
-                    var dictObj = _spawnedPlayers[localPlayerRef];
-                    if (dictObj != null && dictObj.IsValid && dictObj.InputAuthority == localPlayerRef)
-                    {
-                        playerFound = true;
-                        break;
-                    }
-                }
-                
-                timeout -= 0.1f;
-                yield return new WaitForSeconds(0.1f);
-            }
-            
-            if (!playerFound)
-            {
-                Debug.LogError("[MainGameManager] CRITICAL: Failed to find Local Player Object! Game might not work correctly.");
-                GameManager.Instance?.ShowWarningPanel("플레이어 캐릭터를 찾을 수 없습니다. 게임이 정상적으로 작동하지 않을 수 있습니다.");
-            }
-            
-            InitializeComponentsSafe(ref initException);
-            
-            if (runner.IsServer && runner.IsRunning)
-            {
-                yield return StartCoroutine(SafeRunCoroutine(InitializeMapDoorStateAsync(runner)));
-            }
+            Debug.LogError("[MainGameManager] GameManager.Instance가 null입니다! 로딩 화면을 닫을 수 없습니다.");
         }
-        
-        if (initException != null)
-        {
-            Debug.LogError("[MainGameManager] Initialization completed with errors. Showing warning panel.");
-            GameManager.Instance?.ShowWarningPanel("게임 초기화 중 오류가 발생했습니다.");
-        }
-        
-        yield return new WaitForSeconds(0.2f);
-        GameManager.Instance?.FinishLoadingScreen();
     }
-    
+
+    // ==================================================================================
+    // 3. 단계별 코루틴 (단순화)
+    // ==================================================================================
+
     /// <summary>
-    /// 코루틴을 안전하게 실행합니다. 예외가 발생해도 계속 진행됩니다.
+    /// NetworkRunner가 준비될 때까지 대기합니다.
     /// </summary>
-    private IEnumerator SafeRunCoroutine(IEnumerator coroutine)
+    private IEnumerator Co_WaitForRunner()
     {
-        if (coroutine == null) yield break;
-        
-        while (true)
+        float timeout = 10f;
+        float timer = 0f;
+
+        while (_runner == null || !_runner.IsRunning)
         {
-            bool moveNext = false;
+            _runner = FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
             
-            try
+            if (_runner != null && _runner.IsRunning) break;
+
+            if (timer > timeout)
             {
-                moveNext = coroutine.MoveNext();
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[MainGameManager] Error in coroutine execution: {e.Message}\n{e.StackTrace}");
+                Debug.LogError("[MainGameManager] Critical Error: NetworkRunner not found.");
+                GameManager.Instance?.ShowWarningPanel("네트워크 연결을 찾을 수 없습니다.");
                 yield break;
             }
-            
-            if (!moveNext)
-            {
-                break;
-            }
-            
-            yield return coroutine.Current;
-        }
-    }
-    
-    /// <summary>
-    /// 안전하게 플레이어를 찾아 등록합니다.
-    /// </summary>
-    private void FindAndRegisterSpawnedPlayersSafe(NetworkRunner runner)
-    {
-        try
-        {
-            FindAndRegisterSpawnedPlayers(runner);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[MainGameManager] Error in FindAndRegisterSpawnedPlayers: {e.Message}");
-        }
-    }
-    
-    /// <summary>
-    /// 안전하게 컴포넌트를 초기화합니다.
-    /// </summary>
-    private void InitializeComponentsSafe(ref System.Exception initException)
-    {
-        try
-        {
-            InitializeMainCameraForNetworkMode();
-            InitializeStageEnemySpawning();
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[MainGameManager] Error during initialization: {e.Message}\n{e.StackTrace}");
-            initException = e;
-        }
-    }
-    
-    /// <summary>
-    /// 클라이언트가 서버가 플레이어를 스폰할 때까지 대기합니다.
-    /// </summary>
-    private IEnumerator Client_WaitForServerToSpawnPlayers(NetworkRunner runner)
-    {
-        if (runner.IsServer) yield break;
-        
-        var localPlayerRef = runner.LocalPlayer;
-        float timeout = 15f;
-        float waitTimer = 0f;
-        
-        while (waitTimer < timeout)
-        {
-            var playerObj = runner.GetPlayerObject(localPlayerRef);
-            
-            if (playerObj != null && playerObj.IsValid && playerObj.InputAuthority == localPlayerRef)
-            {
-                yield break;
-            }
-            
-            waitTimer += 0.1f;
+
+            timer += 0.1f;
             yield return new WaitForSeconds(0.1f);
         }
-        
-        Debug.LogWarning($"[MainGameManager] Client: Timeout waiting for server to spawn player object after {timeout}s. Continuing anyway...");
     }
 
     /// <summary>
-    /// 서버에서 플레이어 데이터와 캐릭터를 검증하고 스폰합니다.
+    /// [서버] 현재 접속한 모든 플레이어에 대해 캐릭터가 없으면 스폰합니다.
     /// </summary>
-    private IEnumerator Server_VerifyAndSpawnPlayers(NetworkRunner runner)
+    private IEnumerator Server_VerifyAndSpawnAllPlayers()
     {
-        if (!runner.IsServer) yield break;
-
-        foreach (var playerRef in runner.ActivePlayers)
+        foreach (var playerRef in _runner.ActivePlayers)
         {
-            if (_spawnedPlayers.ContainsKey(playerRef))
+            yield return StartCoroutine(Server_SpawnPlayerIfNeeded(playerRef));
+        }
+    }
+
+    /// <summary>
+    /// [클라이언트] 로컬 플레이어 객체를 찾습니다.
+    /// 서버의 SetPlayerObject가 늦거나 누락되어도, 씬에 있는 객체를 직접 찾아내어 흐름을 뚫어줍니다.
+    /// </summary>
+    private IEnumerator Client_WaitForLocalPlayerObject()
+    {
+        var localRef = _runner.LocalPlayer;
+        float timeout = 20f;
+        float timer = 0f;
+
+        while (timer < timeout)
+        {
+            NetworkObject myObj = null;
+
+            // 1. 정석 확인
+            myObj = _runner.GetPlayerObject(localRef);
+
+            // 2. 비상 대책 (씬 뒤지기)
+            if (myObj == null)
             {
-                var existingObj = _spawnedPlayers[playerRef];
-                if (existingObj != null && existingObj.IsValid && existingObj.InputAuthority == playerRef)
+                var controllers = FindObjectsOfType<PlayerController>();
+                foreach (var pc in controllers)
                 {
-                    continue;
-                }
-                else
-                {
-                    _spawnedPlayers.Remove(playerRef);
-                }
-            }
-            
-            PlayerData playerData = GameManager.Instance?.GetPlayerData(playerRef, runner);
-            
-            if (playerData != null && (playerData.Object == null || !playerData.Object.IsValid))
-            {
-                GameManager.Instance?.SetPlayerData(playerRef, null);
-                playerData = null;
-            }
-
-            if (playerData == null)
-            {
-                if (FusionManager.Instance != null && FusionManager.Instance.PlayerDataPrefab != null)
-                {
-                    NetworkObject dataObj = runner.Spawn(
-                        FusionManager.Instance.PlayerDataPrefab,
-                        Vector3.zero,
-                        Quaternion.identity,
-                        playerRef
-                    );
-                    
-                    yield return null; 
-                }
-            }
-
-            float waitTimer = 0f;
-            while (GameManager.Instance != null && GameManager.Instance.GetPlayerData(playerRef, runner) == null && waitTimer < 2.0f)
-            {
-                yield return new WaitForSeconds(0.1f);
-                waitTimer += 0.1f;
-            }
-
-            playerData = GameManager.Instance?.GetPlayerData(playerRef, runner);
-
-            if (playerData == null || playerData.Object == null || !playerData.Object.IsValid)
-            {
-                Debug.LogError($"[Server] PlayerData missing for {playerRef}. Will attempt to spawn Character anyway.");
-            }
-            else
-            {
-                waitTimer = 0f;
-                while (playerData.IsInitialized == false && waitTimer < 3.0f)
-                {
-                    yield return new WaitForSeconds(0.1f);
-                    waitTimer += 0.1f;
-                }
-
-                if (!playerData.IsInitialized)
-                {
-                    Debug.LogWarning($"[Server] Timeout waiting for PlayerData init from {playerRef}. Using default values.");
-                }
-            }
-
-            NetworkObject characterObj = runner.GetPlayerObject(playerRef);
-
-            if (characterObj == null || !characterObj.IsValid)
-            {
-                if (playerData != null && playerData.PlayerInstance != null && playerData.PlayerInstance.IsValid)
-                {
-                    if (playerData.PlayerInstance.InputAuthority == playerRef)
+                    if (pc.Object != null && pc.Object.IsValid && pc.Object.HasInputAuthority)
                     {
-                        characterObj = playerData.PlayerInstance;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[Server] PlayerInstance for {playerRef} has incorrect InputAuthority ({playerData.PlayerInstance.InputAuthority}). Will respawn.");
-                        characterObj = null;
+                        myObj = pc.Object;
+                        // Runner에 등록 (다음번엔 정석으로 찾게)
+                        _runner.SetPlayerObject(localRef, myObj);
+                        break;
                     }
                 }
-                
-                if (characterObj == null || !characterObj.IsValid)
-                {
-                    Vector3 spawnPos = GetSceneSpawnPosition(playerRef.AsIndex);
-                    
-                    int charIndex = (playerData != null) ? playerData.CharacterIndex : 0;
-                    
-                    characterObj = runner.Spawn(
-                        _playerPrefab,
-                        spawnPos,
-                        Quaternion.identity,
-                        playerRef
-                    );
-
-                    yield return null;
-                }
             }
 
-            if (characterObj != null && characterObj.IsValid)
+            // 3. 찾았으면 성공 처리
+            if (myObj != null && myObj.IsValid)
             {
-                runner.SetPlayerObject(playerRef, characterObj);
-                _spawnedPlayers[playerRef] = characterObj;
-
-                if (playerData != null)
+                if (!_spawnedPlayers.ContainsKey(localRef))
                 {
-                    playerData.PlayerInstance = characterObj;
+                    _spawnedPlayers[localRef] = myObj;
                 }
 
-                var controller = characterObj.GetComponent<PlayerController>();
-                if (controller != null)
-                {
-                    int charIndex = (playerData != null) ? playerData.CharacterIndex : 0;
-                    controller.SetCharacterIndex(charIndex);
-                }
+                // 물리 시뮬레이션 강제 켜기
+                _runner.SetIsSimulated(myObj, true);
+                yield break;
             }
-            else
-            {
-                Debug.LogError($"[Server] Failed to get valid Character object for {playerRef}");
-            }
-            
-            yield return null;
+
+            yield return new WaitForSeconds(0.1f);
+            timer += 0.1f;
         }
+
+        Debug.LogError($"[MainGameManager] 타임아웃! 20초 동안 내 캐릭터를 못 찾았습니다.");
+        GameManager.Instance?.ShowWarningPanel("캐릭터 생성 응답 시간이 초과되었습니다.");
     }
-    
+
     /// <summary>
-    /// ScenSpawner에서 스폰 위치를 가져옵니다. 없으면 기본 위치 사용.
+    /// 로컬 플레이어를 찾은 직후 실행되는 연결 로직입니다. (UI, 카메라)
     /// </summary>
-    private Vector3 GetSceneSpawnPosition(int index)
+    private void InitializeLocalPlayerComponents()
     {
-        if (ScenSpawner.Instance != null)
+        var localPlayer = GetLocalPlayer();
+        if (localPlayer == null)
         {
-            Vector3 pos = ScenSpawner.Instance.GetSpawnPosition(index);
-            return pos;
+            Debug.LogError("[MainGameManager] InitializeLocalPlayerComponents 실패: GetLocalPlayer()가 null을 반환했습니다!");
+            return;
         }
-        
-        Vector3 defaultPos = _spawnPositions[index % _spawnPositions.Length];
-        return defaultPos;
-    }
-    
-    /// <summary>
-    /// 클라이언트에서 이미 스폰된 플레이어를 찾아서 딕셔너리에 등록합니다.
-    /// </summary>
-    private void FindAndRegisterSpawnedPlayers(NetworkRunner runner)
-    {
-        if (runner == null || !runner.IsRunning) return;
-        
-        int newlyRegistered = 0;
-        
-        foreach (var playerRef in runner.ActivePlayers)
-        {
-            if (playerRef == PlayerRef.None) continue;
-            
-            if (_spawnedPlayers.ContainsKey(playerRef)) continue;
-            
-            NetworkObject playerObj = runner.GetPlayerObject(playerRef);
-            if (playerObj != null && playerObj.IsValid)
-            {
-                _spawnedPlayers[playerRef] = playerObj;
-                newlyRegistered++;
-                
-                bool isLocalPlayer = playerRef == runner.LocalPlayer;
-                
-                if (isLocalPlayer && playerObj.InputAuthority != playerRef)
-                {
-                    Debug.LogWarning($"[MainGameManager] WARNING: Local player {playerRef} does not have InputAuthority! Expected: {playerRef}, Got: {playerObj.InputAuthority}");
-                }
-            }
-        }
-    }
-    
-    private void InitializeMainCameraForNetworkMode()
-    {
+
+        // 1. 카메라 연결
         Camera mainCamera = Camera.main;
-        if (mainCamera == null) return;
-        
-        MainCameraController cameraController = mainCamera.GetComponent<MainCameraController>();
-        if (cameraController == null) return;
-        
-        PlayerController localPlayer = GetLocalPlayer();
-        if (localPlayer != null)
+        if (mainCamera != null)
         {
-            cameraController.SetTarget(localPlayer);
+            var camController = mainCamera.GetComponent<MainCameraController>();
+            if (camController != null)
+            {
+                camController.SetTarget(localPlayer);
+            }
+        }
+
+        // 2. UI 연결
+        if (GameManager.Instance != null)
+        {
+            if (GameManager.Instance.Canvas is MainCanvas mainCanvas)
+            {
+                mainCanvas.RegisterPlayer(localPlayer);
+            }
+        }
+        else
+        {
+            Debug.LogError("[MainGameManager] GameManager.Instance가 null입니다!");
         }
     }
-    
-    /// <summary>
-    /// 중간에 난입한 플레이어 처리
-    /// </summary>
+
+    // ==================================================================================
+    // 4. 서버 스폰 로직 (단일 책임)
+    // ==================================================================================
+
+    private IEnumerator Server_SpawnPlayerIfNeeded(PlayerRef playerRef)
+    {
+        if (!_runner.IsServer) yield break;
+
+        // 이미 등록된 유효한 객체가 있는지 확인
+        if (_spawnedPlayers.TryGetValue(playerRef, out var existingObj))
+        {
+            if (existingObj != null && existingObj.IsValid) yield break; // 이미 존재함
+        }
+
+        // 스폰 전 PlayerData 확인 대기
+        PlayerData playerData = GameManager.Instance?.GetPlayerData(playerRef, _runner);
+        
+        // 데이터가 없으면 데이터 프리팹부터 스폰 (필요 시)
+        if (playerData == null && FusionManager.Instance?.PlayerDataPrefab != null)
+        {
+            _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, playerRef);
+            // 데이터 동기화 대기
+            float waitData = 0;
+            while((playerData = GameManager.Instance?.GetPlayerData(playerRef, _runner)) == null && waitData < 2f)
+            {
+                waitData += 0.1f;
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+
+        // 실제 캐릭터 스폰
+        int charIndex = playerData != null ? playerData.CharacterIndex : 0;
+        Vector3 spawnPos = GetSceneSpawnPosition(playerRef.AsIndex);
+        
+        NetworkObject playerObj = _runner.Spawn(_playerPrefab, spawnPos, Quaternion.identity, playerRef);
+        
+        // **중요**: Runner에 플레이어 객체 등록 (클라이언트가 GetPlayerObject로 찾을 수 있게 함)
+        _runner.SetPlayerObject(playerRef, playerObj);
+        _spawnedPlayers[playerRef] = playerObj;
+
+        // 초기화 설정
+        var controller = playerObj.GetComponent<PlayerController>();
+        if (controller != null)
+        {
+            controller.SetCharacterIndex(charIndex);
+        }
+
+        yield return null;
+    }
+
+    // ==================================================================================
+    // 5. 이벤트 핸들러 및 유틸리티
+    // ==================================================================================
+
     private void OnPlayerJoinedDuringGame(PlayerRef player, NetworkRunner runner)
     {
-        if (SceneManager.GetActiveScene().name == "Main")
+        if (runner.IsServer && SceneManager.GetActiveScene().name == "Main")
         {
-            if (runner.IsServer)
-            {
-                StartCoroutine(Server_VerifyAndSpawnPlayers(runner));
-            }
-            else
-            {
-                StartCoroutine(WaitAndRegisterPlayer(runner, player));
-            }
+            StartCoroutine(Server_SpawnPlayerIfNeeded(player));
         }
     }
-    
-    /// <summary>
-    /// 새로 참여한 플레이어가 스폰될 때까지 대기 후 등록합니다.
-    /// </summary>
-    private IEnumerator WaitAndRegisterPlayer(NetworkRunner runner, PlayerRef player)
-    {
-        int maxAttempts = 50;
-        int attempts = 0;
-        
-        while (attempts < maxAttempts)
-        {
-            FindAndRegisterSpawnedPlayers(runner);
-            
-            if (_spawnedPlayers.ContainsKey(player))
-            {
-                yield break;
-            }
-            
-            yield return new WaitForSeconds(0.1f);
-            attempts++;
-        }
-        
-        Debug.LogWarning($"[MainGameManager] Client: Timeout waiting for player {player} to spawn");
-    }
-    
-    /// <summary>
-    /// 로컬 플레이어의 PlayerController를 가져옵니다.
-    /// </summary>
+
     public PlayerController GetLocalPlayer()
     {
-        if (_isTestMode)
+        if (_isTestMode) return GetSelectedPlayer();
+        if (_runner == null) return null;
+
+        // 캐시된 딕셔너리 우선 확인
+        if (_spawnedPlayers.TryGetValue(_runner.LocalPlayer, out var obj) && obj != null)
         {
-            return GetSelectedPlayer();
-        }
-        
-        NetworkRunner runner = _runner ?? FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
-        
-        if (runner == null)
-        {
-            return null;
+            return obj.GetComponent<PlayerController>();
         }
 
-        var localPlayerRef = runner.LocalPlayer;
-        NetworkObject networkObj = null;
-        
-        if (_spawnedPlayers.TryGetValue(localPlayerRef, out var playerObj) && playerObj != null && playerObj.IsValid)
+        // 없으면 Runner에서 직접 조회
+        var networkObj = _runner.GetPlayerObject(_runner.LocalPlayer);
+        if (networkObj != null && networkObj.IsValid && networkObj.HasInputAuthority)
         {
-            networkObj = playerObj;
-        }
-        else
-        {
-            networkObj = runner.GetPlayerObject(localPlayerRef);
-            
-            if (networkObj != null && networkObj.IsValid)
-            {
-                _spawnedPlayers[localPlayerRef] = networkObj;
-            }
-            else
-            {
-                FindAndRegisterSpawnedPlayers(runner);
-                
-                if (_spawnedPlayers.TryGetValue(localPlayerRef, out playerObj) && playerObj != null && playerObj.IsValid)
-                {
-                    networkObj = playerObj;
-                }
-            }
-        }
-        
-        if (networkObj != null && networkObj.IsValid)
-        {
-            if (networkObj.InputAuthority == localPlayerRef)
-            {
-                return networkObj.GetComponent<PlayerController>();
-            }
-            else
-            {
-                Debug.LogError($"[MainGameManager] CRITICAL: Local Player {localPlayerRef} found object ID {networkObj.Id} but it is controlled by {networkObj.InputAuthority}. ABORTING CONTROL.");
-                
-                if (_spawnedPlayers.ContainsKey(localPlayerRef) && _spawnedPlayers[localPlayerRef] == networkObj)
-                {
-                    _spawnedPlayers.Remove(localPlayerRef);
-                }
-                
-                return null;
-            }
-        }
-        
-        if (_spawnedPlayers.ContainsKey(localPlayerRef))
-        {
-            var invalidObj = _spawnedPlayers[localPlayerRef];
-            if (invalidObj == null || !invalidObj.IsValid)
-            {
-                _spawnedPlayers.Remove(localPlayerRef);
-            }
+            return networkObj.GetComponent<PlayerController>();
         }
 
         return null;
     }
     
-    /// <summary>
-    /// 테스트 모드 전용: 현재 선택된 플레이어의 PlayerController를 가져옵니다.
-    /// </summary>
-    public PlayerController GetSelectedPlayer()
-    {
-        var playerObj = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
-        
-        if (playerObj == null || !playerObj.IsValid)
-        {
-            return null;
-        }
-        
-        return playerObj.GetComponent<PlayerController>();
-    }
-
-    /// <summary>
-    /// 특정 PlayerRef의 PlayerController를 가져옵니다.
-    /// </summary>
+    // 단순 조회용
     public PlayerController GetPlayer(PlayerRef playerRef)
     {
-        if (_spawnedPlayers.TryGetValue(playerRef, out var playerObj))
+        if (_spawnedPlayers.TryGetValue(playerRef, out var playerObj) && playerObj != null)
         {
             return playerObj.GetComponent<PlayerController>();
         }
         return null;
     }
 
-    /// <summary>
-    /// 모든 플레이어의 PlayerController를 가져옵니다.
-    /// </summary>
     public List<PlayerController> GetAllPlayers()
     {
-        if (_isTestMode)
-        {
-            var result = new List<PlayerController>();
-            if (_playerObj1 != null && _playerObj1.IsValid)
-            {
-                var c1 = _playerObj1.GetComponent<PlayerController>();
-                if (c1 != null) result.Add(c1);
-            }
-            if (_playerObj2 != null && _playerObj2.IsValid)
-            {
-                var c2 = _playerObj2.GetComponent<PlayerController>();
-                if (c2 != null) result.Add(c2);
-            }
-            return result;
-        }
-
         return _spawnedPlayers.Values
-            .Select(obj => obj != null ? obj.GetComponent<PlayerController>() : null)
-            .Where(controller => controller != null)
+            .Where(obj => obj != null && obj.IsValid)
+            .Select(obj => obj.GetComponent<PlayerController>())
+            .Where(c => c != null)
             .ToList();
     }
-}
 
+    private Vector3 GetSceneSpawnPosition(int index)
+    {
+        if (ScenSpawner.Instance != null) return ScenSpawner.Instance.GetSpawnPosition(index);
+        return _spawnPositions[index % _spawnPositions.Length];
+    }
+    
+    // 테스트 모드용
+    public PlayerController GetSelectedPlayer()
+    {
+        var playerObj = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
+        return (playerObj != null && playerObj.IsValid) ? playerObj.GetComponent<PlayerController>() : null;
+    }
+}

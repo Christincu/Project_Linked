@@ -20,8 +20,6 @@ public partial class MainGameManager
         if (FusionManager.Instance == null) { Debug.LogError("[MainGameManager] FusionManager not found!"); return; }
 
         // [테스트 모드 전용] Runner 생성 또는 가져오기
-        // 일반 네트워크 모드에서는 타이틀 씬에서 생성된 Runner를 사용하지만,
-        // 테스트 모드에서는 직접 생성할 수 있습니다.
         if (FusionManager.LocalRunner == null)
         {
             // 테스트 모드: Runner가 없으면 새로 생성
@@ -35,39 +33,61 @@ public partial class MainGameManager
             _runner = FusionManager.LocalRunner;
         }
 
-        // Runner 시작 (Host 모드)
+        // Runner 시작 (Host/Single 모드)
         if (_runner != null && !_runner.IsRunning)
         {
             _runner.ProvideInput = true;
-            _runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
-            _runner.gameObject.AddComponent<NetworkObjectProviderDefault>();
+            
+            // 필수 컴포넌트 확인 및 추가
+            if (_runner.GetComponent<NetworkSceneManagerDefault>() == null)
+                _runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
+            
+            if (_runner.GetComponent<NetworkObjectProviderDefault>() == null)
+                _runner.gameObject.AddComponent<NetworkObjectProviderDefault>();
 
+            // 물리 시뮬레이터 확인 및 추가
             var physicsSimulator = _runner.gameObject.GetComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
             if (physicsSimulator == null)
             {
                 physicsSimulator = _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
             }
-
             // Client Physics Simulation을 SimulateAlways로 설정 (가장 부드러운 움직임)
             physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
 
-            await _runner.StartGame(new StartGameArgs
+            // Scene 정보 구성 (Fusion 2.0)
+            var sceneInfo = new NetworkSceneInfo();
+            sceneInfo.AddSceneRef(SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex), LoadSceneMode.Single);
+
+            var result = await _runner.StartGame(new StartGameArgs
             {
-                GameMode = GameMode.Host,
+                GameMode = GameMode.Single, // 테스트는 싱글 모드로 실행 (혼자서 2캐릭 조종)
                 SessionName = "EditorTestSession",
+                Scene = sceneInfo,
                 SceneManager = _runner.GetComponent<NetworkSceneManagerDefault>(),
                 ObjectProvider = _runner.GetComponent<NetworkObjectProviderDefault>()
             });
 
-            FusionManager.LocalRunner = _runner;
+            if (result.Ok)
+            {
+                FusionManager.LocalRunner = _runner;
+            }
+            else
+            {
+                Debug.LogError($"[MainGameManager] Failed to start Test Session: {result.ShutdownReason}");
+                return;
+            }
         }
 
-        // 플레이어 스폰
+        // 플레이어 스폰 (Runner가 준비된 후)
         if (_runner.IsServer)
         {
-            // 씬 로드 완료까지 대기 (MainCanvas 초기화 등)
-            await Task.Delay(500);
+            // 씬 로드 및 초기화 대기
+            // StartGame 직후에는 아직 객체들이 준비되지 않았을 수 있으므로 잠시 대기
+            await Task.Delay(100); 
             SpawnTestPlayers();
+            
+            // 일반 게임 초기화 로직도 실행 (UI, 매니저 등)
+            StartCoroutine(Co_InitializeGameSession());
         }
 
         GameManager.Instance?.FinishLoadingScreen();
@@ -87,25 +107,27 @@ public partial class MainGameManager
         Vector3 spawnPos0 = GetSceneSpawnPosition(0);
         Vector3 spawnPos1 = GetSceneSpawnPosition(1);
 
-        // PlayerData 먼저 생성 (실제 멀티 환경과 동일한 순서)
+        // PlayerData 먼저 생성
         NetworkObject playerData1 = null;
         NetworkObject playerData2 = null;
 
         if (FusionManager.Instance != null && FusionManager.Instance.PlayerDataPrefab != null)
         {
-            playerData1 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, player1Ref, (runner, obj) =>
+            playerData1 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
             {
                 if (obj.TryGetComponent(out PlayerData pd))
                 {
                     pd.CharacterIndex = _firstCharacterIndex;
+                    pd.Nick = "TestPlayer 1";
                 }
             });
 
-            playerData2 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, player2Ref, (runner, obj) =>
+            playerData2 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
             {
                 if (obj.TryGetComponent(out PlayerData pd))
                 {
                     pd.CharacterIndex = _secondCharacterIndex;
+                    pd.Nick = "TestPlayer 2";
                 }
             });
         }
@@ -114,18 +136,25 @@ public partial class MainGameManager
         _playerObj1 = _runner.Spawn(_playerPrefab, spawnPos0, Quaternion.identity, localPlayer, (runner, obj) =>
         {
             var controller = obj.GetComponent<PlayerController>();
-            controller.SetCharacterIndex(_firstCharacterIndex);
-            controller.PlayerSlot = 0;
+            if (controller != null)
+            {
+                controller.SetCharacterIndex(_firstCharacterIndex);
+                controller.PlayerSlot = 0;
+            }
         });
 
         // Player 2 스폰 (InputAuthority는 localPlayer)
         _playerObj2 = _runner.Spawn(_playerPrefab, spawnPos1, Quaternion.identity, localPlayer, (runner, obj) =>
         {
             var controller = obj.GetComponent<PlayerController>();
-            controller.SetCharacterIndex(_secondCharacterIndex);
-            controller.PlayerSlot = 1;
+            if (controller != null)
+            {
+                controller.SetCharacterIndex(_secondCharacterIndex);
+                controller.PlayerSlot = 1;
+            }
         });
 
+        // PlayerData와 Player 연결
         if (playerData1 != null && playerData1.TryGetComponent(out PlayerData pd1))
         {
             pd1.PlayerInstance = _playerObj1;
@@ -136,21 +165,36 @@ public partial class MainGameManager
             pd2.PlayerInstance = _playerObj2;
         }
 
-        // 첫 번째 플레이어를 딕셔너리에 추가
+        // 첫 번째 플레이어를 딕셔너리에 추가 (기본값)
         if (_playerObj1 != null) _spawnedPlayers[localPlayer] = _playerObj1;
 
-        if (GameManager.Instance?.Canvas is MainCanvas canvas)
+        // =================================================================
+        // [중요] Runner에 플레이어 객체를 등록해야 WaitForLocalPlayerObject 통과 가능
+        // 테스트 모드이므로 1번 슬롯 캐릭터를 메인으로 등록합니다.
+        // 이 코드가 없으면 Co_InitializeGameSession의 Client_WaitForLocalPlayerObject가 타임아웃됩니다.
+        // =================================================================
+        if (_playerObj1 != null)
+        {
+            _runner.SetPlayerObject(localPlayer, _playerObj1);
+        }
+
+        // UI에 첫 번째 플레이어 등록
+        if (GameManager.Instance?.Canvas is MainCanvas canvas && _playerObj1 != null)
         {
             canvas.RegisterPlayer(_playerObj1.GetComponent<PlayerController>());
         }
 
         InitializeMainCamera();
+        
+        // 초기 선택 슬롯 설정
+        SelectedSlot = 0;
+        UpdateCanvasForSelectedPlayer();
     }
 
     private void InitializeMainCamera()
     {
         Camera mainCamera = Camera.main;
-        if (mainCamera != null)
+        if (mainCamera != null && _playerObj1 != null)
         {
             MainCameraController cameraController = mainCamera.GetComponent<MainCameraController>();
             if (cameraController != null)
@@ -165,13 +209,19 @@ public partial class MainGameManager
         // 1/2 키로 조작 대상 전환
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
-            SelectedSlot = 0;
-            UpdateCanvasForSelectedPlayer();
+            if (SelectedSlot != 0)
+            {
+                SelectedSlot = 0;
+                UpdateCanvasForSelectedPlayer();
+            }
         }
         if (Input.GetKeyDown(KeyCode.Alpha2))
         {
-            SelectedSlot = 1;
-            UpdateCanvasForSelectedPlayer();
+            if (SelectedSlot != 1)
+            {
+                SelectedSlot = 1;
+                UpdateCanvasForSelectedPlayer();
+            }
         }
 
         // T/Y/U 키로 데미지/힐 테스트
@@ -180,17 +230,31 @@ public partial class MainGameManager
         if (Input.GetKeyDown(KeyCode.U)) ApplyTestHealthChange(999f, "Full Heal");
     }
 
-    /// <summary>
-    /// 테스트 모드에서 선택된 플레이어에 맞춰 Canvas를 업데이트합니다.
-    /// </summary>
     private void UpdateCanvasForSelectedPlayer()
     {
         if (!_isTestMode) return;
 
-        PlayerController selectedPlayer = GetSelectedPlayer();
-        if (selectedPlayer != null && GameManager.Instance?.Canvas is MainCanvas canvas)
+        NetworkObject targetObj = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
+        if (targetObj == null) return;
+
+        var controller = targetObj.GetComponent<PlayerController>();
+        if (controller == null) return;
+
+        // Canvas 등록
+        if (GameManager.Instance != null && GameManager.Instance.Canvas is MainCanvas canvas)
         {
-            canvas.RegisterPlayer(selectedPlayer);
+            canvas.RegisterPlayer(controller);
+        }
+
+        // 카메라 타겟 변경
+        Camera mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            var camController = mainCamera.GetComponent<MainCameraController>();
+            if (camController != null)
+            {
+                camController.SetTarget(controller);
+            }
         }
     }
 
@@ -199,11 +263,9 @@ public partial class MainGameManager
         var player = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
         if (player != null && player.TryGetComponent(out PlayerController controller) && controller.State != null)
         {
-            if (type == "Damage") controller.State.TakeDamage(amount);
+            if (type == "Damage") controller.State.TakeDamage(Mathf.Abs(amount));
             else if (type == "Heal") controller.State.Heal(amount);
             else if (type == "Full Heal") controller.State.SetHealth(controller.State.MaxHealth);
         }
     }
 }
-
-

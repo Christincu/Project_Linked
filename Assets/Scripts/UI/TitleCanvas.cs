@@ -176,7 +176,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         // 2. 로컬 플레이어의 PlayerData 객체가 찾아질 때까지 대기 (최대 5초)
         float timeout = 5f;
         float timer = 0f;
-        bool isDataReady = false;
 
         while (timer < timeout)
         {
@@ -188,7 +187,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
                 // 데이터가 존재하고 유효하다면 루프 탈출
                 if (playerData != null && playerData.Object != null && playerData.Object.IsValid)
                 {
-                    isDataReady = true;
                     break;
                 }
             }

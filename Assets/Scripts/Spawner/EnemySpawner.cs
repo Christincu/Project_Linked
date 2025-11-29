@@ -149,7 +149,6 @@ public class EnemySpawner : MonoBehaviour
                     if (enemyIndex >= 0)
                     {
                         controller.SetEnemyIndex(enemyIndex);
-                        Debug.Log($"[EnemySpawner] Enemy spawned at {spawnPosition} with EnemyIndex: {enemyIndex} (Spawner: {_spawnerIndex})");
                     }
                     else
                     {
