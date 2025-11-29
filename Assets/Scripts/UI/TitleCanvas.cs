@@ -35,24 +35,20 @@ public class TitleCanvas : MonoBehaviour, ICanvas
 
     public Transform CanvasTransform => transform;
 
-    void Start()
-    {
-        // Create TitleGameManager if it doesn't exist
-        if (TitleGameManager.Instance == null)
-        {
-            GameObject titleGameManagerObj = new GameObject("TitleGameManager");
-            titleGameManagerObj.AddComponent<TitleGameManager>();
-        }
-    }
+    [SerializeField] private TitleGameManager _titleGameManager;
 
     public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
         ShowTitlePanel();
-        TitleGameManager.Instance?.Initialize(this);
+        _titleGameManager?.Initialize(this);
         SetupButtonEvents();
         InitializeChapterButtons();
 
-        string savedNickname = PlayerPrefs.GetString("PlayerNick", "Player");
+        string savedNickname = GameManager.MyLocalNickname;
+        if (string.IsNullOrEmpty(savedNickname))
+        {
+            savedNickname = "Player";
+        }
         _nicknameInput.text = savedNickname;
     }
     
@@ -82,8 +78,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
                 chapterBtn.Initialize(sceneName, displayName, this);
             }
         }
-        
-        Debug.Log($"[TitleCanvas] Created {_chapterNames.Count} chapter buttons");
     }
     
     /// <summary>
@@ -142,8 +136,21 @@ public class TitleCanvas : MonoBehaviour, ICanvas
 
     public void ShowTitlePanel()
     {
-        _titlePanel.SetActive(true);
-        _lobbyPanel.SetActive(false);
+        // GameObject가 파괴되었는지 확인
+        if (this == null || gameObject == null)
+        {
+            return;
+        }
+        
+        if (_titlePanel != null)
+        {
+            _titlePanel.SetActive(true);
+        }
+        
+        if (_lobbyPanel != null)
+        {
+            _lobbyPanel.SetActive(false);
+        }
     }
 
     public void ShowLobbyPanel()
@@ -151,6 +158,46 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         _titlePanel.SetActive(false);
         _lobbyPanel.SetActive(true);
 
+        // [수정됨] 즉시 초기화하는 대신, 데이터가 준비될 때까지 기다리는 코루틴 실행
+        StartCoroutine(WaitForLocalPlayerAndRefreshUI());
+    }
+    
+    /// <summary>
+    /// [추가됨] 로컬 플레이어 데이터가 네트워크상에 스폰될 때까지 기다린 후 UI를 갱신합니다.
+    /// </summary>
+    private IEnumerator WaitForLocalPlayerAndRefreshUI()
+    {
+        // 1. Runner가 준비될 때까지 대기
+        while (FusionManager.LocalRunner == null || !FusionManager.LocalRunner.IsRunning)
+        {
+            yield return null;
+        }
+
+        // 2. 로컬 플레이어의 PlayerData 객체가 찾아질 때까지 대기 (최대 5초)
+        float timeout = 5f;
+        float timer = 0f;
+        bool isDataReady = false;
+
+        while (timer < timeout)
+        {
+            if (GameManager.Instance != null)
+            {
+                // 로컬 플레이어의 데이터를 가져와 봅니다.
+                var playerData = GameManager.Instance.GetPlayerData(FusionManager.LocalRunner.LocalPlayer, FusionManager.LocalRunner);
+                
+                // 데이터가 존재하고 유효하다면 루프 탈출
+                if (playerData != null && playerData.Object != null && playerData.Object.IsValid)
+                {
+                    isDataReady = true;
+                    break;
+                }
+            }
+            
+            yield return new WaitForSeconds(0.1f); // 0.1초 간격으로 체크
+            timer += 0.1f;
+        }
+
+        // 3. 데이터 준비 완료 (혹은 타임아웃) 후 UI 갱신 실행
         InitializeLocalPlayerCharacterUI();
         UpdateChapterButtonsInteractable();
         UpdateLobbyUI();
@@ -185,7 +232,7 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         string roomName = _roomNameInput.text;
         string playerNickname = _nicknameInput.text;
 
-        TitleGameManager.Instance?.CreateRoom(roomName, playerNickname);
+        _titleGameManager?.CreateRoom(roomName, playerNickname);
     }
 
     public void OnJoinRoomButton()
@@ -196,17 +243,17 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         string roomName = _roomNameInput.text;
         string playerNickname = _nicknameInput.text;
 
-        TitleGameManager.Instance?.JoinRoom(roomName, playerNickname);
+        _titleGameManager?.JoinRoom(roomName, playerNickname);
     }
 
     public void OnStartGameButton()
     {
-        TitleGameManager.Instance?.StartGame();
+        _titleGameManager?.StartGame();
     }
 
     public void OnLeaveRoomButton()
     {
-        TitleGameManager.Instance?.LeaveRoom();
+        _titleGameManager?.LeaveRoom();
     }
 
     public void OnExitGameButton()
@@ -226,7 +273,7 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         }
         
         Debug.Log($"[TitleCanvas] Chapter selected: {sceneName}");
-        TitleGameManager.Instance?.LoadChapterScene(sceneName);
+        _titleGameManager?.LoadChapterScene(sceneName);
     }
 
     // ========== Character Selection Functions ==========
@@ -261,21 +308,44 @@ public class TitleCanvas : MonoBehaviour, ICanvas
             return;
         }
 
+        GameManager.MyLocalCharacterIndex = characterIndex;
+
         UpdateCharacterUI(characterData);
 
         // Set character index in network if connected
         if (FusionManager.LocalRunner != null)
         {
-            var playerData = GameManager.Instance?.GetPlayerData(FusionManager.LocalRunner.LocalPlayer, FusionManager.LocalRunner);
-            if (playerData != null)
+            // PlayerData가 생성될 때까지 대기하는 코루틴 시작
+            StartCoroutine(SetCharacterIndexWhenPlayerDataReady(characterIndex));
+        }
+    }
+    
+    /// <summary>
+    /// PlayerData가 생성될 때까지 대기한 후 캐릭터 인덱스를 설정합니다.
+    /// </summary>
+    private IEnumerator SetCharacterIndexWhenPlayerDataReady(int characterIndex)
+    {
+        if (FusionManager.LocalRunner == null) yield break;
+        
+        var localPlayerRef = FusionManager.LocalRunner.LocalPlayer;
+        float timeout = 5f; // 최대 5초 대기
+        float timer = 0f;
+        
+        while (timer < timeout)
+        {
+            var playerData = GameManager.Instance?.GetPlayerData(localPlayerRef, FusionManager.LocalRunner);
+            if (playerData != null && playerData.Object != null && playerData.Object.IsValid)
             {
                 playerData.SetCharacterIndex(characterIndex);
+                Debug.Log($"[TitleCanvas] Character index set to {characterIndex} for player {localPlayerRef}");
+                yield break;
             }
-            else
-            {
-                Debug.LogWarning("PlayerData not found for local player");
-            }
+            
+            yield return new WaitForSeconds(0.1f);
+            timer += 0.1f;
         }
+        
+        Debug.LogWarning($"[TitleCanvas] PlayerData not found for local player {localPlayerRef} after timeout");
     }
 
     public void UpdateCharacterUI(CharacterData characterData)
@@ -350,9 +420,9 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         }
         else
         {
-            string roomName = TitleGameManager.Instance?.RoomName ?? "Unknown";
+            string roomName = _titleGameManager?.RoomName ?? "Unknown";
             _roomNameText.text = $"Room: {roomName}";
-            _playerListText.text = TitleGameManager.Instance.IsConnecting ? "Connecting..." : "Waiting for connection...";
+            _playerListText.text = _titleGameManager != null && _titleGameManager.IsConnecting ? "Connecting..." : "Waiting for connection...";
 
             if (_startGameButton != null)
             {

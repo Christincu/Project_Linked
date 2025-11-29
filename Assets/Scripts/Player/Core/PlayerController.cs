@@ -122,6 +122,13 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
         _gameDataManager = GameDataManager.Instance;
 
+        // Fusion Physics 시뮬레이션에 포함시킴 (NetworkRigidbody2D가 있을 때 필요)
+        // 클라이언트 물리 예측 모드에서 NetworkRigidbody 경고 제거
+        if (Runner != null && Object != null)
+        {
+            Runner.SetIsSimulated(Object, true);
+        }
+
         InitializeComponents();
         InitializeNetworkState();
 
@@ -160,6 +167,12 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _detectionManager?.Initialize(this, _gameDataManager);
         _animationController?.Initialize(this);
         _effectManager?.Initialize(this);
+        
+        // NetworkRigidbody2D 초기화 후 시뮬레이션 설정 보장
+        if (Runner != null && Object != null && _movement != null && _movement.NetworkRigidbody2D != null)
+        {
+            Runner.SetIsSimulated(Object, true);
+        }
 
         if (_magicController != null)
         {
@@ -211,7 +224,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         if (_movement == null || _state == null) return;
 
         InputData? inputData = null;
-        if (GetInput<InputData>(out var data))
+        bool hasInput = GetInput<InputData>(out var data);
+        if (hasInput)
         {
             inputData = data;
         }

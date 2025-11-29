@@ -19,15 +19,19 @@ public partial class MainGameManager
     {
         if (FusionManager.Instance == null) { Debug.LogError("[MainGameManager] FusionManager not found!"); return; }
 
-        // Runner 생성 또는 가져오기
+        // [테스트 모드 전용] Runner 생성 또는 가져오기
+        // 일반 네트워크 모드에서는 타이틀 씬에서 생성된 Runner를 사용하지만,
+        // 테스트 모드에서는 직접 생성할 수 있습니다.
         if (FusionManager.LocalRunner == null)
         {
+            // 테스트 모드: Runner가 없으면 새로 생성
             GameObject go = new GameObject("TestRunner");
             _runner = go.AddComponent<NetworkRunner>();
             _runner.AddCallbacks(FusionManager.Instance);
         }
         else
         {
+            // 기존 Runner 재사용 (타이틀에서 넘어온 경우)
             _runner = FusionManager.LocalRunner;
         }
 
@@ -94,7 +98,6 @@ public partial class MainGameManager
                 if (obj.TryGetComponent(out PlayerData pd))
                 {
                     pd.CharacterIndex = _firstCharacterIndex;
-                    Debug.Log($"[TestMode] PlayerData1 created for PlayerRef: {player1Ref}");
                 }
             });
 
@@ -103,7 +106,6 @@ public partial class MainGameManager
                 if (obj.TryGetComponent(out PlayerData pd))
                 {
                     pd.CharacterIndex = _secondCharacterIndex;
-                    Debug.Log($"[TestMode] PlayerData2 created for PlayerRef: {player2Ref}");
                 }
             });
         }
@@ -124,17 +126,14 @@ public partial class MainGameManager
             controller.PlayerSlot = 1;
         });
 
-        // PlayerData에 PlayerInstance 연결
         if (playerData1 != null && playerData1.TryGetComponent(out PlayerData pd1))
         {
             pd1.PlayerInstance = _playerObj1;
-            Debug.Log($"[TestMode] PlayerData1 linked to Player1");
         }
 
         if (playerData2 != null && playerData2.TryGetComponent(out PlayerData pd2))
         {
             pd2.PlayerInstance = _playerObj2;
-            Debug.Log($"[TestMode] PlayerData2 linked to Player2");
         }
 
         // 첫 번째 플레이어를 딕셔너리에 추가
@@ -167,13 +166,11 @@ public partial class MainGameManager
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
             SelectedSlot = 0;
-            Debug.Log($"Switched to Player 1 (Slot: {SelectedSlot})");
             UpdateCanvasForSelectedPlayer();
         }
         if (Input.GetKeyDown(KeyCode.Alpha2))
         {
             SelectedSlot = 1;
-            Debug.Log($"Switched to Player 2 (Slot: {SelectedSlot})");
             UpdateCanvasForSelectedPlayer();
         }
 
@@ -205,8 +202,6 @@ public partial class MainGameManager
             if (type == "Damage") controller.State.TakeDamage(amount);
             else if (type == "Heal") controller.State.Heal(amount);
             else if (type == "Full Heal") controller.State.SetHealth(controller.State.MaxHealth);
-
-            Debug.Log($"[TestMode] {type} applied to Player {SelectedSlot + 1}");
         }
     }
 }

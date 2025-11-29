@@ -11,6 +11,14 @@ using Fusion.Addons.Physics;
 /// </summary>
 public partial class DashMagicObject : NetworkBehaviour
 {
+    #region Networked Properties
+    /// <summary>
+    /// 이 대시 오브젝트의 소유 플레이어(PlayerRef)를 네트워크로 동기화합니다.
+    /// 클라이언트는 이 정보를 기반으로 _owner 참조를 복원합니다.
+    /// </summary>
+    [Networked] private PlayerRef OwnerPlayer { get; set; }
+    #endregion
+
     #region Serialized Fields
     [Header("Collision Settings")]
     [Tooltip("공격 판정용 Circle Collider 반지름")]
@@ -47,7 +55,7 @@ public partial class DashMagicObject : NetworkBehaviour
     private bool _lastIsFinalEnhancement = false;
     #endregion
     
-    #region Unity Callbacks
+    #region Unity / Fusion Callbacks
     void Awake()
     {
         // [개선] 공격 판정용 Circle Collider는 이제 시각적/디버그 용도로만 사용
@@ -67,6 +75,26 @@ public partial class DashMagicObject : NetworkBehaviour
             playerLayer = LayerMask.GetMask("Player", "Default");
         }
     }
+
+    /// <summary>
+    /// 네트워크 오브젝트가 스폰되었을 때 호출됩니다.
+    /// (모든 클라이언트에서 실행되며, OwnerRef를 기반으로 _owner를 복원합니다.)
+    /// </summary>
+    public override void Spawned()
+    {
+        base.Spawned();
+
+        // 이미 서버에서 Initialize로 _owner를 설정했을 수 있으므로,
+        // _owner가 비어 있고 OwnerPlayer가 유효할 때만 복원 시도
+        if (_owner == null && Runner != null && OwnerPlayer != PlayerRef.None)
+        {
+            // MainGameManager를 통해 PlayerController 찾기
+            if (MainGameManager.Instance != null)
+            {
+                _owner = MainGameManager.Instance.GetPlayer(OwnerPlayer);
+            }
+        }
+    }
     
     /// <summary>
     /// [핵심 수정] Render 메서드에서 시각적 업데이트를 강력하게 처리
@@ -74,7 +102,20 @@ public partial class DashMagicObject : NetworkBehaviour
     /// </summary>
     public override void Render()
     {
+        // 클라이언트에서 _owner가 아직 설정되지 않았다면 OwnerPlayer를 통해 복원 시도
+        if (_owner == null && Runner != null && OwnerPlayer != PlayerRef.None)
+        {
+            if (MainGameManager.Instance != null)
+            {
+                _owner = MainGameManager.Instance.GetPlayer(OwnerPlayer);
+            }
+        }
+
         if (_owner == null) return;
+
+        // 모든 클라이언트에서 소유 플레이어를 따라다니도록 위치 동기화
+        // (계층 구조 Parent는 서버에서만 설정되므로, 위치는 직접 맞춰준다)
+        transform.position = _owner.transform.position;
 
         // 1. 데이터 로드 안전장치 (클라이언트 늦은 로드 대응)
         if (_dashData == null) LoadDashData();
@@ -202,6 +243,13 @@ public partial class DashMagicObject : NetworkBehaviour
     {
         _owner = owner;
         _dashData = dashData;
+
+        // 서버(StateAuthority)에서만 OwnerRef를 설정하면,
+        // 클라이언트는 Spawned/Render에서 이 값을 통해 _owner를 복원할 수 있습니다.
+        if (Object != null && Object.HasStateAuthority && _owner != null && _owner.Object != null)
+        {
+            OwnerPlayer = _owner.Object.InputAuthority;
+        }
         
         if (_owner == null)
         {
@@ -214,9 +262,12 @@ public partial class DashMagicObject : NetworkBehaviour
             LoadDashData();
         }
         
-        // 플레이어에게 부착
-        transform.SetParent(_owner.transform);
-        transform.localPosition = Vector3.zero;
+        // 서버에서만 계층 구조를 설정 (위치는 Render에서 강제로 동기화하므로 안전)
+        if (Object != null && Object.HasStateAuthority)
+        {
+            transform.SetParent(_owner.transform);
+            transform.localPosition = Vector3.zero;
+        }
         
         // [중요] 공격 콜라이더 설정 (이게 없으면 충돌 감지 안됨)
         if (_attackCollider == null)

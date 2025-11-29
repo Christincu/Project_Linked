@@ -10,6 +10,14 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
+    // ==========================================
+    // 로컬 플레이어의 정보를 메모리에 저장 (휘발성)
+    // 에디터와 빌드 프로그램은 이 메모리를 공유하지 않으므로 안전합니다.
+    // 게임이 종료되면 사라지는 임시 저장소입니다.
+    // ==========================================
+    public static string MyLocalNickname = "Player";
+    public static int MyLocalCharacterIndex = 0;
+
     // 현재 게임 상태 (GameState enum이 별도로 정의되어 있다고 가정)
     public GameStateType State { get; private set; } = GameStateType.Lobby;
     public ICanvas Canvas { get; private set; }
@@ -99,7 +107,6 @@ public class GameManager : MonoBehaviour
                 GameObject managerObj = Instantiate(_gameDataManagerPrefab);
                 managerObj.name = "GameDataManager";
                 DontDestroyOnLoad(managerObj);
-                Debug.Log("[GameManager] GameDataManager created from prefab");
             }
             else
             {
@@ -143,7 +150,6 @@ public class GameManager : MonoBehaviour
                 GameObject managerObj = Instantiate(_fusionManagerPrefab);
                 managerObj.name = "FusionManager";
                 DontDestroyOnLoad(managerObj);
-                Debug.Log("[GameManager] FusionManager created from prefab");
             }
             else
             {
@@ -188,7 +194,6 @@ public class GameManager : MonoBehaviour
             GameObject managerObj = Instantiate(_visualManagerPrefab);
             managerObj.name = "VisualManager";
             DontDestroyOnLoad(managerObj);
-            Debug.Log("[GameManager] VisualManager created from prefab");
         }
         else
         {
@@ -245,7 +250,6 @@ public class GameManager : MonoBehaviour
             
             GameObject managerObj = Instantiate(_mainGameManagerPrefab);
             managerObj.name = "MainGameManager";
-            Debug.Log("[GameManager] MainGameManager created");
         }
         
         if (FindAnyObjectByType<UnityEngine.Canvas>() == null)
@@ -258,7 +262,6 @@ public class GameManager : MonoBehaviour
             
             GameObject canvasObj = Instantiate(_mainCanvasPrefab);
             canvasObj.name = "Canvas";
-            Debug.Log("[GameManager] MainCanvas created");
         }
         
         EnsureMainCamera();
@@ -280,7 +283,6 @@ public class GameManager : MonoBehaviour
         if (cameraController == null)
         {
             mainCamera.gameObject.AddComponent<MainCameraController>();
-            Debug.Log("[GameManager] MainCameraController added to Main Camera");
         }
     }
 
@@ -327,24 +329,19 @@ public class GameManager : MonoBehaviour
     public void SetGameState(GameStateType newState)
     {
         State = newState;
-        Debug.Log($"Game state changed: {State}");
     }
 
     private void OnPlayerJoined(PlayerRef player, NetworkRunner runner)
     {
-        Debug.Log($"GameManager: Player {player} joined");
     }
 
     private void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
     {
-        Debug.Log($"GameManager: Player {player} left");
         _playerData.Remove(player);
     }
 
     private void OnShutdown(NetworkRunner runner)
     {
-        Debug.Log("GameManager: Network session shutdown");
-        
         if (runner == FusionManager.LocalRunner)
         {
             FusionManager.LocalRunner = null;
@@ -356,8 +353,6 @@ public class GameManager : MonoBehaviour
 
     private void OnDisconnected(NetworkRunner runner)
     {
-        Debug.Log("GameManager: Disconnected from server");
-        
         if (runner == FusionManager.LocalRunner)
         {
             FusionManager.LocalRunner = null;
@@ -369,15 +364,26 @@ public class GameManager : MonoBehaviour
 
     public PlayerData GetPlayerData(PlayerRef player, NetworkRunner runner)
     {
+        // 딕셔너리에서 찾기 (유효성 확인)
         if (_playerData.TryGetValue(player, out PlayerData data))
         {
-            return data;
+            // NetworkObject가 유효한지 확인
+            if (data != null && data.Object != null && data.Object.IsValid)
+            {
+                return data;
+            }
+            else
+            {
+                // 유효하지 않으면 딕셔너리에서 제거
+                _playerData.Remove(player);
+            }
         }
 
+        // NetworkRunner에서 찾기
         if (runner != null)
         {
             NetworkObject playerObject = runner.GetPlayerObject(player);
-            if (playerObject != null && playerObject.TryGetComponent(out data))
+            if (playerObject != null && playerObject.IsValid && playerObject.TryGetComponent(out data))
             {
                 _playerData[player] = data;
                 return data;
@@ -388,7 +394,14 @@ public class GameManager : MonoBehaviour
 
     public void SetPlayerData(PlayerRef player, PlayerData data)
     {
-        _playerData[player] = data;
+        if (data == null)
+        {
+            _playerData.Remove(player);
+        }
+        else
+        {
+            _playerData[player] = data;
+        }
     }
     
     // ========== UI & Utility (이하 동일) ==========
@@ -396,7 +409,6 @@ public class GameManager : MonoBehaviour
     public void ExitGame()
     {
         Application.Quit();
-        Debug.Log("Application Quit requested.");
     }
 
     public void ShowWarningPanel(string warningText)

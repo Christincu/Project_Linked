@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1105535981061541699}
   - component: {fileID: 1180641214388961560}
+  - component: {fileID: 8716870012835804170}
   m_Layer: 0
   m_Name: MainGameManager
   m_TagString: Untagged
@@ -52,6 +53,31 @@ MonoBehaviour:
   _spawnPositions:
   - {x: 0, y: 2}
   - {x: 0, y: -2}
-  _enemySpawners: []
-  _mapDoorObject: {fileID: 0}
-  _mapDoorTriggerColider: {fileID: 0}
+  _currentStageData: {fileID: 11400000, guid: 5e228b11a262e2a428718c7aba306bdb, type: 2}
+  _roundTriggers:
+  - {fileID: 0}
+  _NetworkRoundIndex: -1
+  _NetworkWaveIndex: -1
+  _NetworkWaveGoalType: -1
+  _NetworkWaveCurrentGoal: 0
+  _NetworkWaveTotalGoal: 0
+  _NetworkWaveElapsedTime: 0
+--- !u!114 &8716870012835804170
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1935061100617456413}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SortKey: 2838826038
+  ObjectInterest: 1
+  Flags: 262145
+  NestedObjects: []
+  NetworkedBehaviours:
+  - {fileID: 1180641214388961560}
+  ForceRemoteRenderTimeframe: 0

@@ -73,6 +73,14 @@ public class EnemyController : NetworkBehaviour
     /// </summary>
     public override void Spawned()
     {
+        // 클라이언트 물리 예측 모드에서 NetworkRigidbody 경고 제거:
+        // 이 적 오브젝트는 로컬 클라이언트에서도 물리 시뮬레이션하도록 설정
+        if (Runner != null && Object != null)
+        {
+            Runner.SetIsSimulated(Object, true);
+        }
+
+
         _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
         _gameDataManager = GameDataManager.Instance;
         _previousPosition = transform.position;

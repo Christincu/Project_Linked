@@ -27,6 +27,7 @@ public class MainCanvas : MonoBehaviour, ICanvas
     private GameDataManager _gameDataManager;
     private PlayerController _localPlayer;
     private bool _isInitialized = false;
+    
 
     public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
@@ -36,6 +37,28 @@ public class MainCanvas : MonoBehaviour, ICanvas
         _gameDataManager = gameDataManager;
 
         _isInitialized = true;
+    }
+
+    /// <summary>
+    /// 현재 웨이브/라운드 정보를 텍스트로 표시합니다.
+    /// </summary>
+    public void SetWaveText(string text)
+    {
+        if (_waveText != null)
+        {
+            _waveText.text = text;
+        }
+    }
+
+    /// <summary>
+    /// 현재 목표(킬 수, 생존 시간, 수집 개수 등)를 텍스트로 표시합니다.
+    /// </summary>
+    public void SetGoalText(string text)
+    {
+        if (_goalText != null)
+        {
+            _goalText.text = text;
+        }
     }
 
     void OnDestroy()
@@ -54,10 +77,8 @@ public class MainCanvas : MonoBehaviour, ICanvas
         // 테스트 모드가 아닐 때만 Input Authority 체크
         if (MainGameManager.Instance == null || !MainGameManager.Instance.IsTestMode)
         {
-            // Input Authority가 있는 플레이어만 등록
             if (!player.Object.HasInputAuthority)
             {
-                Debug.Log($"[MainCanvas] Ignoring player - no input authority: {player.name}");
                 return;
             }
         }
@@ -87,6 +108,7 @@ public class MainCanvas : MonoBehaviour, ICanvas
         // 플레이어 이름 설정 (PlayerData에서 닉네임 가져오기)
         UpdatePlayerName();
     }
+    
 
     /// <summary>
     /// 플레이어 이벤트 구독 해제

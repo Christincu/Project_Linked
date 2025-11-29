@@ -380,11 +380,16 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
                 ?? (collider.attachedRigidbody != null ? collider.attachedRigidbody.GetComponent<EnemyController>() : null)
                 ?? (collider.transform.root != null ? collider.transform.root.GetComponent<EnemyController>() : null);
             
-            if (enemy == null || enemy.IsDead) continue;
+            // Networked 프로퍼티(IsDead 등)에 직접 접근하기 전에
+            // EnemyController와 그 NetworkObject의 유효성을 먼저 확인
+            if (enemy == null) continue;
+            if (enemy.Object == null || !enemy.Object.IsValid) continue;
             
             float distance = Vector3.Distance(explosionPosition, enemy.transform.position);
             if (distance <= explosionRadius && enemy.State != null)
             {
+                // EnemyState 내부에서 Networked 프로퍼티 접근을 try/catch로 보호하므로
+                // 여기서는 단순히 데미지만 위임
                 enemy.State.TakeDamage(explosionDamage);
             }
         }

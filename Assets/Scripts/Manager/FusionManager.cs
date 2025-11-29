@@ -52,70 +52,175 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
         }
         
         IsInitialized = true;
-        Debug.Log("[FusionManager] Initialized");
     }
 
     void Start()
     {
-        Debug.Log($"FusionManager Start - PlayerDataPrefab: {PlayerDataPrefab}");
     }
 
     // 네트워크 콜백들 - Photon Fusion이 자동으로 호출해줌
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"Player {player} has joined!");
-
-        // 로컬 플레이어인 경우 저장
         if (runner.LocalPlayer == player)
         {
             LocalRunner = runner;
-            // ProvideInput은 StartGame 전에 이미 설정되어 있음 (TitleCanvas.cs 참조)
-            Debug.Log($"LocalRunner set to: {LocalRunner}");
+        }
+
+        // ConnectionToken에서 닉네임 읽기 (StartGameArgs.ConnectionToken으로 전달된 데이터)
+        string playerNickname = $"Player_{player.AsIndex}";
+        
+        try
+        {
+            byte[] connectionToken = runner.GetPlayerConnectionToken(player);
+            if (connectionToken != null && connectionToken.Length > 0)
+            {
+                playerNickname = System.Text.Encoding.UTF8.GetString(connectionToken);
+            }
+            else if (runner.LocalPlayer == player)
+            {
+                string savedNick = GameManager.MyLocalNickname;
+                if (!string.IsNullOrEmpty(savedNick))
+                {
+                    playerNickname = savedNick;
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[FusionManager] Failed to get ConnectionToken for player {player}: {e.Message}");
+            if (runner.LocalPlayer == player)
+            {
+                string savedNick = GameManager.MyLocalNickname;
+                if (!string.IsNullOrEmpty(savedNick))
+                {
+                    playerNickname = savedNick;
+                }
+            }
         }
 
         // 서버에서만 플레이어 데이터 생성 (테스트 모드 제외)
         bool isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
+        
         if (runner.IsServer && !isTestMode)
         {
-            // 플레이어 데이터 오브젝트 생성
+            if (runner.GetPlayerObject(player) != null)
+            {
+                SetNicknameToPlayerData(runner, player, playerNickname);
+                OnPlayerJoinedEvent?.Invoke(player, runner);
+                return;
+            }
+
+            PlayerData existingData = GameManager.Instance?.GetPlayerData(player, runner);
+            if (existingData != null && existingData.Object != null && existingData.Object.IsValid)
+            {
+                SetNicknameToPlayerData(runner, player, playerNickname);
+                OnPlayerJoinedEvent?.Invoke(player, runner);
+                return;
+            }
+
             if (PlayerDataPrefab != null)
             {
-                runner.Spawn(PlayerDataPrefab, inputAuthority: player);
-                Debug.Log($"PlayerData spawned for player: {player}");
+                NetworkObject playerDataObj = runner.Spawn(PlayerDataPrefab, inputAuthority: player);
+                
+                if (playerDataObj != null && playerDataObj.IsValid && playerDataObj.TryGetComponent(out PlayerData playerData))
+                {
+                    if (playerData.Object.HasInputAuthority && playerData.Object.InputAuthority == player)
+                    {
+                        playerData.SetNickname(playerNickname);
+                    }
+                    else
+                    {
+                        StartCoroutine(SetNicknameWhenReady(runner, player, playerNickname, playerData));
+                    }
+                }
+                else
+                {
+                    StartCoroutine(SetNicknameWhenReady(runner, player, playerNickname, null));
+                }
             }
             else
             {
-                Debug.LogWarning("PlayerDataPrefab is null! Cannot spawn PlayerData.");
+                Debug.LogWarning("[FusionManager] PlayerDataPrefab is null! Cannot spawn PlayerData.");
             }
         }
 
         // 이벤트 발생
         OnPlayerJoinedEvent?.Invoke(player, runner);
     }
+    
+    /// <summary>
+    /// PlayerData가 준비되면 닉네임을 설정합니다. (최소 대기 시간)
+    /// </summary>
+    private IEnumerator SetNicknameWhenReady(NetworkRunner runner, PlayerRef player, string nickname, PlayerData playerData)
+    {
+        // 최대 10프레임 대기 (약 0.17초 @ 60fps)
+        int maxAttempts = 10;
+        int attempts = 0;
+        
+        while (attempts < maxAttempts)
+        {
+            // PlayerData가 아직 전달되지 않았으면 찾기
+            if (playerData == null)
+            {
+                NetworkObject playerDataObj = runner.GetPlayerObject(player);
+                if (playerDataObj != null && playerDataObj.IsValid && playerDataObj.TryGetComponent(out playerData))
+                {
+                    // 찾았음
+                }
+            }
+            
+            if (playerData != null && playerData.Object != null && playerData.Object.IsValid)
+            {
+                if (playerData.Object.HasInputAuthority && playerData.Object.InputAuthority == player)
+                {
+                    playerData.SetNickname(nickname);
+                    yield break;
+                }
+            }
+            
+            yield return null; // 한 프레임 대기
+            attempts++;
+        }
+        
+        Debug.LogWarning($"[FusionManager] Failed to set nickname for player {player} after {maxAttempts} attempts. PlayerData.Spawned() will handle it from memory.");
+    }
+    
+    /// <summary>
+    /// 기존 PlayerData에 닉네임을 설정합니다.
+    /// </summary>
+    private void SetNicknameToPlayerData(NetworkRunner runner, PlayerRef player, string nickname)
+    {
+        PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
+        if (playerData != null && playerData.Object != null && playerData.Object.IsValid)
+        {
+            if (playerData.Object.HasInputAuthority && playerData.Object.InputAuthority == player)
+            {
+                playerData.SetNickname(nickname);
+            }
+            else if (runner.LocalPlayer == player)
+            {
+                playerData.SetNickname(nickname);
+            }
+        }
+    }
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"Player {player} has left!");
-
-        // 이벤트만 발생시키고, MainGameManager는 이벤트를 구독해서 처리하도록 변경
         OnPlayerLeftEvent?.Invoke(player, runner);
     }
 
     public void OnPlayerChangeCharacter(NetworkRunner runner, PlayerRef player, int characterIndex)
     {
-        Debug.Log($"Player {player} changed character to {characterIndex}!");
         OnPlayerChangeCharacterEvent?.Invoke(player, runner, characterIndex);
     }
 
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
-        Debug.Log("Network session has been shut down!");
         OnShutdownEvent?.Invoke(runner);
     }
 
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
     {
-        Debug.Log("Disconnected from server!");
         OnDisconnectedEvent?.Invoke(runner);
     }
 
@@ -123,6 +228,7 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
     {
         // 모든 연결 요청을 승인
+        // ConnectionToken은 OnPlayerJoined에서 runner.GetPlayerConnectionToken(player)로 읽을 수 있습니다.
         request.Accept();
     }
 
@@ -145,7 +251,10 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
         currentInput.MousePosition = Input.mousePosition;
         currentInput.MouseScroll = Input.mouseScrollDelta.y;
 
-        // 테스트 모드 슬롯 설정 (MainGameManager의 IsTestMode 사용)
+        // [테스트 모드 전용] ControlledSlot 설정
+        // 주의: 일반적으로 Input은 순수한 입력(키 누름, 마우스 움직임)만 포함해야 하며,
+        // 어떤 슬롯을 제어할지는 PlayerRef와 Game State에 의해 결정되어야 합니다.
+        // 하지만 테스트 모드에서 여러 캐릭터를 제어하기 위한 임시 방편으로 유지합니다.
         if (MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode)
         {
             currentInput.ControlledSlot = MainGameManager.SelectedSlot;
@@ -172,16 +281,10 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
     public void OnSceneLoadDone(NetworkRunner runner) 
     {
-        Debug.Log($"[FusionManager] Scene load done! Current scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
-        
-        // 로딩 화면 종료는 MainGameManager에서 플레이어 스폰 완료 후 처리
-        
         OnSceneLoadDoneEvent?.Invoke(runner);
     }
     public void OnSceneLoadStart(NetworkRunner runner) 
     {
-        Debug.Log($"[FusionManager] Scene load start!");
-        
         LoadingPanel.Show();
     }
 }

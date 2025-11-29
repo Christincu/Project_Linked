@@ -23,6 +23,9 @@ public class EnemySpawner : MonoBehaviour
     private NetworkRunner _runner;
     private bool _isInitialized = false;
 
+    // 이 스포너가 생성한 적 NetworkObject들을 추적합니다.
+    private readonly List<NetworkObject> _spawnedEnemies = new List<NetworkObject>();
+
     void Start()
     {
         // NetworkRunner 찾기 (초기화만, 자동 스폰은 하지 않음)
@@ -155,6 +158,11 @@ public class EnemySpawner : MonoBehaviour
                 }
             }
         );
+
+        if (enemyObject != null)
+        {
+            _spawnedEnemies.Add(enemyObject);
+        }
     }
 
     /// <summary>
@@ -186,6 +194,25 @@ public class EnemySpawner : MonoBehaviour
         // 랜덤 선택
         int randomIndex = Random.Range(0, validTransforms.Count);
         return validTransforms[randomIndex].position;
+    }
+
+    /// <summary>
+    /// 이 스포너가 생성한 모든 적을 제거합니다. (서버에서만 동작)
+    /// </summary>
+    public void KillAllEnemies()
+    {
+        if (_runner == null || !_runner.IsServer) return;
+
+        for (int i = 0; i < _spawnedEnemies.Count; i++)
+        {
+            var enemyObj = _spawnedEnemies[i];
+            if (enemyObj != null && enemyObj.IsValid)
+            {
+                _runner.Despawn(enemyObj);
+            }
+        }
+
+        _spawnedEnemies.Clear();
     }
 
     /// <summary>
