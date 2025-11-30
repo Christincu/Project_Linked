@@ -12,11 +12,15 @@ public partial class DashMagicObject
     /// <summary>
     /// [핵심 개선] FixedUpdateNetwork 내에서 물리 충돌을 직접 감지합니다.
     /// 롤백 상황에서도 안전하며, 정확한 타이밍에 충돌을 처리합니다.
+    /// State Authority에서만 실행됩니다.
     /// </summary>
     private void DetectCollisions()
     {
+        // [중요] 충돌 처리는 State Authority에서만 실행
+        if (_owner == null || !_owner.Object.HasStateAuthority) return;
+        
         if (!_attackCollider.enabled) return;
-        if (_owner == null || Runner == null) return;
+        if (Runner == null) return;
         if (!_owner.DashIsMoving) return; // 정지 상태에서는 충돌 처리 안 함
         
         // 공격 범위 내의 모든 콜라이더 감지

@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 using Fusion;
 using System.Threading.Tasks;
 
-public class TitleGameManager : MonoBehaviour
+public class TitleGameManager : MonoBehaviour, ISceneManager
 {
     private TitleCanvas _titleCanvas;
     private string _playerNickname = "Player";
@@ -17,10 +17,11 @@ public class TitleGameManager : MonoBehaviour
         RemoveNetworkEvents();
     }
 
-    public void Initialize(TitleCanvas titleCanvas)
+    /// <summary>
+    /// ISceneManager 인터페이스 구현: GameManager에서 호출되는 초기화 메서드
+    /// </summary>
+    public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
-        _titleCanvas = titleCanvas;
-
         // 상태 초기화 (씬 재진입 시 대비)
         _isConnecting = false;
 
@@ -32,6 +33,53 @@ public class TitleGameManager : MonoBehaviour
         {
             _playerNickname = "Player";
         }
+        
+        // TitleCanvas 찾기 및 초기화 (씬 매니저가 직접 초기화)
+        InitializeTitleCanvas(gameManager, gameDataManager);
+    }
+    
+    /// <summary>
+    /// TitleCanvas를 찾아서 초기화합니다.
+    /// </summary>
+    private void InitializeTitleCanvas(GameManager gameManager, GameDataManager gameDataManager)
+    {
+        if (_titleCanvas == null)
+        {
+            // FindObjectOfType 사용 (GameObject.Find보다 효율적)
+            _titleCanvas = FindObjectOfType<TitleCanvas>();
+        }
+        
+        if (_titleCanvas != null)
+        {
+            // TitleGameManager 참조를 직접 설정 (Find 제거)
+            _titleCanvas.SetTitleGameManager(this);
+            
+            // ICanvas 인터페이스를 통해 초기화
+            ICanvas canvas = _titleCanvas as ICanvas;
+            if (canvas != null)
+            {
+                canvas.Initialize(gameManager, gameDataManager);
+                // TitleCanvas.Initialize() 내부에서 OnInitialize(this)가 호출됨
+            }
+            else
+            {
+                Debug.LogError("[TitleGameManager] TitleCanvas does not implement ICanvas!");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[TitleGameManager] TitleCanvas not found. Some features may not work.");
+        }
+    }
+    
+    /// <summary>
+    /// TitleCanvas로부터 호출되는 초기화 메서드
+    /// 주의: 실제 초기화는 Initialize()에서 수행되므로, 여기서는 참조만 설정합니다.
+    /// </summary>
+    public void OnInitialize(TitleCanvas titleCanvas)
+    {
+        _titleCanvas = titleCanvas;
+        // Initialize()에서 이미 상태 초기화 및 이벤트 설정이 완료되었으므로 중복 호출하지 않음
     }
 
     // ========== Network Events ==========

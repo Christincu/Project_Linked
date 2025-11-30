@@ -37,10 +37,18 @@ public class TitleCanvas : MonoBehaviour, ICanvas
 
     [SerializeField] private TitleGameManager _titleGameManager;
 
+    /// <summary>
+    /// TitleGameManager 참조를 설정합니다. (씬 매니저가 초기화 시 호출)
+    /// </summary>
+    public void SetTitleGameManager(TitleGameManager titleGameManager)
+    {
+        _titleGameManager = titleGameManager;
+    }
+
     public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
         ShowTitlePanel();
-        _titleGameManager?.Initialize(this);
+        _titleGameManager?.OnInitialize(this);
         SetupButtonEvents();
         InitializeChapterButtons();
 

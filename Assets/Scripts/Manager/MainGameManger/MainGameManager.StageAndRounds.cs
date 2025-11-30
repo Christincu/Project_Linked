@@ -108,8 +108,6 @@ public partial class MainGameManager
     /// </summary>
     private void CloseMapDoor()
     {
-        _isMapDoorClosed = true;
-
         if (_currentRoundDoorObjects == null || _currentRoundDoorObjects.Count == 0) return;
 
         // 서버 권한이 있을 때만 상태 변경
@@ -133,8 +131,6 @@ public partial class MainGameManager
     /// </summary>
     private void OpenMapDoor()
     {
-        _isMapDoorClosed = false;
-
         if (_currentRoundDoorObjects == null || _currentRoundDoorObjects.Count == 0) return;
 
         if (_runner != null && _runner.IsServer)
@@ -248,11 +244,19 @@ public partial class MainGameManager
     {
         if (_activeWaves == null) return;
 
-        foreach (var kvp in _activeWaves)
+        // [수정] Collection was modified 에러 방지: Dictionary 복사본을 사용하여 순회
+        // 여러 적이 동시에 죽을 때 _activeWaves가 수정되는 것을 방지
+        var wavesCopy = new List<KeyValuePair<int, WaveProgress>>(_activeWaves);
+        
+        foreach (var kvp in wavesCopy)
         {
-            if (!kvp.Value.isCompleted && kvp.Value.waveData.waveGoalType == WaveGoalTypeEnum.Kill)
+            // 복사본을 순회하지만, 실제 Dictionary에서 해당 항목이 여전히 존재하는지 확인
+            if (!_activeWaves.ContainsKey(kvp.Key)) continue;
+            
+            var progress = _activeWaves[kvp.Key];
+            if (!progress.isCompleted && progress.waveData.waveGoalType == WaveGoalTypeEnum.Kill)
             {
-                AddWaveGoalProgress(kvp.Value.waveData, 1);
+                AddWaveGoalProgress(progress.waveData, 1);
             }
         }
     }

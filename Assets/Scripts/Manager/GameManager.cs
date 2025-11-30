@@ -21,6 +21,7 @@ public class GameManager : MonoBehaviour
     // 현재 게임 상태 (GameState enum이 별도로 정의되어 있다고 가정)
     public GameStateType State { get; private set; } = GameStateType.Lobby;
     public ICanvas Canvas { get; private set; }
+    public ISceneManager CurrentSceneManager { get; private set; }
 
     [Header("Manager & UI Prefabs")]
     [Tooltip("타이틀 씬이 아닌 경우 자동으로 생성할 MainGameManager 프리팹")]
@@ -61,7 +62,7 @@ public class GameManager : MonoBehaviour
         InitializeCoreManagers();
         
         SetupNetworkEvents();
-        SceneManager.sceneLoaded += OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
     }
     
     /// <summary>
@@ -205,6 +206,72 @@ public class GameManager : MonoBehaviour
     {
         CreateLoadingPanelIfNeeded();
         FindCanvas();
+        
+        // 핵심 매니저들 초기화 완료 후 씬 매니저 초기화
+        StartCoroutine(InitializeSceneManagerAfterCoreManagers());
+    }
+    
+    /// <summary>
+    /// 핵심 매니저들(GameDataManager, FusionManager) 초기화 완료 후 씬 매니저를 초기화합니다.
+    /// </summary>
+    private IEnumerator InitializeSceneManagerAfterCoreManagers()
+    {
+        // 즉시 확인 (이미 초기화되어 있을 수 있음)
+        bool allInitialized = CheckCoreManagersInitialized();
+        
+        if (!allInitialized)
+        {
+            // 핵심 매니저들이 초기화될 때까지 대기
+            float timeout = 5f;
+            float timer = 0f;
+            
+            while (timer < timeout)
+            {
+                allInitialized = CheckCoreManagersInitialized();
+                
+                if (allInitialized)
+                {
+                    break;
+                }
+                
+                yield return new WaitForSeconds(0.1f);
+                timer += 0.1f;
+            }
+        }
+        
+        // 초기화 완료 확인 및 에러 로깅
+        if (GameDataManager.Instance == null || !GameDataManager.Instance.IsInitialized)
+        {
+            Debug.LogError("[GameManager] GameDataManager initialization failed or timed out!");
+        }
+        
+        if (FusionManager.Instance == null || !FusionManager.Instance.IsInitialized)
+        {
+            Debug.LogError("[GameManager] FusionManager initialization failed or timed out!");
+        }
+        
+        // 핵심 매니저들 초기화 완료 후 씬 매니저 초기화
+        FindSceneManager();
+    }
+    
+    /// <summary>
+    /// 핵심 매니저들이 모두 초기화되었는지 확인합니다.
+    /// </summary>
+    private bool CheckCoreManagersInitialized()
+    {
+        // GameDataManager 초기화 확인
+        if (GameDataManager.Instance == null || !GameDataManager.Instance.IsInitialized)
+        {
+            return false;
+        }
+        
+        // FusionManager 초기화 확인
+        if (FusionManager.Instance == null || !FusionManager.Instance.IsInitialized)
+        {
+            return false;
+        }
+        
+        return true;
     }
     
     /// <summary>
@@ -222,7 +289,7 @@ public class GameManager : MonoBehaviour
     void OnDestroy()
     {
         RemoveNetworkEvents();
-        SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -233,6 +300,9 @@ public class GameManager : MonoBehaviour
         }
         
         FindCanvas();
+        
+        // 핵심 매니저들 초기화 완료 후 씬 매니저 초기화
+        StartCoroutine(InitializeSceneManagerAfterCoreManagers());
     }
     
     /// <summary>
@@ -289,22 +359,69 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// 현재 씬에서 ICanvas 인터페이스를 구현한 캔버스 오브젝트를 안전하게 찾습니다.
     /// (ICanvas가 MonoBehaviour를 상속한 컴포넌트에 구현되어야 합니다.)
+    /// 주의: Canvas 초기화는 씬 매니저(TitleGameManager, MainGameManager)가 담당합니다.
+    /// 이 메서드는 참조만 설정하며, 실제 초기화는 씬 매니저가 수행합니다.
     /// </summary>
     private void FindCanvas()
     {
-        ICanvas foundCanvas = GameObject.Find("Canvas").GetComponent<ICanvas>();
+        // TitleCanvas 또는 MainCanvas를 직접 찾기 (FindObjectOfType 사용)
+        ICanvas foundCanvas = null;
+        
+        TitleCanvas titleCanvas = FindObjectOfType<TitleCanvas>();
+        if (titleCanvas != null)
+        {
+            foundCanvas = titleCanvas as ICanvas;
+        }
+        
+        if (foundCanvas == null)
+        {
+            MainCanvas mainCanvas = FindObjectOfType<MainCanvas>();
+            if (mainCanvas != null)
+            {
+                foundCanvas = mainCanvas as ICanvas;
+            }
+        }
 
         if (foundCanvas == null)
         {
-            Debug.LogError("GameManager: The found Canvas object does not implement ICanvas.");
+            Debug.LogWarning("[GameManager] Canvas with ICanvas interface not found. Scene manager will initialize it when ready.");
             Canvas = null;
             return;
         }
 
+        // Canvas 참조만 설정 (초기화는 씬 매니저가 담당)
         Canvas = foundCanvas;
+    }
+    
+    /// <summary>
+    /// 현재 씬에서 ISceneManager 인터페이스를 구현한 씬 매니저 오브젝트를 안전하게 찾습니다.
+    /// (ISceneManager가 MonoBehaviour를 상속한 컴포넌트에 구현되어야 합니다.)
+    /// </summary>
+    private void FindSceneManager()
+    {
+        GameObject sceneManagerObj = GameObject.Find("SceneManager");
         
-        // 3. 초기화
-        Canvas.Initialize(this, GameDataManager.Instance);
+        if (sceneManagerObj == null)
+        {
+            // SceneManager가 없을 수도 있으므로 경고만 출력
+            Debug.LogWarning("[GameManager] SceneManager GameObject not found in scene.");
+            CurrentSceneManager = null;
+            return;
+        }
+        
+        ISceneManager foundSceneManager = sceneManagerObj.GetComponent<ISceneManager>();
+        
+        if (foundSceneManager == null)
+        {
+            Debug.LogError("[GameManager] The found SceneManager object does not implement ISceneManager.");
+            CurrentSceneManager = null;
+            return;
+        }
+
+        CurrentSceneManager = foundSceneManager;
+        
+        // 초기화
+        CurrentSceneManager.Initialize(this, GameDataManager.Instance);
     }
 
     // ========== Network Event Setup (이하 동일) ==========
@@ -449,7 +566,7 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator LoadSceneAsync(string sceneName)
     {
-        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
+        AsyncOperation asyncLoad = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
         asyncLoad.allowSceneActivation = false;
 
         while (!asyncLoad.isDone)

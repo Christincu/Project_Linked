@@ -144,6 +144,7 @@ public class PlayerMagicController : MonoBehaviour
             _prevButtons = inputData.MouseButtons;
             SyncHandlerChoice();
             _currentHandler?.Update();
+            Debug.Log($"[PlayerMagicController] Update: {_currentHandler?.MagicCode}");
             return;
         }
 

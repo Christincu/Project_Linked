@@ -273,7 +273,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: _isTestMode
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1180641214388961560, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: _roundTriggers.Array.data[0]
@@ -281,7 +281,7 @@ PrefabInstance:
       objectReference: {fileID: 324234268}
     - target: {fileID: 1935061100617456413, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: m_Name
-      value: MainGameManager
+      value: SceneManager
       objectReference: {fileID: 0}
     - target: {fileID: 8716870012835804170, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: SortKey

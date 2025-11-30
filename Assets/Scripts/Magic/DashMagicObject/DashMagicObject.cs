@@ -84,6 +84,9 @@ public partial class DashMagicObject : NetworkBehaviour
     {
         base.Spawned();
 
+        // [수정] 클라이언트에서도 초기화 수행 (서버는 Initialize에서 이미 했지만, 클라이언트는 여기서 해야 함)
+        InitializeClientComponents();
+        
         // 이미 서버에서 Initialize로 _owner를 설정했을 수 있으므로,
         // _owner가 비어 있고 OwnerPlayer가 유효할 때만 복원 시도
         if (_owner == null && Runner != null && OwnerPlayer != PlayerRef.None)
@@ -94,6 +97,18 @@ public partial class DashMagicObject : NetworkBehaviour
                 _owner = MainGameManager.Instance.GetPlayer(OwnerPlayer);
             }
         }
+        
+        // [추가] OwnerPlayer가 아직 설정되지 않았을 수 있으므로, 
+        // 스폰된 오브젝트의 InputAuthority를 통해 찾기 시도
+        if (_owner == null && Runner != null)
+        {
+            // 스폰된 오브젝트의 InputAuthority를 통해 플레이어 찾기
+            PlayerRef inputAuth = Object.InputAuthority;
+            if (inputAuth != PlayerRef.None && MainGameManager.Instance != null)
+            {
+                _owner = MainGameManager.Instance.GetPlayer(inputAuth);
+            }
+        }
     }
     
     /// <summary>
@@ -102,20 +117,76 @@ public partial class DashMagicObject : NetworkBehaviour
     /// </summary>
     public override void Render()
     {
-        // 클라이언트에서 _owner가 아직 설정되지 않았다면 OwnerPlayer를 통해 복원 시도
-        if (_owner == null && Runner != null && OwnerPlayer != PlayerRef.None)
+        // [수정] 클라이언트 컴포넌트 초기화 확인
+        if (_barrierSpriteRenderer == null)
         {
-            if (MainGameManager.Instance != null)
+            InitializeClientComponents();
+        }
+        
+        // [수정] OwnerPlayer가 설정될 때까지 대기하거나, InputAuthority로 찾기
+        if (_owner == null)
+        {
+            // 1. OwnerPlayer를 통해 찾기
+            if (Runner != null && OwnerPlayer != PlayerRef.None)
             {
-                _owner = MainGameManager.Instance.GetPlayer(OwnerPlayer);
+                if (MainGameManager.Instance != null)
+                {
+                    _owner = MainGameManager.Instance.GetPlayer(OwnerPlayer);
+                }
+            }
+            
+            // 2. OwnerPlayer가 아직 설정되지 않았으면 InputAuthority로 찾기
+            if (_owner == null && Runner != null)
+            {
+                PlayerRef inputAuth = Object.InputAuthority;
+                if (inputAuth != PlayerRef.None && MainGameManager.Instance != null)
+                {
+                    _owner = MainGameManager.Instance.GetPlayer(inputAuth);
+                }
+            }
+            
+            // 3. 여전히 못 찾았으면 씬에서 직접 찾기 (Fallback)
+            if (_owner == null && Runner != null)
+            {
+                PlayerRef inputAuth = Object.InputAuthority;
+                if (inputAuth != PlayerRef.None)
+                {
+                    var allPlayers = FindObjectsOfType<PlayerController>();
+                    foreach (var player in allPlayers)
+                    {
+                        if (player != null && player.Object != null && 
+                            player.Object.IsValid && player.Object.InputAuthority == inputAuth)
+                        {
+                            _owner = player;
+                            break;
+                        }
+                    }
+                }
             }
         }
 
-        if (_owner == null) return;
+        if (_owner == null) 
+        {
+            // [디버그] _owner를 찾지 못한 경우 로그 출력 (너무 자주 출력되지 않도록)
+            if (Time.frameCount % 60 == 0) // 1초마다 한 번만 로그
+            {
+                Debug.LogWarning($"[DashMagicObject] Cannot find owner. OwnerPlayer: {OwnerPlayer}, InputAuthority: {Object.InputAuthority}");
+            }
+            return;
+        }
 
-        // 모든 클라이언트에서 소유 플레이어를 따라다니도록 위치 동기화
-        // (계층 구조 Parent는 서버에서만 설정되므로, 위치는 직접 맞춰준다)
-        transform.position = _owner.transform.position;
+        // [수정] 위치 동기화 방식 변경: 부모-자식 관계 활용
+        // 매 프레임 owner의 위치로 강제 이동시키는 대신,
+        // 부모-자식 관계(SetParent)를 믿고 로컬 좌표를 0으로 유지합니다.
+        // 부모(Player)는 이미 NetworkRigidbody2D가 보간(Interpolation)을 해주고 있습니다.
+        if (transform.parent != _owner.transform)
+        {
+            transform.SetParent(_owner.transform);
+        }
+        
+        // 로컬 위치를 0으로 고정 (부모 따라가기)
+        // 이렇게 하면 Player의 부드러운 이동을 그대로 따라갑니다.
+        transform.localPosition = Vector3.zero;
 
         // 1. 데이터 로드 안전장치 (클라이언트 늦은 로드 대응)
         if (_dashData == null) LoadDashData();
@@ -150,12 +221,16 @@ public partial class DashMagicObject : NetworkBehaviour
     
     /// <summary>
     /// 네트워크 틱과 동기화되어 실행되는 업데이트 메서드
-    /// State Authority에서만 실행됩니다.
+    /// [클라이언트 예측] State Authority(서버) OR Input Authority(조종하는 클라이언트)에서 실행됩니다.
+    /// 프록시(다른 플레이어 화면)는 실행하지 않습니다.
     /// </summary>
     public override void FixedUpdateNetwork()
     {
         if (_owner == null || Runner == null) return;
-        if (!_owner.Object.HasStateAuthority) return;
+        
+        // [수정] 클라이언트 예측: 서버(StateAuth) OR 조종하는 클라이언트(InputAuth) 둘 다 실행
+        // 프록시(다른 플레이어 화면)는 실행하지 않음 -> 서버 데이터만 받아옴
+        if (!_owner.Object.HasStateAuthority && !_owner.Object.HasInputAuthority) return;
         
         // [수정] 데이터가 없으면 로드 시도하고, 그래도 없으면 이번 프레임만 스킵
         if (_dashData == null)
@@ -165,9 +240,13 @@ public partial class DashMagicObject : NetworkBehaviour
         }
         
         // 스킬 상태 확인
+        // 주의: 클라이언트는 아직 서버의 HasDashSkill=true를 못 받았을 수 있음.
+        // 하지만 ActivateDashSkill을 로컬에서 예측 실행했다면 HasDashSkill이 true일 것임.
         if (!_owner.HasDashSkill)
         {
-            EndDashSkill();
+            // 클라이언트 예측 중에는 종료 조건을 좀 더 유연하게 처리하거나,
+            // 서버 데이터가 왔을 때 보정되도록 둡니다.
+            if (_owner.Object.HasStateAuthority) EndDashSkill();
             return;
         }
 
@@ -224,8 +303,12 @@ public partial class DashMagicObject : NetworkBehaviour
             ProcessDashMovement();
         }
         
-        // [핵심 개선] 물리 충돌 감지 (FixedUpdateNetwork 내에서 처리하여 롤백 안전)
-        DetectCollisions();
+        // [핵심 개선] 물리 충돌 감지 (State Authority에서만 실행)
+        // 클라이언트 예측에서는 이동만 하고, 충돌은 서버에서만 처리
+        if (_owner.Object.HasStateAuthority)
+        {
+            DetectCollisions();
+        }
         
         // 스킬 종료 조건 확인
         CheckEndConditions();
@@ -343,6 +426,39 @@ public partial class DashMagicObject : NetworkBehaviour
     #endregion
     
     #region Helper Methods
+    /// <summary>
+    /// 클라이언트에서 필요한 컴포넌트들을 초기화합니다.
+    /// 서버는 Initialize에서 이미 초기화하지만, 클라이언트는 Spawned/Render에서 호출됩니다.
+    /// </summary>
+    private void InitializeClientComponents()
+    {
+        // 베리어 스프라이트 렌더러 초기화 (모든 클라이언트에서)
+        if (_barrierSpriteRenderer == null)
+        {
+            _barrierSpriteRenderer = GetComponent<SpriteRenderer>();
+            if (_barrierSpriteRenderer == null)
+            {
+                _barrierSpriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+            }
+        }
+        
+        if (_barrierSpriteRenderer != null)
+        {
+            _barrierSpriteRenderer.sortingOrder = 10;
+            _barrierSpriteRenderer.sortingLayerName = "Default";
+        }
+        
+        // 데이터 로드 시도
+        if (_dashData == null)
+        {
+            LoadDashData();
+        }
+        
+        // 초기 강화 상태 추적 초기화
+        _lastEnhancementCount = -999;
+        _lastIsFinalEnhancement = false;
+    }
+    
     /// <summary>
     /// DashMagicCombinationData를 로드합니다.
     /// 클라이언트에서 초기화 지연 시 대응하기 위한 메서드
@@ -508,5 +624,3 @@ public partial class DashMagicObject : NetworkBehaviour
     }
     #endregion
 }
-
-

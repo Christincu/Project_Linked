@@ -10,7 +10,7 @@ using WaveGoalTypeEnum = WaveGoalType;
 /// 게임의 전반적인 상태(스테이지, 웨이브, 플레이어 관리)를 총괄하는 매니저입니다.
 /// (Core 로직: 상태 변수, 생명주기, 변경 감지)
 /// </summary>
-public partial class MainGameManager : NetworkBehaviour
+public partial class MainGameManager : NetworkBehaviour, ISceneManager
 {
     public static MainGameManager Instance { get; private set; }
 
@@ -54,7 +54,6 @@ public partial class MainGameManager : NetworkBehaviour
     // Local Logic State
     // ========================================================================
     private Dictionary<int, WaveProgress> _activeWaves = new Dictionary<int, WaveProgress>();
-    private bool _isMapDoorClosed = false;
     
     private int _currentRoundIndex = -1;
     private int _currentWaveIndex = -1;
@@ -112,6 +111,51 @@ public partial class MainGameManager : NetworkBehaviour
         // 일반 모드는 Spawned()에서 Co_InitializeGameSession_Direct()를 호출합니다.
     }
 
+    #endregion
+    
+    #region ISceneManager Implementation
+    
+    /// <summary>
+    /// ISceneManager 인터페이스 구현: GameManager에서 호출되는 초기화 메서드
+    /// MainGameManager는 NetworkBehaviour이므로 실제 초기화는 Spawned()에서 진행됩니다.
+    /// 하지만 Canvas는 네트워크와 무관하므로 여기서 초기화합니다.
+    /// </summary>
+    public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
+    {
+        // MainCanvas 찾기 및 초기화 (씬 매니저가 직접 초기화)
+        InitializeMainCanvas(gameManager, gameDataManager);
+        
+        Debug.Log("[MainGameManager] ISceneManager.Initialize called. Canvas initialized. Full game initialization will happen in Spawned().");
+    }
+    
+    /// <summary>
+    /// MainCanvas를 찾아서 초기화합니다.
+    /// </summary>
+    private void InitializeMainCanvas(GameManager gameManager, GameDataManager gameDataManager)
+    {
+        // FindObjectOfType 사용 (GameObject.Find보다 효율적)
+        MainCanvas mainCanvas = FindObjectOfType<MainCanvas>();
+        
+        if (mainCanvas != null)
+        {
+            // ICanvas 인터페이스를 통해 초기화
+            ICanvas canvas = mainCanvas as ICanvas;
+            if (canvas != null)
+            {
+                canvas.Initialize(gameManager, gameDataManager);
+                Debug.Log("[MainGameManager] MainCanvas initialized successfully.");
+            }
+            else
+            {
+                Debug.LogError("[MainGameManager] MainCanvas does not implement ICanvas!");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[MainGameManager] MainCanvas not found. Some UI features may not work.");
+        }
+    }
+    
     #endregion
 
     #region Unity Update

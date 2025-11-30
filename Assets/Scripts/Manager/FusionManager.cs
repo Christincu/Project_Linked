@@ -103,21 +103,45 @@ public class FusionManager : MonoBehaviour, INetworkRunnerCallbacks
         
         if (runner.IsServer && !isTestMode)
         {
-            if (runner.GetPlayerObject(player) != null)
+            // [수정] 1. Runner에서 PlayerObject 확인 (씬 전환 후에도 유지되는 PlayerData)
+            NetworkObject existingPlayerObject = runner.GetPlayerObject(player);
+            if (existingPlayerObject != null && existingPlayerObject.IsValid)
             {
-                SetNicknameToPlayerData(runner, player, playerNickname);
-                OnPlayerJoinedEvent?.Invoke(player, runner);
-                return;
+                // PlayerData 컴포넌트 확인
+                if (existingPlayerObject.TryGetComponent(out PlayerData existingPlayerData))
+                {
+                    // 이미 존재하는 PlayerData 사용 (중복 생성 방지)
+                    SetNicknameToPlayerData(runner, player, playerNickname);
+                    OnPlayerJoinedEvent?.Invoke(player, runner);
+                    return;
+                }
             }
 
+            // [수정] 2. GameManager에서 PlayerData 확인 (씬 전환 후에도 유지)
             PlayerData existingData = GameManager.Instance?.GetPlayerData(player, runner);
             if (existingData != null && existingData.Object != null && existingData.Object.IsValid)
             {
+                // 이미 존재하는 PlayerData 사용 (중복 생성 방지)
                 SetNicknameToPlayerData(runner, player, playerNickname);
                 OnPlayerJoinedEvent?.Invoke(player, runner);
                 return;
             }
 
+            // [수정] 3. 씬에서 DontDestroyOnLoad로 유지된 PlayerData 찾기
+            PlayerData[] allPlayerData = FindObjectsOfType<PlayerData>();
+            foreach (var pd in allPlayerData)
+            {
+                if (pd != null && pd.Object != null && pd.Object.IsValid && 
+                    pd.Object.InputAuthority == player)
+                {
+                    // 이미 존재하는 PlayerData 사용 (중복 생성 방지)
+                    SetNicknameToPlayerData(runner, player, playerNickname);
+                    OnPlayerJoinedEvent?.Invoke(player, runner);
+                    return;
+                }
+            }
+
+            // [수정] 4. 위에서 찾지 못한 경우에만 새로 생성
             if (PlayerDataPrefab != null)
             {
                 NetworkObject playerDataObj = runner.Spawn(PlayerDataPrefab, inputAuthority: player);

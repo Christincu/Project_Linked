@@ -9,9 +9,16 @@ public class PlayerData : NetworkBehaviour
     [Networked]
     public NetworkString<_16> Nick { get; set; }
     
-    // Player's actual game object reference
+    // Player's actual game object reference (씬 전환 후에도 유지)
     [Networked]
-    public NetworkObject PlayerInstance { get; set; }
+    public NetworkObject Instance { get; set; }
+    
+    // [호환성] PlayerInstance는 Instance의 별칭 (기존 코드 호환성)
+    public NetworkObject PlayerInstance 
+    { 
+        get => Instance; 
+        set => Instance = value; 
+    }
     
     // Player ready state
     [Networked]
@@ -70,18 +77,32 @@ public class PlayerData : NetworkBehaviour
         // Initialize change detector
         _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState, false);
         
+        // [수정] DontDestroyOnLoad로 설정하여 씬 전환 시에도 유지
+        DontDestroyOnLoad(gameObject);
+        
+        // [수정] Runner에 PlayerObject로 등록 (씬 전환 후에도 찾을 수 있도록)
+        if (Runner != null)
+        {
+            Runner.SetPlayerObject(Object.InputAuthority, Object);
+        }
+        
         // ===============================================================
         // [핵심 수정] InputAuthority(이 캐릭터의 주인)만 실행하는 로직
         // ===============================================================
         if (Object.HasInputAuthority)
         {
-            string savedNick = GameManager.MyLocalNickname;
-            int savedCharIndex = GameManager.MyLocalCharacterIndex;
-
+            // PlayerPrefs에서 닉네임 가져오기 (씬 전환 후에도 유지)
+            string savedNick = PlayerPrefs.GetString("Nick", string.Empty);
+            if (string.IsNullOrEmpty(savedNick))
+            {
+                savedNick = GameManager.MyLocalNickname;
+            }
             if (string.IsNullOrEmpty(savedNick))
             {
                 savedNick = $"Player_{Object.InputAuthority.AsIndex}";
             }
+            
+            int savedCharIndex = GameManager.MyLocalCharacterIndex;
             
             RPC_SetInitData(savedNick, savedCharIndex);
         }
@@ -95,9 +116,16 @@ public class PlayerData : NetworkBehaviour
             }
         }
         
-        if (GameManager.Instance != null)
+        // [수정] StateAuthority에서만 GameManager에 등록
+        if (Object.HasStateAuthority && GameManager.Instance != null)
         {
             GameManager.Instance.SetPlayerData(Object.InputAuthority, this);
+        }
+        
+        // [수정] Instance가 null이면 자기 자신을 설정
+        if (Instance == null)
+        {
+            Instance = Object;
         }
         
         // Trigger event

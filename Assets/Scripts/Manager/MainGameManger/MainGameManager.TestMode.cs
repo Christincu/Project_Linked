@@ -107,29 +107,55 @@ public partial class MainGameManager
         Vector3 spawnPos0 = GetSceneSpawnPosition(0);
         Vector3 spawnPos1 = GetSceneSpawnPosition(1);
 
-        // PlayerData 먼저 생성
+        // PlayerData 먼저 생성 (이미 존재하는 경우 재사용)
         NetworkObject playerData1 = null;
         NetworkObject playerData2 = null;
 
+        // [수정] 기존 PlayerData 확인 (씬 전환 후에도 유지되는 경우)
+        PlayerData[] existingPlayerData = FindObjectsOfType<PlayerData>();
+        foreach (var pd in existingPlayerData)
+        {
+            if (pd != null && pd.Object != null && pd.Object.IsValid)
+            {
+                // 첫 번째 플레이어 데이터 확인
+                if (playerData1 == null && pd.CharacterIndex == _firstCharacterIndex)
+                {
+                    playerData1 = pd.Object;
+                }
+                // 두 번째 플레이어 데이터 확인
+                else if (playerData2 == null && pd.CharacterIndex == _secondCharacterIndex)
+                {
+                    playerData2 = pd.Object;
+                }
+            }
+        }
+
+        // [수정] 없을 때만 새로 생성
         if (FusionManager.Instance != null && FusionManager.Instance.PlayerDataPrefab != null)
         {
-            playerData1 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
+            if (playerData1 == null)
             {
-                if (obj.TryGetComponent(out PlayerData pd))
+                playerData1 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
                 {
-                    pd.CharacterIndex = _firstCharacterIndex;
-                    pd.Nick = "TestPlayer 1";
-                }
-            });
+                    if (obj.TryGetComponent(out PlayerData pd))
+                    {
+                        pd.CharacterIndex = _firstCharacterIndex;
+                        pd.Nick = "TestPlayer 1";
+                    }
+                });
+            }
 
-            playerData2 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
+            if (playerData2 == null)
             {
-                if (obj.TryGetComponent(out PlayerData pd))
+                playerData2 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
                 {
-                    pd.CharacterIndex = _secondCharacterIndex;
-                    pd.Nick = "TestPlayer 2";
-                }
-            });
+                    if (obj.TryGetComponent(out PlayerData pd))
+                    {
+                        pd.CharacterIndex = _secondCharacterIndex;
+                        pd.Nick = "TestPlayer 2";
+                    }
+                });
+            }
         }
 
         // Player 1 스폰 (InputAuthority는 localPlayer)
@@ -157,12 +183,22 @@ public partial class MainGameManager
         // PlayerData와 Player 연결
         if (playerData1 != null && playerData1.TryGetComponent(out PlayerData pd1))
         {
-            pd1.PlayerInstance = _playerObj1;
+            // [수정] Instance 필드에 직접 할당 (StateAuthority에서만 가능)
+            if (pd1.Object != null && pd1.Object.HasStateAuthority)
+            {
+                pd1.Instance = _playerObj1;
+                Debug.Log("[MainGameManager.TestMode] Assigned _playerObj1 to PlayerData.Instance");
+            }
         }
 
         if (playerData2 != null && playerData2.TryGetComponent(out PlayerData pd2))
         {
-            pd2.PlayerInstance = _playerObj2;
+            // [수정] Instance 필드에 직접 할당 (StateAuthority에서만 가능)
+            if (pd2.Object != null && pd2.Object.HasStateAuthority)
+            {
+                pd2.Instance = _playerObj2;
+                Debug.Log("[MainGameManager.TestMode] Assigned _playerObj2 to PlayerData.Instance");
+            }
         }
 
         // 첫 번째 플레이어를 딕셔너리에 추가 (기본값)

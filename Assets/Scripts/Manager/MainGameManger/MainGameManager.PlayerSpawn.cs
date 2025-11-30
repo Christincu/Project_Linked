@@ -89,7 +89,6 @@ public partial class MainGameManager
             timer += 0.1f;
         }
 
-        Debug.LogError($"[MainGameManager] 타임아웃! 내 캐릭터를 찾지 못했습니다.");
         GameManager.Instance?.ShowWarningPanel("캐릭터 생성 실패 (타임아웃)");
     }
 
@@ -228,7 +227,7 @@ public partial class MainGameManager
         var localPlayer = GetLocalPlayer();
         if (localPlayer == null)
         {
-            Debug.LogError("[MainGameManager] InitializeLocalPlayerComponents 실패: GetLocalPlayer()가 null을 반환했습니다!");
+            Debug.LogError("[MainGameManager] InitializeLocalPlayerComponents GetLocalPlayer() null");
             return;
         }
 
@@ -273,22 +272,26 @@ public partial class MainGameManager
 
         // 스폰 전 PlayerData 확인 대기
         PlayerData playerData = GameManager.Instance?.GetPlayerData(playerRef, _runner);
-        
-        // 데이터가 없으면 데이터 프리팹부터 스폰 (필요 시)
-        if (playerData == null && FusionManager.Instance?.PlayerDataPrefab != null)
+        if (playerData == null)
         {
-            _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, playerRef);
-            // 데이터 동기화 대기
-            float waitData = 0;
-            while((playerData = GameManager.Instance?.GetPlayerData(playerRef, _runner)) == null && waitData < 2f)
+            Debug.LogWarning($"[MainGameManager] PlayerData not found for player {playerRef}. Waiting...");
+            float waitTime = 0f;
+            while (playerData == null && waitTime < 5f)
             {
-                waitData += 0.1f;
                 yield return new WaitForSeconds(0.1f);
+                waitTime += 0.1f;
+                playerData = GameManager.Instance?.GetPlayerData(playerRef, _runner);
+            }
+            
+            if (playerData == null)
+            {
+                Debug.LogError($"[MainGameManager] PlayerData not found for player {playerRef} after waiting.");
+                yield break;
             }
         }
 
         // 실제 캐릭터 스폰
-        int charIndex = playerData != null ? playerData.CharacterIndex : 0;
+        int charIndex = playerData.CharacterIndex;
         Vector3 spawnPos = GetSceneSpawnPosition(playerRef.AsIndex);
         
         NetworkObject playerObj = _runner.Spawn(_playerPrefab, spawnPos, Quaternion.identity, playerRef);
@@ -296,6 +299,13 @@ public partial class MainGameManager
         // **중요**: Runner에 플레이어 객체 등록 (클라이언트가 GetPlayerObject로 찾을 수 있게 함)
         _runner.SetPlayerObject(playerRef, playerObj);
         _spawnedPlayers[playerRef] = playerObj;
+
+        // [수정] PlayerData.Instance에 플레이어 오브젝트 할당 (StateAuthority에서만 가능)
+        if (playerData != null && playerData.Object != null && playerData.Object.HasStateAuthority)
+        {
+            playerData.Instance = playerObj;
+            Debug.Log($"[MainGameManager] Assigned player object to PlayerData.Instance for player {playerRef}");
+        }
 
         // 초기화 설정
         var controller = playerObj.GetComponent<PlayerController>();
@@ -324,17 +334,69 @@ public partial class MainGameManager
         if (_isTestMode) return GetSelectedPlayer();
         if (_runner == null) return null;
 
-        // 캐시된 딕셔너리 우선 확인
-        if (_spawnedPlayers.TryGetValue(_runner.LocalPlayer, out var obj) && obj != null)
+        var localRef = _runner.LocalPlayer;
+
+        // 1. 캐시된 딕셔너리 우선 확인
+        if (_spawnedPlayers.TryGetValue(localRef, out var obj) && obj != null && obj.IsValid)
         {
-            return obj.GetComponent<PlayerController>();
+            var controller = obj.GetComponent<PlayerController>();
+            if (controller != null) return controller;
         }
 
-        // 없으면 Runner에서 직접 조회
-        var networkObj = _runner.GetPlayerObject(_runner.LocalPlayer);
+        // 2. Runner에서 직접 조회
+        var networkObj = _runner.GetPlayerObject(localRef);
         if (networkObj != null && networkObj.IsValid && networkObj.HasInputAuthority)
         {
-            return networkObj.GetComponent<PlayerController>();
+            var controller = networkObj.GetComponent<PlayerController>();
+            if (controller != null)
+            {
+                // 딕셔너리에 등록 (다음번엔 빠르게 찾을 수 있도록)
+                if (!_spawnedPlayers.ContainsKey(localRef))
+                {
+                    _spawnedPlayers[localRef] = networkObj;
+                }
+                return controller;
+            }
+        }
+
+        // 3. PlayerData.Instance를 통한 조회 (Fallback)
+        PlayerData playerData = GameManager.Instance?.GetPlayerData(localRef, _runner);
+        if (playerData != null && playerData.Instance != null && playerData.Instance.IsValid)
+        {
+            var controller = playerData.Instance.GetComponent<PlayerController>();
+            if (controller != null)
+            {
+                // 딕셔너리에 등록
+                if (!_spawnedPlayers.ContainsKey(localRef))
+                {
+                    _spawnedPlayers[localRef] = playerData.Instance;
+                }
+                // Runner에도 등록
+                if (_runner.GetPlayerObject(localRef) == null)
+                {
+                    _runner.SetPlayerObject(localRef, playerData.Instance);
+                }
+                return controller;
+            }
+        }
+
+        // 4. 씬에서 직접 찾기 (최후의 수단)
+        var controllers = FindObjectsOfType<PlayerController>();
+        foreach (var pc in controllers)
+        {
+            if (pc.Object != null && pc.Object.IsValid && pc.Object.HasInputAuthority)
+            {
+                // 딕셔너리와 Runner에 등록
+                if (!_spawnedPlayers.ContainsKey(localRef))
+                {
+                    _spawnedPlayers[localRef] = pc.Object;
+                }
+                if (_runner.GetPlayerObject(localRef) == null)
+                {
+                    _runner.SetPlayerObject(localRef, pc.Object);
+                }
+                return pc;
+            }
         }
 
         return null;
@@ -352,6 +414,33 @@ public partial class MainGameManager
 
     public List<PlayerController> GetAllPlayers()
     {
+        // [수정] 테스트 모드에서는 _playerObj1과 _playerObj2를 모두 반환
+        if (_isTestMode)
+        {
+            List<PlayerController> testPlayers = new List<PlayerController>();
+            
+            if (_playerObj1 != null && _playerObj1.IsValid)
+            {
+                var controller1 = _playerObj1.GetComponent<PlayerController>();
+                if (controller1 != null && !controller1.IsDead)
+                {
+                    testPlayers.Add(controller1);
+                }
+            }
+            
+            if (_playerObj2 != null && _playerObj2.IsValid)
+            {
+                var controller2 = _playerObj2.GetComponent<PlayerController>();
+                if (controller2 != null && !controller2.IsDead)
+                {
+                    testPlayers.Add(controller2);
+                }
+            }
+            
+            return testPlayers;
+        }
+        
+        // 일반 모드: 기존 로직 유지
         return _spawnedPlayers.Values
             .Where(obj => obj != null && obj.IsValid)
             .Select(obj => obj.GetComponent<PlayerController>())

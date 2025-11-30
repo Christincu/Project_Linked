@@ -309,6 +309,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_CastMagic(Vector3 targetPosition)
     {
+        Debug.Log($"[PlayerController] RPC_CastMagic: {targetPosition}");
         if (_magicController != null)
         {
             _magicController.CastMagic(targetPosition);
