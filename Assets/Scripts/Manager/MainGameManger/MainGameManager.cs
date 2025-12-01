@@ -10,7 +10,7 @@ using WaveGoalTypeEnum = WaveGoalType;
 /// 게임의 전반적인 상태(스테이지, 웨이브, 플레이어 관리)를 총괄하는 매니저입니다.
 /// (Core 로직: 상태 변수, 생명주기, 변경 감지)
 /// </summary>
-public partial class MainGameManager : NetworkBehaviour, ISceneManager
+public partial class MainGameManager : NetworkBehaviour, ISceneGameManager
 {
     public static MainGameManager Instance { get; private set; }
 
@@ -22,6 +22,12 @@ public partial class MainGameManager : NetworkBehaviour, ISceneManager
     [SerializeField] private NetworkPrefabRef _playerPrefab;
     [SerializeField] private StageData _currentStageData;
     [SerializeField] private List<RoundTrigger> _roundTriggers = new List<RoundTrigger>();
+    
+    [Header("Prefabs")]
+    [Tooltip("메인 카메라 프리팹 (MainCameraController 컴포넌트 포함, 없으면 자동 생성)")]
+    [SerializeField] private GameObject _mainCameraPrefab;
+    [Tooltip("Canvas 프리팹 (타이틀 씬이 아닐 때 자동 생성)")]
+    [SerializeField] private GameObject _canvasPrefab;
     
     // Spawn Positions
     [SerializeField] private Vector2[] _spawnPositions = new Vector2[]
@@ -61,6 +67,7 @@ public partial class MainGameManager : NetworkBehaviour, ISceneManager
     private List<EnemySpawner> _currentRoundEnemySpawners = new List<EnemySpawner>();
     private List<GoalSpawner> _currentRoundGoalSpawners = new List<GoalSpawner>();
     private List<RoundDoorNetworkController> _currentRoundDoorObjects = new List<RoundDoorNetworkController>();
+    private List<GameObject> _currentRoundEndActiveObject = new List<GameObject>();
     
     [SerializeField] private int _firstCharacterIndex = 0;
     [SerializeField] private int _secondCharacterIndex = 1;
@@ -122,10 +129,125 @@ public partial class MainGameManager : NetworkBehaviour, ISceneManager
     /// </summary>
     public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
+        // 필수 컴포넌트 자동 생성 (타이틀 씬 제외)
+        EnsureRequiredComponents();
+        
         // MainCanvas 찾기 및 초기화 (씬 매니저가 직접 초기화)
         InitializeMainCanvas(gameManager, gameDataManager);
         
         Debug.Log("[MainGameManager] ISceneManager.Initialize called. Canvas initialized. Full game initialization will happen in Spawned().");
+    }
+    
+    /// <summary>
+    /// 필수 컴포넌트(카메라, Canvas)가 없을 경우 자동 생성합니다.
+    /// </summary>
+    private void EnsureRequiredComponents()
+    {
+        // 타이틀 씬인지 확인
+        string currentSceneName = SceneManager.GetActiveScene().name;
+        bool isTitleScene = currentSceneName == "Title";
+        
+        // 1. 메인 카메라 확인 및 생성
+        EnsureMainCamera();
+        
+        // 2. Canvas 확인 및 생성 (타이틀 씬 제외)
+        if (!isTitleScene)
+        {
+            EnsureCanvas();
+        }
+    }
+    
+    /// <summary>
+    /// MainCameraController가 붙어있는 메인 카메라가 없을 경우 생성합니다.
+    /// </summary>
+    private void EnsureMainCamera()
+    {
+        // MainCameraController가 붙어있는 카메라 찾기
+        MainCameraController existingController = FindObjectOfType<MainCameraController>();
+        
+        if (existingController != null)
+        {
+            // 이미 존재하면 태그 확인 및 설정
+            Camera cam = existingController.GetComponent<Camera>();
+            if (cam != null && !cam.CompareTag("MainCamera"))
+            {
+                cam.tag = "MainCamera";
+            }
+            return;
+        }
+        
+        // 프리팹이 있으면 프리팹으로 생성
+        if (_mainCameraPrefab != null)
+        {
+            GameObject cameraObj = Instantiate(_mainCameraPrefab);
+            cameraObj.name = "Main Camera";
+            
+            // 태그 설정
+            cameraObj.tag = "MainCamera";
+            
+            // MainCameraController 확인 및 추가
+            if (!cameraObj.TryGetComponent(out MainCameraController _))
+            {
+                cameraObj.AddComponent<MainCameraController>();
+            }
+            
+            Debug.Log("[MainGameManager] Main Camera created from prefab.");
+            return;
+        }
+        
+        // 프리팹이 없으면 기본 카메라 생성
+        GameObject newCamera = new GameObject("Main Camera");
+        newCamera.tag = "MainCamera";
+        
+        Camera camera = newCamera.AddComponent<Camera>();
+        camera.orthographic = true;
+        camera.orthographicSize = 5f;
+        camera.clearFlags = CameraClearFlags.SolidColor;
+        camera.backgroundColor = Color.black;
+        
+        // MainCameraController 추가
+        newCamera.AddComponent<MainCameraController>();
+        
+        Debug.Log("[MainGameManager] Main Camera created (default settings).");
+    }
+    
+    /// <summary>
+    /// Canvas가 없을 경우 Canvas 프리팹을 생성합니다. (타이틀 씬 제외)
+    /// </summary>
+    private void EnsureCanvas()
+    {
+        // MainCanvas 찾기 (MainCanvas는 Canvas를 상속받거나 포함함)
+        MainCanvas existingCanvas = FindObjectOfType<MainCanvas>();
+        
+        if (existingCanvas != null)
+        {
+            return; // 이미 MainCanvas가 존재함
+        }
+        
+        // 일반 Canvas도 확인 (MainCanvas가 아닌 Canvas가 있을 수 있음)
+        Canvas generalCanvas = FindObjectOfType<Canvas>();
+        if (generalCanvas != null)
+        {
+            // MainCanvas 컴포넌트가 있는지 다시 확인
+            if (generalCanvas.GetComponent<MainCanvas>() == null)
+            {
+                Debug.LogWarning("[MainGameManager] Canvas found but it's not a MainCanvas. Consider using MainCanvas prefab.");
+            }
+            return; // Canvas가 이미 존재함
+        }
+        
+        // 프리팹이 없으면 경고 후 종료
+        if (_canvasPrefab == null)
+        {
+            Debug.LogWarning("[MainGameManager] Canvas prefab is not assigned! Please assign Canvas.prefab in inspector.");
+            return;
+        }
+        
+        // 프리팹으로 Canvas 생성
+        GameObject canvasObj = Instantiate(_canvasPrefab);
+        canvasObj.name = "Canvas";
+        
+        Debug.Log("[MainGameManager] Canvas created from prefab.");
     }
     
     /// <summary>

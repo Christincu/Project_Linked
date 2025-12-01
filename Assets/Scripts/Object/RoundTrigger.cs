@@ -8,23 +8,12 @@ using UnityEngine;
 public class RoundTrigger : MonoBehaviour
 {
     [Header("Round Settings")]
-    [Tooltip("이 트리거가 활성화할 라운드 인덱스 (StageData의 roundDataList 인덱스)")]
     [SerializeField] private int _roundIndex = 0;
-    
-    [Tooltip("한 번만 트리거되도록 할지 여부")]
     [SerializeField] private bool _triggerOnce = true;
-
-    [Header("Enemy Spawners")]
-    [Tooltip("이 라운드에서 사용할 EnemySpawner 리스트 (EnemySpawnData.spawnerIndex는 이 리스트의 인덱스를 참조)")]
     [SerializeField] private List<EnemySpawner> _enemySpawners = new List<EnemySpawner>();
-
-    [Header("Goal Spawners")]
-    [Tooltip("이 라운드에서 사용할 GoalSpawner 리스트 (WaveData.goalSpawnDataList의 GoalSpawnData.spawnerIndex는 이 리스트의 인덱스를 참조)")]
     [SerializeField] private List<GoalSpawner> _goalSpawners = new List<GoalSpawner>();
-
-    [Header("Doors")]
-    [Tooltip("이 라운드에서 제어할 문 컨트롤러들 (RoundDoorNetworkController)")]
     [SerializeField] private List<GameObject> _doorObjects = new List<GameObject>();
+    [SerializeField] private List<GameObject> _roundEndActiveObject = new List<GameObject>();
 
     private bool _hasTriggered = false;
     private readonly HashSet<PlayerController> _playersInside = new HashSet<PlayerController>();
@@ -48,6 +37,11 @@ public class RoundTrigger : MonoBehaviour
     /// 이 트리거가 제어하는 문 컨트롤러 리스트를 반환합니다.
     /// </summary>
     public List<GameObject> DoorObjects => _doorObjects;
+    
+    /// <summary>
+    /// 라운드 종료 시 활성화할 오브젝트 리스트를 반환합니다.
+    /// </summary>
+    public List<GameObject> RoundEndActiveObjects => _roundEndActiveObject;
     
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -79,10 +73,10 @@ public class RoundTrigger : MonoBehaviour
             {
                 if (MainGameManager.Instance != null)
                 {
-                    MainGameManager.Instance.StartRound(_roundIndex, _enemySpawners, _goalSpawners, _doorObjects);
+                    MainGameManager.Instance.StartRound(_roundIndex, _enemySpawners, _goalSpawners, _doorObjects, _roundEndActiveObject);
 
                     _hasTriggered = true;
-                    Debug.Log($"[RoundTrigger] Round {_roundIndex} started (EnemySpawners: {_enemySpawners.Count}, GoalSpawners: {_goalSpawners.Count}, Doors: {_doorObjects.Count})");
+                    Debug.Log($"[RoundTrigger] Round {_roundIndex} started (EnemySpawners: {_enemySpawners.Count}, GoalSpawners: {_goalSpawners.Count}, Doors: {_doorObjects.Count}, EndActiveObjects: {_roundEndActiveObject.Count})");
                 }
                 else
                 {

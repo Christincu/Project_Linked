@@ -5,11 +5,10 @@ using Fusion;
 
 /// <summary>
 /// 웨이브의 Collect 목표일 때, GoalSpawnData를 기반으로 목표 오브젝트를 스폰하는 스포너입니다.
-/// EnemySpawner와 비슷한 구조로 설계되며, 프리팹은 이 컴포넌트에서만 지정합니다.
 /// </summary>
 public class GoalSpawner : MonoBehaviour
 {
-    [Header("Spawner Settings")]
+    [Header("Identity")]
     [Tooltip("스포너 인덱스 (WaveData의 GoalSpawnData.spawnerIndex와 매칭)")]
     [SerializeField] private int _spawnerIndex = 0;
 
@@ -17,222 +16,321 @@ public class GoalSpawner : MonoBehaviour
     [Tooltip("스폰할 목표 오브젝트 프리팹 (Collect 목표에서 사용, NetworkObject 필수)")]
     [SerializeField] private GameObject _goalPrefab;
 
-    [Header("Spawn Points")]
+    [Header("Spawn Area")]
     [Tooltip("목표 오브젝트를 스폰할 위치들 (랜덤으로 선택됨)")]
     [SerializeField] private List<Transform> _spawnTransforms = new List<Transform>();
 
-    // 네트워크 러너 (EnemySpawner와 동일한 방식으로 사용)
+    [Header("Collision Prevention")]
+    [Tooltip("스폰 시 겹침을 방지할 레이어")]
+    [SerializeField] private LayerMask _collisionLayerMask;
+    [Tooltip("겹침 확인 반경")]
+    [SerializeField] private float _checkRadius = 0.5f;
+    [Tooltip("빈 공간 찾기 최대 시도 횟수")]
+    [SerializeField] private int _maxSpawnAttempts = 10;
+
+    // State
     private NetworkRunner _runner;
-    private bool _isInitialized = false;
-
-    // 이 스포너가 생성한 목표 오브젝트(NetworkObject)들을 추적합니다.
     private readonly List<NetworkObject> _spawnedGoals = new List<NetworkObject>();
+    private readonly List<Coroutine> _activeSpawnCoroutines = new List<Coroutine>();
+    private bool _isSpawningActive = true;
 
-    void Start()
+    // Public Property
+    public int SpawnerIndex => _spawnerIndex;
+
+    private void Start()
     {
-        // NetworkRunner 찾기 (초기화만, 자동 스폰은 하지 않음)
+        InitializeRunner();
+    }
+
+    /// <summary>
+    /// NetworkRunner 초기화 및 유효성 검사
+    /// </summary>
+    private bool InitializeRunner()
+    {
+        if (_runner != null && _runner.IsRunning) return true;
+
         _runner = FusionManager.LocalRunner;
-        
         if (_runner == null)
         {
             _runner = FindObjectOfType<NetworkRunner>();
         }
-        
-        _isInitialized = true;
+
+        return _runner != null && _runner.IsRunning;
     }
 
     /// <summary>
-    /// 이 GoalSpawner의 스포너 인덱스를 반환합니다.
+    /// 외부 호출용: 웨이브 데이터를 받아 목표물 스폰 시작
     /// </summary>
-    public int SpawnerIndex => _spawnerIndex;
-
-    /// <summary>
-    /// 주어진 웨이브 데이터에서 이 스포너에 해당하는 GoalSpawnData를 찾아 목표 오브젝트를 스폰합니다.
-    /// </summary>
-    /// <param name="waveData">Collect 목표를 가진 웨이브 데이터</param>
     public void SpawnGoals(WaveData waveData)
     {
-        if (waveData == null || waveData.goalSpawnDataList == null || waveData.goalSpawnDataList.Count == 0)
-        {
-            Debug.LogWarning($"[GoalSpawner] WaveData has no goalSpawnDataList for spawner {_spawnerIndex}");
-            return;
-        }
+        // 1. 기본 유효성 검사
+        if (!IsValidWaveData(waveData)) return;
 
+        // 2. 프리팹 검사
         if (_goalPrefab == null)
         {
-            Debug.LogError($"[GoalSpawner] Goal prefab is not assigned for spawner {_spawnerIndex}!");
+            Debug.LogError($"[GoalSpawner-{_spawnerIndex}] Goal prefab is not assigned!");
             return;
         }
 
-        if (!_isInitialized)
-        {
-            Debug.LogWarning($"[GoalSpawner] Spawner {_spawnerIndex} is not initialized yet!");
-            return;
-        }
+        // 3. 러너 상태 확인 (서버만 스폰 가능)
+        if (!InitializeRunner() || !_runner.IsServer) return;
 
-        // NetworkRunner 확인
-        if (_runner == null)
-        {
-            _runner = FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
-        }
-
-        if (_runner == null || !_runner.IsRunning)
-        {
-            Debug.LogWarning($"[GoalSpawner] NetworkRunner is not available for spawner {_spawnerIndex}");
-            return;
-        }
-
-        // 서버에서만 스폰
-        if (!_runner.IsServer)
-        {
-            return;
-        }
-
-        // 이 스포너에 해당하는 GoalSpawnData만 처리
+        // 4. 해당 스포너의 데이터만 필터링하여 스폰 진행
+        _isSpawningActive = true; // 스폰 활성화
         foreach (var goalData in waveData.goalSpawnDataList)
         {
-            if (goalData == null) continue;
-
             if (goalData.spawnerIndex == _spawnerIndex)
             {
-                StartCoroutine(SpawnGoalCoroutine(goalData, waveData));
+                Coroutine spawnCoroutine = StartCoroutine(SpawnRoutine(goalData, waveData));
+                _activeSpawnCoroutines.Add(spawnCoroutine);
             }
         }
     }
 
     /// <summary>
-    /// GoalSpawnData에 따라 목표 오브젝트를 스폰합니다.
-    /// waveGoalCount에 따라 여러 개를 스폰하며, spawnDelay/Interval을 사용합니다.
+    /// 실제 스폰을 수행하는 코루틴
     /// </summary>
-    private IEnumerator SpawnGoalCoroutine(GoalSpawnData goalData, WaveData waveData)
+    private IEnumerator SpawnRoutine(GoalSpawnData goalData, WaveData waveData)
     {
-        // 스폰 지연
-        if (goalData.spawnDelay > 0f)
+        try
         {
-            yield return new WaitForSeconds(goalData.spawnDelay);
-        }
-
-        // waveGoalCount에 따라 여러 개 스폰 (최소 1개)
-        int goalCount = Mathf.Max(1, waveData.waveGoalCount);
-
-        // GoalPrefab에서 NetworkObject 필수
-        NetworkObject goalPrefabNO = _goalPrefab.GetComponent<NetworkObject>();
-        if (goalPrefabNO == null)
-        {
-            Debug.LogError($"[GoalSpawner] Goal prefab '{_goalPrefab.name}' has no NetworkObject component! (Spawner: {_spawnerIndex})");
-            yield break;
-        }
-
-        for (int i = 0; i < goalCount; i++)
-        {
-            Vector3 spawnPosition = GetRandomSpawnPosition();
-
-            if (_runner == null || !_runner.IsServer)
+            // 초기 지연
+            if (goalData.spawnDelay > 0f)
             {
+                yield return new WaitForSeconds(goalData.spawnDelay);
+                
+                // 지연 후 스폰 활성 상태 확인
+                if (!_isSpawningActive) yield break;
+            }
+
+            // NetworkObject 컴포넌트 확인
+            NetworkObject goalPrefabNO = _goalPrefab.GetComponent<NetworkObject>();
+            if (goalPrefabNO == null)
+            {
+                Debug.LogError($"[GoalSpawner-{_spawnerIndex}] Prefab '{_goalPrefab.name}' missing NetworkObject!");
                 yield break;
             }
 
-            NetworkObject goalNO = _runner.Spawn(
-                goalPrefabNO,
-                spawnPosition,
-                Quaternion.identity,
-                null,
-                (runner, obj) =>
+            int goalCount = Mathf.Max(1, waveData.waveGoalCount);
+            
+            // ★ 핵심: 이번 웨이브 루프 동안 예약된 위치들을 기억함 (물리 업데이트 딜레이 해결)
+            List<Vector3> reservedPositions = new List<Vector3>();
+
+            for (int i = 0; i < goalCount; i++)
+            {
+                // 스폰이 중단되었는지 확인 (라운드 종료 체크)
+                if (!_isSpawningActive)
                 {
-                    if (obj.TryGetComponent(out GoalObject goalObject))
+                    yield break;
+                }
+
+                // Runner 체크
+                if (_runner == null || !_runner.IsRunning)
+                {
+                    _isSpawningActive = false;
+                    yield break;
+                }
+
+                // MainGameManager가 없거나 라운드가 종료되었는지 확인
+                if (MainGameManager.Instance != null)
+                {
+                    int currentRound = MainGameManager.Instance.GetCurrentRoundIndex();
+                    if (currentRound < 0) // 라운드가 종료되면 -1로 설정됨
                     {
-                        // 서버에서 WaveData를 설정 (Collect 목표 진행에 사용)
-                        goalObject.Initialize(waveData);
+                        _isSpawningActive = false;
+                        yield break;
                     }
-                });
+                }
 
-            if (goalNO != null)
-            {
-                _spawnedGoals.Add(goalNO);
-            }
+                // 1. 유효한 위치 찾기 (물리 충돌 + 예약된 위치 회피)
+                Vector3 spawnPos = GetValidSpawnPosition(reservedPositions);
 
-            // 다음 목표 오브젝트 스폰까지 대기 (마지막은 대기하지 않음)
-            if (i < goalCount - 1 && goalData.spawnInterval > 0f)
-            {
-                yield return new WaitForSeconds(goalData.spawnInterval);
+                // 2. 위치 예약
+                reservedPositions.Add(spawnPos);
+
+                // 3. 스폰 실행
+                SpawnSingleGoal(goalPrefabNO, spawnPos, waveData);
+
+                // 4. 간격 대기
+                if (i < goalCount - 1 && goalData.spawnInterval > 0f)
+                {
+                    yield return new WaitForSeconds(goalData.spawnInterval);
+                    
+                    // 대기 후에도 스폰 활성 상태 확인
+                    if (!_isSpawningActive) yield break;
+                }
             }
+        }
+        finally
+        {
+            // 코루틴이 종료되면 리스트에서 제거
+            _activeSpawnCoroutines.RemoveAll(c => c == null);
         }
     }
 
     /// <summary>
-    /// _spawnTransforms 중 랜덤 위치를 반환합니다.
+    /// 단일 목표 오브젝트 네트워크 스폰
     /// </summary>
-    private Vector3 GetRandomSpawnPosition()
+    private void SpawnSingleGoal(NetworkObject prefab, Vector3 position, WaveData waveData)
     {
-        if (_spawnTransforms == null || _spawnTransforms.Count == 0)
-        {
-            // 스폰 포인트가 없으면 자신의 위치 사용
-            return transform.position;
-        }
-
-        // 유효한 Transform만 필터링
-        List<Transform> validTransforms = new List<Transform>();
-        foreach (var t in _spawnTransforms)
-        {
-            if (t != null)
+        NetworkObject goalNO = _runner.Spawn(
+            prefab,
+            position,
+            Quaternion.identity,
+            null,
+            (runner, obj) =>
             {
-                validTransforms.Add(t);
-            }
-        }
+                if (obj.TryGetComponent(out GoalObject goalObject))
+                {
+                    goalObject.Initialize(waveData);
+                }
+            });
 
-        if (validTransforms.Count == 0)
+        if (goalNO != null)
         {
-            return transform.position;
+            _spawnedGoals.Add(goalNO);
+        }
+    }
+
+    /// <summary>
+    /// 충돌하지 않는 유효한 스폰 위치를 반환합니다.
+    /// </summary>
+    private Vector3 GetValidSpawnPosition(List<Vector3> reservedPositions)
+    {
+        if (_spawnTransforms == null || _spawnTransforms.Count == 0) return transform.position;
+
+        // 유효한 Transform만 추리기
+        var validPoints = _spawnTransforms.FindAll(t => t != null);
+        if (validPoints.Count == 0) return transform.position;
+
+        for (int i = 0; i < _maxSpawnAttempts; i++)
+        {
+            Vector3 candidatePos = validPoints[Random.Range(0, validPoints.Count)].position;
+
+            // 1차 검사: 물리 충돌 (Vector3 -> Vector2 변환하여 2D 체크)
+            Collider2D hit = Physics2D.OverlapCircle(candidatePos, _checkRadius, _collisionLayerMask);
+            if (hit != null) continue; // 충돌체 있으면 재시도
+
+            // 2차 검사: 예약 목록 확인
+            bool isReserved = false;
+            foreach (var pos in reservedPositions)
+            {
+                // Vector2.Distance를 사용하여 Z축 무시하고 평면 거리 계산 (필요시 Vector3.Distance 사용)
+                if (Vector2.Distance(candidatePos, pos) < _checkRadius)
+                {
+                    isReserved = true;
+                    break;
+                }
+            }
+
+            if (isReserved) continue; // 예약된 위치면 재시도
+
+            // 통과!
+            return candidatePos;
         }
 
-        int randomIndex = Random.Range(0, validTransforms.Count);
-        return validTransforms[randomIndex].position;
+        // 실패 시 랜덤 반환
+        return validPoints[Random.Range(0, validPoints.Count)].position;
     }
 
     /// <summary>
     /// 이 스포너가 생성한 모든 목표 오브젝트를 제거합니다.
     /// (서버에서만 네트워크 디스폰)
+    /// 모든 실행 중인 스폰 코루틴도 중단합니다.
     /// </summary>
     public void DestroyAllGoals()
     {
         if (_runner == null || !_runner.IsServer)
         {
             _spawnedGoals.Clear();
+            _isSpawningActive = false;
+            StopAllSpawnCoroutines();
             return;
         }
 
-        for (int i = 0; i < _spawnedGoals.Count; i++)
+        // 스폰 중단 플래그 설정
+        _isSpawningActive = false;
+        
+        // 모든 실행 중인 스폰 코루틴 중단
+        StopAllSpawnCoroutines();
+        
+        Debug.Log($"[GoalSpawner-{_spawnerIndex}] DestroyAllGoals: Stopping {_activeSpawnCoroutines.Count} coroutines, removing {_spawnedGoals.Count} goals");
+
+        // 역순 순회 + 예외 처리 적용
+        for (int i = _spawnedGoals.Count - 1; i >= 0; i--)
         {
-            NetworkObject goalNO = _spawnedGoals[i];
-            if (goalNO != null && goalNO.IsValid)
+            try
             {
-                _runner.Despawn(goalNO);
+                var goalNO = _spawnedGoals[i];
+
+                if (goalNO == null)
+                {
+                    _spawnedGoals.RemoveAt(i);
+                    continue;
+                }
+
+                if (goalNO.IsValid)
+                {
+                    _runner.Despawn(goalNO);
+                }
+                
+                _spawnedGoals.RemoveAt(i);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[GoalSpawner-{_spawnerIndex}] Error destroying goal at index {i}: {e.Message}");
             }
         }
         _spawnedGoals.Clear();
     }
+    
+    /// <summary>
+    /// 모든 실행 중인 스폰 코루틴을 중단합니다.
+    /// </summary>
+    private void StopAllSpawnCoroutines()
+    {
+        foreach (var coroutine in _activeSpawnCoroutines)
+        {
+            if (coroutine != null)
+            {
+                StopCoroutine(coroutine);
+            }
+        }
+        _activeSpawnCoroutines.Clear();
+    }
+
+    // --- Helper Methods ---
+
+    private bool IsValidWaveData(WaveData waveData)
+    {
+        if (waveData == null || waveData.goalSpawnDataList == null || waveData.goalSpawnDataList.Count == 0)
+        {
+            Debug.LogWarning($"[GoalSpawner-{_spawnerIndex}] Invalid WaveData received.");
+            return false;
+        }
+        return true;
+    }
 
 #if UNITY_EDITOR
-    /// <summary>
-    /// 에디터에서 스포너 위치와 스폰 포인트를 시각화합니다.
-    /// </summary>
     private void OnDrawGizmos()
     {
-        // 스포너 위치 표시
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(transform.position, 0.4f);
 
-        // 스폰 포인트들 표시
-        if (_spawnTransforms != null && _spawnTransforms.Count > 0)
+        if (_spawnTransforms != null)
         {
-            Gizmos.color = Color.green;
-            foreach (var spawnPoint in _spawnTransforms)
+            foreach (var point in _spawnTransforms)
             {
-                if (spawnPoint != null)
-                {
-                    Gizmos.DrawWireSphere(spawnPoint.position, 0.25f);
-                    Gizmos.DrawLine(transform.position, spawnPoint.position);
-                }
+                if (point == null) continue;
+
+                Gizmos.color = Color.green;
+                Gizmos.DrawWireSphere(point.position, 0.25f);
+                Gizmos.DrawLine(transform.position, point.position);
+
+                // 충돌 체크 범위 시각화
+                Gizmos.color = new Color(0, 1, 0, 0.3f); // 반투명 초록
+                Gizmos.DrawWireSphere(point.position, _checkRadius);
             }
         }
     }

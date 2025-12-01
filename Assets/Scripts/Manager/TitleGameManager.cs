@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 using Fusion;
 using System.Threading.Tasks;
 
-public class TitleGameManager : MonoBehaviour, ISceneManager
+public class TitleGameManager : MonoBehaviour, ISceneGameManager
 {
     private TitleCanvas _titleCanvas;
     private string _playerNickname = "Player";

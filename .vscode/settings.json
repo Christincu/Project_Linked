@@ -54,7 +54,7 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Project_Linked.sln",
+    "dotnet.defaultSolution": "Project_Linked.slnx",
     "dotnet.preferCSharpExtension": true,
     "csharp.suppressBuildAssetsNotification": false
 }
