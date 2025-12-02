@@ -81,6 +81,7 @@
     <Compile Include="Assets\Scripts\Particle\Damageable.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\ChatController.cs" />
     <Compile Include="Assets\Scripts\Spawner\EnemySpawner.cs" />
+    <Compile Include="Assets\Scripts\CutScene\CinemachineCameraController.cs" />
     <Compile Include="Assets\Scripts\Magic\DashMagicObject\DashMagicObject.Movement.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_DigitValidator.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_FrameRateCounter.cs" />
@@ -100,9 +101,7 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark03.cs" />
     <Compile Include="Assets\Scripts\Spawner\ScenDespawner.cs" />
     <Compile Include="Assets\Scripts\Enemy\EnemyDetector.cs" />
-    <Compile Include="Assets\Making\CutsceneZoneTimeline.cs" />
     <Compile Include="Assets\Scripts\Player\Detection\PlayerDetectionManager.cs" />
-    <Compile Include="Assets\Making\CinemachineCameraController.cs" />
     <Compile Include="Assets\Scripts\Player\Magic\Handlers\ICombinedMagicHandler.cs" />
     <Compile Include="Assets\Scripts\Player\Core\PlayerController.cs" />
     <Compile Include="Assets\Scripts\Player\State\PlayerBehavior.cs" />
@@ -113,6 +112,7 @@
     <Compile Include="Assets\Scripts\Manager\MainGameManger\MainGameManager.TestMode.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\DropdownSample.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexColorCycler.cs" />
+    <Compile Include="Assets\Scripts\CutScene\CutsceneZoneTimeline.cs" />
     <Compile Include="Assets\Scripts\Data\InitialPlayerData.cs" />
     <Compile Include="Assets\Scripts\Common\RangeVisualizationUtils.cs" />
     <Compile Include="Assets\Scripts\Magic\DashMagicObject\DashMagicObject.Collision.cs" />
@@ -139,7 +139,6 @@
     <Compile Include="Assets\Scripts\Data\PlayerData.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\SkewTextExample.cs" />
     <Compile Include="Assets\Scripts\Data\BarrierMagicCombinationData.cs" />
-    <Compile Include="Assets\Making\TestMonster.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\WarpTextExample.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TextMeshProFloatingText.cs" />
     <Compile Include="Assets\Scripts\UI\WarningPanel.cs" />
