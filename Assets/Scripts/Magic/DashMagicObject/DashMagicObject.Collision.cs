@@ -12,11 +12,15 @@ public partial class DashMagicObject
     /// <summary>
     /// [핵심 개선] FixedUpdateNetwork 내에서 물리 충돌을 직접 감지합니다.
     /// 롤백 상황에서도 안전하며, 정확한 타이밍에 충돌을 처리합니다.
+    /// State Authority에서만 실행됩니다.
     /// </summary>
     private void DetectCollisions()
     {
+        // [중요] 충돌 처리는 State Authority에서만 실행
+        if (_owner == null || !_owner.Object.HasStateAuthority) return;
+        
         if (!_attackCollider.enabled) return;
-        if (_owner == null || Runner == null) return;
+        if (Runner == null) return;
         if (!_owner.DashIsMoving) return; // 정지 상태에서는 충돌 처리 안 함
         
         // 공격 범위 내의 모든 콜라이더 감지
@@ -33,10 +37,9 @@ public partial class DashMagicObject
         {
             if (hit == null) continue;
 
-            // [추가] 거리 기반 이중 체크 (물리 엔진 오차 및 레이어 설정 실수 보정)
-            // 내 중심점과 충돌체 중심점 사이의 거리가 (내 반지름 + 대략적인 여유)보다 크면 무시
+            // 거리 기반 이중 체크 (물리 엔진 오차 보정)
             float rawDistance = Vector3.Distance(transform.position, hit.transform.position);
-            if (rawDistance > attackColliderRadius + 1.0f)
+            if (rawDistance > attackColliderRadius + COLLISION_DISTANCE_TOLERANCE)
             {
                 continue;
             }
@@ -173,26 +176,8 @@ public partial class DashMagicObject
             return;
         }
         
-        // 1. 넉백 방향 결정
-        Vector2 knockbackDirection = _owner.DashVelocity.normalized;
-        
-        if (knockbackDirection.magnitude < 0.1f)
-        {
-            knockbackDirection = _owner.DashLastInputDirection.normalized;
-            
-            if (knockbackDirection.magnitude < 0.1f)
-            {
-                Vector2 toEnemy = (enemy.transform.position - transform.position);
-                if (toEnemy.magnitude > 0.1f)
-                {
-                    knockbackDirection = toEnemy.normalized;
-                }
-                else
-                {
-                    knockbackDirection = Vector2.up;
-                }
-            }
-        }
+        // 넉백 방향 결정
+        Vector2 knockbackDirection = GetKnockbackDirection(enemy.transform.position);
         
         // 2. 각도 비틀기 (랜덤성 추가)
         float baseAngle = Mathf.Atan2(knockbackDirection.y, knockbackDirection.x) * Mathf.Rad2Deg;
@@ -253,29 +238,11 @@ public partial class DashMagicObject
             HandleEnhancement(otherPlayer);
             
             // --- B. 정지(Freeze) 시작 ---
-            // 시전 후에도 최소 0.5초는 대기 후 튕겨나가도록, 추가 지연을 포함
-            float totalFreeze = _dashData.playerCollisionFreezeDuration + 0.5f;
-            _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, totalFreeze);
-            _owner.DashVelocity = Vector2.zero;
-            _owner.DashIsMoving = false;
-            UpdateRigidbodyVelocity(Vector2.zero);
+            float totalFreeze = _dashData.playerCollisionFreezeDuration + GRACE_PERIOD_AFTER_STUN;
+            StartFreezeAndRecoilSequence(totalFreeze, GetRecoilDirection(otherPlayer.transform.position));
             
-            // --- C. 반동(Recoil) 예약 ---
-            Vector2 recoilDir = (transform.position - otherPlayer.transform.position).normalized;
-            if (recoilDir.magnitude < 0.1f)
-            {
-                recoilDir = -_owner.DashLastInputDirection.normalized;
-                if (recoilDir.magnitude < 0.1f)
-                {
-                    recoilDir = Vector2.up;
-                }
-            }
-            _owner.DashPendingRecoilDirection = recoilDir;
-            _owner.DashIsWaitingToRecoil = true;
-            
-            // --- D. 쿨다운 등록 ---
-            _recentHitPlayers.Add(otherPlayer);
-            StartCoroutine(RemoveFromRecentHitPlayers(otherPlayer, _dashData.playerCollisionFreezeDuration + 0.5f));
+            // --- C. 쿨다운 등록 ---
+            RegisterPlayerCollisionCooldown(otherPlayer, totalFreeze);
             
             // 상대방도 동일한 처리
             if (otherPlayer.DashMagicObject != null)
@@ -307,28 +274,9 @@ public partial class DashMagicObject
         if (!_owner.Object.HasStateAuthority) return;
         if (_recentHitPlayers.Contains(otherPlayer)) return;
         
-        Vector2 recoilDir = (transform.position - otherPlayer.transform.position).normalized;
-        if (recoilDir.magnitude < 0.1f)
-        {
-            recoilDir = -_owner.DashLastInputDirection.normalized;
-            if (recoilDir.magnitude < 0.1f)
-            {
-                recoilDir = Vector2.up;
-            }
-        }
-        
-        // 시전 후에도 최소 0.5초는 대기 후 튕겨나가도록, 추가 지연을 포함
-        float totalFreeze = _dashData.playerCollisionFreezeDuration + 0.5f;
-        _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, totalFreeze);
-        _owner.DashVelocity = Vector2.zero;
-        _owner.DashIsMoving = false;
-        UpdateRigidbodyVelocity(Vector2.zero);
-        
-        _owner.DashPendingRecoilDirection = recoilDir;
-        _owner.DashIsWaitingToRecoil = true;
-        
-        _recentHitPlayers.Add(otherPlayer);
-        StartCoroutine(RemoveFromRecentHitPlayers(otherPlayer, _dashData.playerCollisionFreezeDuration + 0.5f));
+        float totalFreeze = _dashData.playerCollisionFreezeDuration + GRACE_PERIOD_AFTER_STUN;
+        StartFreezeAndRecoilSequence(totalFreeze, GetRecoilDirection(otherPlayer.transform.position));
+        RegisterPlayerCollisionCooldown(otherPlayer, totalFreeze);
     }
     
     /// <summary>
@@ -420,27 +368,11 @@ public partial class DashMagicObject
         if (_owner == null || Runner == null) return;
         if (_owner.IsDashFinalEnhancement) return;
         
-        int currentEnhancement = _owner.DashEnhancementCount;
-        _owner.DashEnhancementCount = Mathf.Min(currentEnhancement + 1, _dashData.finalEnhancementCount);
+        int newEnhancementCount = Mathf.Min(_owner.DashEnhancementCount + 1, _dashData.finalEnhancementCount);
+        ApplyEnhancementInternal(newEnhancementCount);
         
-        if (_owner.DashEnhancementCount >= _dashData.finalEnhancementCount)
-        {
-            _owner.IsDashFinalEnhancement = true;
-            _owner.DashSkillTimer = TickTimer.CreateFromSeconds(Runner, _dashData.finalEnhancementDuration);
-        }
-        else
-        {
-            float remainingTime = _owner.DashSkillTimer.RemainingTime(Runner) ?? 0f;
-            float newTime = Mathf.Min(
-                _dashData.maxDuration,
-                remainingTime + _dashData.durationIncreasePerEnhancement
-            );
-            _owner.DashSkillTimer = TickTimer.CreateFromSeconds(Runner, newTime);
-        }
-        
-        UpdateBarrierSprite();
-        
-        if (otherPlayer.DashMagicObject != null)
+        // 상대방에게도 동일한 강화 적용
+        if (otherPlayer?.DashMagicObject != null)
         {
             otherPlayer.DashMagicObject.ApplyEnhancement(_owner.DashEnhancementCount);
         }
@@ -454,7 +386,18 @@ public partial class DashMagicObject
         if (_owner == null || Runner == null) return;
         if (_owner.IsDashFinalEnhancement) return;
         
-        _owner.DashEnhancementCount = Mathf.Min(otherPlayerEnhancement, _dashData.finalEnhancementCount);
+        int newEnhancementCount = Mathf.Min(otherPlayerEnhancement, _dashData.finalEnhancementCount);
+        ApplyEnhancementInternal(newEnhancementCount);
+    }
+    
+    /// <summary>
+    /// 강화를 내부적으로 적용하는 공통 로직입니다.
+    /// </summary>
+    private void ApplyEnhancementInternal(int newEnhancementCount)
+    {
+        if (_owner == null || Runner == null || _dashData == null) return;
+        
+        _owner.DashEnhancementCount = newEnhancementCount;
         
         if (_owner.DashEnhancementCount >= _dashData.finalEnhancementCount)
         {
@@ -472,6 +415,57 @@ public partial class DashMagicObject
         }
         
         UpdateBarrierSprite();
+    }
+    
+    /// <summary>
+    /// 넉백 방향을 계산합니다.
+    /// </summary>
+    private Vector2 GetKnockbackDirection(Vector3 targetPosition)
+    {
+        // 1순위: 현재 대시 속도 방향
+        if (_owner.DashVelocity.sqrMagnitude > MIN_VELOCITY_SQR)
+        {
+            return _owner.DashVelocity.normalized;
+        }
+        
+        // 2순위: 마지막 입력 방향
+        if (_owner.DashLastInputDirection.sqrMagnitude > MIN_VELOCITY_SQR)
+        {
+            return _owner.DashLastInputDirection.normalized;
+        }
+        
+        // 3순위: 타겟 방향
+        Vector2 toTarget = (targetPosition - transform.position);
+        if (toTarget.sqrMagnitude > MIN_VELOCITY_SQR)
+        {
+            return toTarget.normalized;
+        }
+        
+        // Fallback: 위 방향
+        return Vector2.up;
+    }
+    
+    /// <summary>
+    /// 반동 방향을 계산합니다.
+    /// </summary>
+    private Vector2 GetRecoilDirection(Vector3 otherPlayerPosition)
+    {
+        // 1순위: 상대 플레이어로부터 멀어지는 방향
+        Vector2 recoilDir = (transform.position - otherPlayerPosition).normalized;
+        if (recoilDir.sqrMagnitude > MIN_VELOCITY_SQR)
+        {
+            return recoilDir;
+        }
+        
+        // 2순위: 마지막 입력 반대 방향
+        Vector2 oppositeInput = -_owner.DashLastInputDirection.normalized;
+        if (oppositeInput.sqrMagnitude > MIN_VELOCITY_SQR)
+        {
+            return oppositeInput;
+        }
+        
+        // Fallback: 위 방향
+        return Vector2.up;
     }
     
     /// <summary>
@@ -510,8 +504,7 @@ public partial class DashMagicObject
         
         HandleWrongCollision();
         
-        _recentHitPlayers.Add(otherPlayer);
-        StartCoroutine(RemoveFromRecentHitPlayers(otherPlayer, _dashData.wrongCollisionStunDuration + 0.5f));
+        RegisterPlayerCollisionCooldown(otherPlayer, _dashData.wrongCollisionStunDuration + GRACE_PERIOD_AFTER_STUN);
     }
     
     /// <summary>
@@ -562,6 +555,32 @@ public partial class DashMagicObject
         Debug.Log($"[DashMagicObject] {_owner.name} - Calculated damage: {damage}");
         
         return damage;
+    }
+    
+    /// <summary>
+    /// 정지 및 반동 시퀀스를 시작합니다.
+    /// </summary>
+    private void StartFreezeAndRecoilSequence(float freezeDuration, Vector2 recoilDirection)
+    {
+        if (_owner == null || Runner == null) return;
+        
+        _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, freezeDuration);
+        _owner.DashVelocity = Vector2.zero;
+        _owner.DashIsMoving = false;
+        _owner.DashPendingRecoilDirection = recoilDirection;
+        _owner.DashIsWaitingToRecoil = true;
+        UpdateRigidbodyVelocity(Vector2.zero);
+    }
+    
+    /// <summary>
+    /// 플레이어 충돌 쿨다운을 등록합니다.
+    /// </summary>
+    private void RegisterPlayerCollisionCooldown(PlayerController player, float duration)
+    {
+        if (player == null) return;
+        
+        _recentHitPlayers.Add(player);
+        StartCoroutine(RemoveFromRecentHitPlayers(player, duration));
     }
     #endregion
 }

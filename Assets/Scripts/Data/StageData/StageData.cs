@@ -42,9 +42,9 @@ public class StageData : ScriptableObject
         }
     }
     
-    [Header("Wave Data")]
-    [Tooltip("List of waves for this stage")]
-    public List<WaveData> waveDataList = new List<WaveData>();
+    [Header("Round Data")]
+    [Tooltip("List of rounds for this stage (각 라운드는 트리거 콜리더로 활성화됨)")]
+    public List<RoundData> roundDataList = new List<RoundData>();
 
 #if UNITY_EDITOR
     private void OnValidate()

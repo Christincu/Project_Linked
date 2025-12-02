@@ -47,9 +47,7 @@ public class PlayerDetectionManager : MonoBehaviour
             _detectionTriggerObj.transform.localPosition = Vector3.zero;
             _detectionTriggerObj.transform.localRotation = Quaternion.identity;
             _detectionTriggerObj.transform.localScale = Vector3.one;
-            
-            // 별도의 레이어로 설정 (기본 레이어 사용, Physics2D 설정에서 충돌 제어)
-            _detectionTriggerObj.layer = _controller.gameObject.layer; // 플레이어와 같은 레이어 사용
+            _detectionTriggerObj.layer = 15;
             
             // CircleCollider2D 추가
             _detectionTriggerCollider = _detectionTriggerObj.AddComponent<CircleCollider2D>();

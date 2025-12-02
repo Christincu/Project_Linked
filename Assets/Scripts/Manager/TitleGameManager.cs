@@ -1,51 +1,85 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Fusion;
 using System.Threading.Tasks;
 
-public class TitleGameManager : MonoBehaviour
+public class TitleGameManager : MonoBehaviour, ISceneGameManager
 {
-    // 싱글턴 인스턴스
-    public static TitleGameManager Instance { get; private set; }
-
     private TitleCanvas _titleCanvas;
     private string _playerNickname = "Player";
     private string _roomName = "TestRoom";
     private bool _isConnecting = false;
 
-    void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
-
     void OnDestroy()
     {
-        if (Instance == this)
-        {
-            RemoveNetworkEvents();
-        }
+        RemoveNetworkEvents();
     }
 
-    public void Initialize(TitleCanvas titleCanvas)
+    /// <summary>
+    /// ISceneManager 인터페이스 구현: GameManager에서 호출되는 초기화 메서드
+    /// </summary>
+    public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
-        _titleCanvas = titleCanvas;
-
         // 상태 초기화 (씬 재진입 시 대비)
         _isConnecting = false;
 
         SetupNetworkEvents();
 
-        // 저장된 닉네임 로드
-        _playerNickname = PlayerPrefs.GetString("PlayerNick", "Player");
+        // 메모리에서 닉네임 로드
+        _playerNickname = GameManager.MyLocalNickname;
+        if (string.IsNullOrEmpty(_playerNickname))
+        {
+            _playerNickname = "Player";
+        }
+        
+        // TitleCanvas 찾기 및 초기화 (씬 매니저가 직접 초기화)
+        InitializeTitleCanvas(gameManager, gameDataManager);
+    }
+    
+    /// <summary>
+    /// TitleCanvas를 찾아서 초기화합니다.
+    /// </summary>
+    private void InitializeTitleCanvas(GameManager gameManager, GameDataManager gameDataManager)
+    {
+        if (_titleCanvas == null)
+        {
+            // FindObjectOfType 사용 (GameObject.Find보다 효율적)
+            _titleCanvas = FindObjectOfType<TitleCanvas>();
+        }
+        
+        if (_titleCanvas != null)
+        {
+            // TitleGameManager 참조를 직접 설정 (Find 제거)
+            _titleCanvas.SetTitleGameManager(this);
+            
+            // ICanvas 인터페이스를 통해 초기화
+            ICanvas canvas = _titleCanvas as ICanvas;
+            if (canvas != null)
+            {
+                canvas.Initialize(gameManager, gameDataManager);
+                // TitleCanvas.Initialize() 내부에서 OnInitialize(this)가 호출됨
+            }
+            else
+            {
+                Debug.LogError("[TitleGameManager] TitleCanvas does not implement ICanvas!");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[TitleGameManager] TitleCanvas not found. Some features may not work.");
+        }
+    }
+    
+    /// <summary>
+    /// TitleCanvas로부터 호출되는 초기화 메서드
+    /// 주의: 실제 초기화는 Initialize()에서 수행되므로, 여기서는 참조만 설정합니다.
+    /// </summary>
+    public void OnInitialize(TitleCanvas titleCanvas)
+    {
+        _titleCanvas = titleCanvas;
+        // Initialize()에서 이미 상태 초기화 및 이벤트 설정이 완료되었으므로 중복 호출하지 않음
     }
 
     // ========== Network Events ==========
@@ -100,8 +134,7 @@ public class TitleGameManager : MonoBehaviour
         _roomName = string.IsNullOrEmpty(roomName) ? $"Room_{Random.Range(1000, 9999)}" : roomName;
         _playerNickname = playerNickname;
 
-        // 닉네임 저장
-        PlayerPrefs.SetString("PlayerNick", _playerNickname);
+        GameManager.MyLocalNickname = _playerNickname;
 
         StartHost();
     }
@@ -131,8 +164,7 @@ public class TitleGameManager : MonoBehaviour
         _roomName = roomName;
         _playerNickname = playerNickname;
 
-        // 닉네임 저장
-        PlayerPrefs.SetString("PlayerNick", _playerNickname);
+        GameManager.MyLocalNickname = _playerNickname;
 
         StartClient();
     }
@@ -152,7 +184,6 @@ public class TitleGameManager : MonoBehaviour
     {
         if (FusionManager.LocalRunner != null && FusionManager.LocalRunner.IsServer)
         {
-            Debug.Log($"[TitleGameManager] Loading chapter scene: {sceneName}");
             FusionManager.LocalRunner.LoadScene(sceneName);
         }
         else
@@ -206,11 +237,15 @@ public class TitleGameManager : MonoBehaviour
             physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
             Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Host) - ClientPhysicsSimulation: SimulateAlways");
 
+            // 닉네임을 byte[]로 인코딩하여 ConnectionToken에 설정
+            byte[] connectionToken = System.Text.Encoding.UTF8.GetBytes(_playerNickname);
+            
             var result = await runner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.Host,
                 SessionName = _roomName,
                 PlayerCount = 2,
+                ConnectionToken = connectionToken, // 닉네임 데이터 전달
                 SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>(),
                 ObjectProvider = networkObject.AddComponent<NetworkObjectProviderDefault>()
             });
@@ -284,10 +319,14 @@ public class TitleGameManager : MonoBehaviour
             physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
             Debug.Log("[TitleGameManager] RunnerSimulatePhysics2D added to NetworkRunner (Client) - ClientPhysicsSimulation: SimulateAlways");
 
+            // 닉네임을 byte[]로 인코딩하여 ConnectionToken에 설정
+            byte[] connectionToken = System.Text.Encoding.UTF8.GetBytes(_playerNickname);
+            
             var result = await runner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.Client,
                 SessionName = _roomName,
+                ConnectionToken = connectionToken, // 닉네임 데이터 전달
                 SceneManager = networkObject.AddComponent<NetworkSceneManagerDefault>(),
                 ObjectProvider = networkObject.AddComponent<NetworkObjectProviderDefault>()
             });
@@ -383,10 +422,24 @@ public class TitleGameManager : MonoBehaviour
             FusionManager.LocalRunner = null;
         }
 
-        // UI를 타이틀 화면으로 복구
-        _isConnecting = false;
-        _titleCanvas?.ShowTitlePanel();
-        _titleCanvas?.SetButtonsInteractable(true);
+        // 타이틀 씬에 있을 때만 UI 업데이트
+        string currentSceneName = SceneManager.GetActiveScene().name;
+        if (currentSceneName == "Title")
+        {
+            _isConnecting = false;
+            
+            // TitleCanvas가 존재하고 파괴되지 않았는지 확인
+            if (_titleCanvas != null && _titleCanvas.gameObject != null)
+            {
+                _titleCanvas.ShowTitlePanel();
+                _titleCanvas.SetButtonsInteractable(true);
+            }
+        }
+        else
+        {
+            // 게임 씬에서는 MainGameManager가 처리하므로 여기서는 아무것도 하지 않음
+            _isConnecting = false;
+        }
     }
 
     private void OnDisconnected(NetworkRunner runner)
@@ -397,10 +450,25 @@ public class TitleGameManager : MonoBehaviour
             FusionManager.LocalRunner = null;
         }
 
-        _isConnecting = false;
-        GameManager.Instance?.ShowWarningPanel("네트워크 연결이 끊어졌습니다.");
-        _titleCanvas?.ShowTitlePanel();
-        _titleCanvas?.SetButtonsInteractable(true);
+        // 타이틀 씬에 있을 때만 UI 업데이트
+        string currentSceneName = SceneManager.GetActiveScene().name;
+        if (currentSceneName == "Title")
+        {
+            _isConnecting = false;
+            GameManager.Instance?.ShowWarningPanel("네트워크 연결이 끊어졌습니다.");
+            
+            // TitleCanvas가 존재하고 파괴되지 않았는지 확인
+            if (_titleCanvas != null && _titleCanvas.gameObject != null)
+            {
+                _titleCanvas.ShowTitlePanel();
+                _titleCanvas.SetButtonsInteractable(true);
+            }
+        }
+        else
+        {
+            // 게임 씬에서는 MainGameManager가 처리하므로 여기서는 아무것도 하지 않음
+            _isConnecting = false;
+        }
     }
 
     private void OnPlayerDataSpawned(PlayerRef player, NetworkRunner runner)

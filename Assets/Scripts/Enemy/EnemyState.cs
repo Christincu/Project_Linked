@@ -55,8 +55,34 @@ public class EnemyState : MonoBehaviour
 
     public bool IsDead
     {
-        get => _controller != null && _controller.IsDead;
-        set { if (_controller != null) _controller.IsDead = value; }
+        get
+        {
+            // [안전성] NetworkObject가 완전히 스폰되었는지 및 네트워크 프로퍼티 접근 가능 여부 확인
+            if (_controller == null || _controller.Object == null) return false;
+            try
+            {
+                return _controller.IsDead;
+            }
+            catch (System.InvalidOperationException)
+            {
+                // Spawned()가 호출되기 전이거나 디스폰된 경우, 아직 "사망 처리 완료 전"으로 간주
+                return false;
+            }
+        }
+        set
+        {
+            if (_controller != null && _controller.Object != null)
+            {
+                try
+                {
+                    _controller.IsDead = value;
+                }
+                catch (System.InvalidOperationException)
+                {
+                    // Spawned()가 호출되기 전이거나 디스폰된 경우 무시
+                }
+            }
+        }
     }
 
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
@@ -115,6 +141,13 @@ public class EnemyState : MonoBehaviour
         
         // 이벤트 발생
         OnDeath?.Invoke();
+
+        // Kill 타입 웨이브 목표 알림 (서버/StateAuthority에서만 의미 있음)
+        if (MainGameManager.Instance != null)
+        {
+            MainGameManager.Instance.OnEnemyKilled();
+        }
+
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
         
         // 적 오브젝트 삭제 (Fusion 네트워크 오브젝트)

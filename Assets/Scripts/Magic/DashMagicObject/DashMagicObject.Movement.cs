@@ -35,33 +35,14 @@ public partial class DashMagicObject
             ProcessInertiaBasedMovement(inputDirection, deltaTime);
         }
         
-        // 속도 제한 (최대 속도에 도달해도 가속은 계속 적용, 단지 제한만 됨)
-        float maxSpeed = _dashData.maxSpeed;
-        if (_owner.DashVelocity.magnitude > maxSpeed)
-        {
-            _owner.DashVelocity = _owner.DashVelocity.normalized * maxSpeed;
-        }
+        // 속도 제한 적용
+        ClampVelocityToMaxSpeed();
         
         // Rigidbody에 속도 적용
         UpdateRigidbodyVelocity(_owner.DashVelocity);
         
-        // 정지 상태 복귀 체크
-        if (_owner.DashVelocity.magnitude < 0.1f)
-        {
-            _owner.DashIsMoving = false;
-            _owner.DashVelocity = Vector2.zero;
-            UpdateRigidbodyVelocity(Vector2.zero);
-        }
-        else
-        {
-            _owner.DashIsMoving = true;
-        }
-        
-        // 마지막 입력 방향 저장
-        if (inputDirection.magnitude > 0)
-        {
-            _owner.DashLastInputDirection = inputDirection;
-        }
+        // 정지 상태 및 입력 방향 업데이트
+        UpdateMovementState(inputDirection);
     }
     
     /// <summary>
@@ -99,14 +80,10 @@ public partial class DashMagicObject
                 velocity -= velocity.normalized * deceleration * deltaTime;
                 
                 // 속도가 너무 작아지면 0으로 설정
-                if (velocity.magnitude <= 0.01f)
+                if (velocity.sqrMagnitude <= MIN_VELOCITY_SQR)
                 {
                     velocity = Vector2.zero;
                     _owner.DashIsMoving = false;
-                }
-                else
-                {
-                    _owner.DashIsMoving = true;
                 }
             }
             else
@@ -117,6 +94,32 @@ public partial class DashMagicObject
         }
         
         _owner.DashVelocity = velocity;
+    }
+    
+    /// <summary>
+    /// 이동 상태를 업데이트합니다.
+    /// </summary>
+    private void UpdateMovementState(Vector2 inputDirection)
+    {
+        if (_owner == null) return;
+        
+        // 정지 상태 체크
+        if (_owner.DashVelocity.sqrMagnitude < MIN_VELOCITY_SQR)
+        {
+            _owner.DashIsMoving = false;
+            _owner.DashVelocity = Vector2.zero;
+            UpdateRigidbodyVelocity(Vector2.zero);
+        }
+        else
+        {
+            _owner.DashIsMoving = true;
+        }
+        
+        // 마지막 입력 방향 저장
+        if (inputDirection.sqrMagnitude > MIN_VELOCITY_SQR)
+        {
+            _owner.DashLastInputDirection = inputDirection;
+        }
     }
     
     /// <summary>
@@ -173,13 +176,30 @@ public partial class DashMagicObject
             inputDir = new Vector2(x, y).normalized;
             
             // 입력이 있으면 플래그 설정
-            if (inputDir.magnitude > 0.1f)
+            if (inputDir.sqrMagnitude > MIN_VELOCITY_SQR)
             {
                 _hasReceivedInput = true;
             }
         }
         
         return inputDir;
+    }
+    
+    /// <summary>
+    /// 속도를 최대 속도로 제한합니다.
+    /// </summary>
+    private void ClampVelocityToMaxSpeed()
+    {
+        if (_owner == null || _dashData == null) return;
+        
+        float maxSpeed = _dashData.maxSpeed;
+        float currentSpeedSqr = _owner.DashVelocity.sqrMagnitude;
+        float maxSpeedSqr = maxSpeed * maxSpeed;
+        
+        if (currentSpeedSqr > maxSpeedSqr)
+        {
+            _owner.DashVelocity = _owner.DashVelocity.normalized * maxSpeed;
+        }
     }
     
     /// <summary>

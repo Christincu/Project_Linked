@@ -27,6 +27,10 @@ public class MainCanvas : MonoBehaviour, ICanvas
     private GameDataManager _gameDataManager;
     private PlayerController _localPlayer;
     private bool _isInitialized = false;
+    
+    // 코루틴 중복 실행 방지를 위한 변수
+    private Coroutine _initCoroutine;
+    
 
     public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
     {
@@ -36,6 +40,28 @@ public class MainCanvas : MonoBehaviour, ICanvas
         _gameDataManager = gameDataManager;
 
         _isInitialized = true;
+    }
+
+    /// <summary>
+    /// 현재 웨이브/라운드 정보를 텍스트로 표시합니다.
+    /// </summary>
+    public void SetWaveText(string text)
+    {
+        if (_waveText != null)
+        {
+            _waveText.text = text;
+        }
+    }
+
+    /// <summary>
+    /// 현재 목표(킬 수, 생존 시간, 수집 개수 등)를 텍스트로 표시합니다.
+    /// </summary>
+    public void SetGoalText(string text)
+    {
+        if (_goalText != null)
+        {
+            _goalText.text = text;
+        }
     }
 
     void OnDestroy()
@@ -51,42 +77,110 @@ public class MainCanvas : MonoBehaviour, ICanvas
     {
         if (player == null) return;
         
+        // 객체가 유효한지 확인
+        if (player.Object == null || !player.Object.IsValid) return;
+
         // 테스트 모드가 아닐 때만 Input Authority 체크
         if (MainGameManager.Instance == null || !MainGameManager.Instance.IsTestMode)
         {
-            // Input Authority가 있는 플레이어만 등록
+            // HasInputAuthority 속성을 사용하는 것이 더 안전합니다.
             if (!player.Object.HasInputAuthority)
             {
-                Debug.Log($"[MainCanvas] Ignoring player - no input authority: {player.name}");
                 return;
             }
         }
-        SetupPlayer(player);
+        
+        // 중복 등록 방지: 같은 플레이어가 이미 등록되어 있으면 무시
+        if (_localPlayer != null && _localPlayer == player && _localPlayer.Object != null && _localPlayer.Object.IsValid)
+        {
+            Debug.Log($"[MainCanvas] Player already registered, skipping duplicate registration: {player.Object.Id}");
+            return;
+        }
+        
+        Debug.Log($"[MainCanvas] Register request received for Player {player.Object.Id}. Starting setup process...");
+        
+        // 기존 코루틴이 있다면 중지 (중복 실행 방지)
+        if (_initCoroutine != null)
+        {
+            StopCoroutine(_initCoroutine);
+            Debug.Log("[MainCanvas] Stopped previous setup coroutine.");
+        }
+        
+        // 데이터 대기 및 설정 코루틴 시작
+        _initCoroutine = StartCoroutine(Co_SetupPlayerSafe(player));
     }
 
     /// <summary>
-    /// 플레이어를 설정하고 이벤트에 구독합니다.
+    /// 플레이어 데이터(MaxHealth)가 동기화될 때까지 기다린 후 UI를 설정합니다.
     /// </summary>
-    private void SetupPlayer(PlayerController player)
+    private IEnumerator Co_SetupPlayerSafe(PlayerController player)
     {
-        if (player == null || player.State == null) return;
-
-        // 기존 플레이어가 있으면 이벤트 구독 해제
-        UnsubscribeFromPlayer();
+        if (player == null || player.State == null)
+        {
+            Debug.LogWarning("[MainCanvas] Co_SetupPlayerSafe: Player or State is null!");
+            yield break;
+        }
 
         _localPlayer = player;
+        
+        // 1. [체력 동기화 대기] MaxHealth가 들어올 때까지 대기
+        float timeout = 5.0f;
+        float timer = 0f;
+        
+        Debug.Log("[MainCanvas] Waiting for player stats to sync...");
 
-        // 이벤트 구독
-        _localPlayer.State.OnHealthChanged += OnHealthChanged;
-        _localPlayer.State.OnDeath += OnPlayerDeath;
-        _localPlayer.State.OnRespawned += OnPlayerRespawned;
+        while (timer < timeout)
+        {
+            if (player == null || !player.Object.IsValid) yield break;
 
-        // 초기 HP UI 생성 및 플레이어 이름 설정
+            if (player.MaxHealth > 0.1f)
+            {
+                Debug.Log($"[MainCanvas] Player stats synced! MaxHealth: {player.MaxHealth}");
+                break;
+            }
+
+            timer += 0.1f;
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        // 2. 이벤트 재구독
+        UnsubscribeFromPlayer(); 
+        _localPlayer = player; 
+
+        if (_localPlayer != null && _localPlayer.State != null)
+        {
+            _localPlayer.State.OnHealthChanged += OnHealthChanged;
+            _localPlayer.State.OnDeath += OnPlayerDeath;
+            _localPlayer.State.OnRespawned += OnPlayerRespawned;
+        }
+
+        // 3. UI 그리기 (체력)
         InitializeHealthUI();
         
-        // 플레이어 이름 설정 (PlayerData에서 닉네임 가져오기)
+        // 4. [수정됨] 이름 동기화 대기 (최대 3초간 닉네임 수신 시도)
+        // PlayerData는 캐릭터보다 조금 늦게 동기화될 수 있습니다.
+        float nameTimer = 0f;
+        while (nameTimer < 3.0f)
+        {
+            UpdatePlayerName(); // 계속 시도
+
+            // 닉네임 텍스트가 "Player 숫자" 형식이 아니고, 비어있지도 않으면 성공으로 간주
+            if (_playerNameText.text.Length > 0 && !_playerNameText.text.StartsWith("Player "))
+            {
+                break; // 진짜 닉네임을 찾았으니 루프 탈출
+            }
+            
+            yield return new WaitForSeconds(0.5f);
+            nameTimer += 0.5f;
+        }
+        
+        // 마지막으로 한 번 더 확실하게 업데이트
         UpdatePlayerName();
+
+        Debug.Log("[MainCanvas] SetupPlayerSafe completed successfully.");
+        _initCoroutine = null;
     }
+    
 
     /// <summary>
     /// 플레이어 이벤트 구독 해제
@@ -107,26 +201,34 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private void InitializeHealthUI()
     {
-        if (_localPlayer == null) return;
+        if (_localPlayer == null)
+        {
+            Debug.LogWarning("[MainCanvas] InitializeHealthUI: _localPlayer is null!");
+            return;
+        }
+        
+        // 방어 코드: MaxHealth가 여전히 0이라면 기본값 3이라도 줘서 UI가 깨지지 않게 함
+        float targetMaxHealth = _localPlayer.MaxHealth > 0 ? _localPlayer.MaxHealth : 3f;
+        
+        if (_localPlayer.MaxHealth <= 0)
+        {
+            Debug.LogWarning($"[MainCanvas] InitializeHealthUI: MaxHealth is still 0, using default value {targetMaxHealth}");
+        }
 
         // 기존 하트 이미지 제거
         ClearHealthUI();
 
-        // 최대 체력에 맞춰 하트 이미지 생성 (1HP당 하트 1개로 가정)
-        int maxHearts = Mathf.CeilToInt(_localPlayer.MaxHealth);
-        
-        // MaxHealth가 아직 초기화되지 않았으면 재시도
-        if (maxHearts <= 0)
-        {
-            // 초기화 대기 후 재시도
-            StartCoroutine(WaitForMaxHealthAndInitialize());
-            return;
-        }
-        
+        int maxHearts = Mathf.CeilToInt(targetMaxHealth);
+        Debug.Log($"[MainCanvas] Creating {maxHearts} hearts (MaxHealth: {_localPlayer.MaxHealth}, Using: {targetMaxHealth})");
+
         for (int i = 0; i < maxHearts; i++)
         {
             GameObject hpObj = Instantiate(_hpImgObjPrefab, _hpContent);
-            Image hpImage = hpObj.GetComponent<Image>() ?? hpObj.AddComponent<Image>();
+            Image hpImage = hpObj.GetComponent<Image>();
+            if (hpImage == null)
+            {
+                hpImage = hpObj.AddComponent<Image>();
+            }
             
             // Filled 타입 설정
             hpImage.type = Image.Type.Filled;
@@ -138,7 +240,7 @@ public class MainCanvas : MonoBehaviour, ICanvas
         }
 
         // 초기 상태 업데이트
-        UpdateHealthUI(_localPlayer.CurrentHealth, _localPlayer.MaxHealth);
+        UpdateHealthUI(_localPlayer.CurrentHealth, targetMaxHealth);
     }
 
     /// <summary>
@@ -146,20 +248,29 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private IEnumerator WaitForMaxHealthAndInitialize()
     {
-        int maxAttempts = 30; // 3초 대기 (0.1초 * 30)
+        int maxAttempts = 50; // 5초 대기 (0.1초 * 50)
         int attempts = 0;
         
-        while (attempts < maxAttempts && (_localPlayer == null || _localPlayer.MaxHealth <= 0))
+        // 로컬 플레이어가 존재하고, 객체가 유효한 동안 대기
+        while (attempts < maxAttempts)
         {
+            if (_localPlayer == null || !_localPlayer.Object.IsValid) 
+            {
+                yield break; // 플레이어가 사라졌으면 중단
+            }
+
+            // MaxHealth가 들어왔다면 초기화 진행
+            if (_localPlayer.MaxHealth > 0)
+            {
+                InitializeHealthUI();
+                yield break;
+            }
+
             yield return new WaitForSeconds(0.1f);
             attempts++;
         }
         
-        // 다시 시도
-        if (_localPlayer != null && _localPlayer.MaxHealth > 0)
-        {
-            InitializeHealthUI();
-        }
+        Debug.LogWarning("[MainCanvas] Failed to initialize Health UI: MaxHealth is 0 or timeout.");
     }
 
     /// <summary>
@@ -184,10 +295,16 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private void OnHealthChanged(float current, float max)
     {
-        // MaxHealth가 변경되었으면 하트 UI를 다시 생성
-        if (_localPlayer != null && _hpImages.Count != Mathf.CeilToInt(max))
+        // 방어 코드: 로컬 플레이어가 없거나 파괴되었으면 리턴
+        if (_localPlayer == null || !_localPlayer.Object.IsValid) return;
+
+        // MaxHealth가 변경되었거나(레벨업 등), 
+        // 하트 개수와 실제 MaxHealth가 다르면 UI 재생성 (리스폰 직후 동기화 문제 해결)
+        int requiredHearts = Mathf.CeilToInt(max);
+        
+        if (_hpImages.Count != requiredHearts)
         {
-            InitializeHealthUI();
+            InitializeHealthUI(); // 개수가 다르면 아예 다시 그리기
         }
         else
         {
@@ -200,34 +317,26 @@ public class MainCanvas : MonoBehaviour, ICanvas
     /// </summary>
     private void UpdateHealthUI(float currentHealth, float maxHealth)
     {
-        if (_hpImages.Count == 0 || maxHealth <= 0) return;
+        if (_hpImages.Count == 0) return;
 
         float healthPerHeart = 1f; // 하트 1개당 체력 1로 가정
 
         for (int i = 0; i < _hpImages.Count; i++)
         {
+            // 방어 코드: 리스트 중간에 파괴된 객체가 있는지 확인
+            if (_hpImages[i] == null) 
+            {
+                InitializeHealthUI(); // UI가 깨졌으면 재초기화
+                return;
+            }
+
             float heartStartHealth = i * healthPerHeart;
-            float heartEndHealth = (i + 1) * healthPerHeart;
             
-            if (currentHealth >= heartEndHealth)
-            {
-                // 완전히 채워진 하트
-                _hpImages[i].sprite = _filledHeart;
-                _hpImages[i].fillAmount = 1f;
-            }
-            else if (currentHealth > heartStartHealth)
-            {
-                // 부분적으로 채워진 하트
-                _hpImages[i].sprite = _filledHeart;
-                float fillAmount = (currentHealth - heartStartHealth) / healthPerHeart;
-                _hpImages[i].fillAmount = fillAmount;
-            }
-            else
-            {
-                // 빈 하트
-                _hpImages[i].sprite = _emptyHeart;
-                _hpImages[i].fillAmount = 1f; // 스프라이트 자체가 빈 모양이므로 fillAmount는 1
-            }
+            // fillAmount 계산 로직 단순화 및 클램핑
+            float fill = Mathf.Clamp01(currentHealth - heartStartHealth);
+            
+            _hpImages[i].sprite = (fill > 0) ? _filledHeart : _emptyHeart;
+            _hpImages[i].fillAmount = (fill > 0) ? fill : 1f; // 빈 하트일 때도 모양 유지를 위해 1로
         }
     }
 
@@ -268,8 +377,29 @@ public class MainCanvas : MonoBehaviour, ICanvas
     {
         if (_playerNameText == null || _localPlayer == null || _gameManager == null || _localPlayer.Runner == null) return;
 
+        // PlayerData 조회
         var playerData = _gameManager.GetPlayerData(_localPlayer.Object.InputAuthority, _localPlayer.Runner);
-        string nickName = playerData?.Nick.ToString() ?? $"Player {_localPlayer.Object.InputAuthority.AsIndex}";
+        
+        // [수정] 닉네임 가져오기 로직 강화
+        string nickName = "";
+
+        if (playerData != null && !string.IsNullOrEmpty(playerData.Nick.ToString()))
+        {
+            // 데이터도 있고 닉네임도 제대로 있을 때
+            nickName = playerData.Nick.ToString();
+        }
+        else
+        {
+            // 데이터가 없거나 닉네임이 비어있으면 임시 이름(Player ID) 표시
+            if (_localPlayer.Object != null && _localPlayer.Object.IsValid)
+            {
+                nickName = $"Player {_localPlayer.Object.InputAuthority.AsIndex}";
+            }
+            else
+            {
+                nickName = "Loading...";
+            }
+        }
 
         _playerNameText.text = nickName;
     }

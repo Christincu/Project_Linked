@@ -3,383 +3,312 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Fusion;
-using System.Threading.Tasks;
 using System;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
-    // 현재 게임 상태 (GameState enum이 별도로 정의되어 있다고 가정)
+    // ==========================================
+    // 로컬 플레이어 데이터 (휘발성 메모리)
+    // ==========================================
+    public static string MyLocalNickname = "Player";
+    public static int MyLocalCharacterIndex = 0;
+
+    // ==========================================
+    // 상태 및 참조
+    // ==========================================
     public GameStateType State { get; private set; } = GameStateType.Lobby;
     public ICanvas Canvas { get; private set; }
+    public ISceneGameManager CurrentSceneManager { get; private set; }
 
-    [Header("Manager & UI Prefabs")]
-    [Tooltip("타이틀 씬이 아닌 경우 자동으로 생성할 MainGameManager 프리팹")]
-    [SerializeField] private GameObject _mainGameManagerPrefab;
-    
-    [Tooltip("타이틀 씬이 아닌 경우 자동으로 생성할 MainCanvas 프리팹")]
-    [SerializeField] private GameObject _mainCanvasPrefab;
-    
     [Header("Core Manager Prefabs")]
-    [Tooltip("GameDataManager 프리팹 (씬에 없으면 자동 생성)")]
     [SerializeField] private GameObject _gameDataManagerPrefab;
-    
-    [Tooltip("FusionManager 프리팹 (씬에 없으면 자동 생성)")]
     [SerializeField] private GameObject _fusionManagerPrefab;
-
-    [Tooltip("VisualManager 프리팹 (씬에 없으면 자동 생성)")]
     [SerializeField] private GameObject _visualManagerPrefab;
-    
+
+    [Header("UI & Scene Prefabs")]
+    [SerializeField] private GameObject _mainGameManagerPrefab;
+    [SerializeField] private GameObject _mainCanvasPrefab;
     [SerializeField] private GameObject _warningPanelPrefab;
     [SerializeField] private GameObject _loadingPanelPrefab;
     
+    // 플레이어 데이터 캐싱
     private Dictionary<PlayerRef, PlayerData> _playerData = new Dictionary<PlayerRef, PlayerData>();
 
-    void Awake()
+    private void Awake()
+    {
+        if (!SetupSingleton()) return;
+
+        // 1. 핵심 매니저 생성 및 보장
+        InitializeCoreManagers();
+
+        // 2. 네트워크 이벤트 등록
+        SetupNetworkEvents();
+        
+        // 3. 씬 로드 이벤트 등록
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private bool SetupSingleton()
     {
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        // 핵심 매니저들을 순서대로 초기화
-        InitializeCoreManagers();
-        
-        SetupNetworkEvents();
-        SceneManager.sceneLoaded += OnSceneLoaded;
-    }
-    
-    /// <summary>
-    /// 핵심 매니저들(GameDataManager, FusionManager)을 순서대로 초기화합니다.
-    /// </summary>
-    private void InitializeCoreManagers()
-    {
-        // 1. GameDataManager 초기화 (가장 먼저)
-        EnsureGameDataManager();
-        
-        // 2. FusionManager 초기화 (GameDataManager 이후)
-        EnsureFusionManager();
-
-        // 3. VisualManager 초기화 (시각 효과 전역 관리)
-        EnsureVisualManager();
-    }
-    
-    /// <summary>
-    /// GameDataManager가 존재하는지 확인하고 없으면 생성한 후 초기화합니다.
-    /// </summary>
-    private void EnsureGameDataManager()
-    {
-        // 씬에서 찾기
-        if (GameDataManager.Instance == null)
-        {
-            GameDataManager existingManager = FindAnyObjectByType<GameDataManager>();
-            if (existingManager != null)
-            {
-                // 씬에 있으면 Awake가 호출되어 싱글톤이 설정됨
-                // 강제로 Awake 호출 (이미 호출되었을 수도 있지만 안전하게)
-                if (GameDataManager.Instance == null)
-                {
-                    // GameObject를 활성화하여 Awake가 호출되도록 함
-                    if (!existingManager.gameObject.activeSelf)
-                    {
-                        existingManager.gameObject.SetActive(true);
-                    }
-                }
-            }
-            else if (_gameDataManagerPrefab != null)
-            {
-                // 프리팹으로 생성 (Awake가 자동 호출됨)
-                GameObject managerObj = Instantiate(_gameDataManagerPrefab);
-                managerObj.name = "GameDataManager";
-                DontDestroyOnLoad(managerObj);
-                Debug.Log("[GameManager] GameDataManager created from prefab");
-            }
-            else
-            {
-                Debug.LogError("[GameManager] GameDataManager not found in scene and prefab is not set!");
-                return;
-            }
+            return true;
         }
         
-        // 초기화 (이미 초기화되었으면 스킵)
-        if (GameDataManager.Instance != null && !GameDataManager.Instance.IsInitialized)
-        {
-            GameDataManager.Instance.Initialize();
-        }
-    }
-    
-    /// <summary>
-    /// FusionManager가 존재하는지 확인하고 없으면 생성한 후 초기화합니다.
-    /// </summary>
-    private void EnsureFusionManager()
-    {
-        // 씬에서 찾기
-        if (FusionManager.Instance == null)
-        {
-            FusionManager existingManager = FindAnyObjectByType<FusionManager>();
-            if (existingManager != null)
-            {
-                // 씬에 있으면 Awake가 호출되어 싱글톤이 설정됨
-                // 강제로 Awake 호출 (이미 호출되었을 수도 있지만 안전하게)
-                if (FusionManager.Instance == null)
-                {
-                    // GameObject를 활성화하여 Awake가 호출되도록 함
-                    if (!existingManager.gameObject.activeSelf)
-                    {
-                        existingManager.gameObject.SetActive(true);
-                    }
-                }
-            }
-            else if (_fusionManagerPrefab != null)
-            {
-                // 프리팹으로 생성 (Awake가 자동 호출됨)
-                GameObject managerObj = Instantiate(_fusionManagerPrefab);
-                managerObj.name = "FusionManager";
-                DontDestroyOnLoad(managerObj);
-                Debug.Log("[GameManager] FusionManager created from prefab");
-            }
-            else
-            {
-                Debug.LogError("[GameManager] FusionManager not found in scene and prefab is not set!");
-                return;
-            }
-        }
-        
-        // 초기화 (이미 초기화되었으면 스킵)
-        if (FusionManager.Instance != null && !FusionManager.Instance.IsInitialized)
-        {
-            FusionManager.Instance.Initialize();
-        }
+        Destroy(gameObject);
+        return false;
     }
 
-    /// <summary>
-    /// VisualManager가 존재하는지 확인하고 없으면 생성합니다.
-    /// </summary>
-    private void EnsureVisualManager()
-    {
-        // 이미 싱글톤이 존재하면 아무 것도 하지 않음
-        if (VisualManager.Instance != null)
-        {
-            return;
-        }
-
-        // 씬에서 찾기
-        VisualManager existingManager = FindAnyObjectByType<VisualManager>();
-        if (existingManager != null)
-        {
-            // Awake에서 싱글톤이 설정되도록 활성화 보장
-            if (!existingManager.gameObject.activeSelf)
-            {
-                existingManager.gameObject.SetActive(true);
-            }
-            return;
-        }
-
-        // 프리팹으로 생성
-        if (_visualManagerPrefab != null)
-        {
-            GameObject managerObj = Instantiate(_visualManagerPrefab);
-            managerObj.name = "VisualManager";
-            DontDestroyOnLoad(managerObj);
-            Debug.Log("[GameManager] VisualManager created from prefab");
-        }
-        else
-        {
-            Debug.LogWarning("[GameManager] VisualManager not found in scene and prefab is not set. Explosion range visuals may not work correctly.");
-        }
-    }
-    
-    void Start()
+    private void Start()
     {
         CreateLoadingPanelIfNeeded();
-        FindCanvas();
+        
+        // 씬 로드 시점과 동일한 로직 수행 (캔버스 찾기 -> 매니저 대기 -> 씬 매니저 초기화)
+        HandleSceneContext(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
     }
-    
-    /// <summary>
-    /// LoadingPanel이 없으면 생성합니다. (외부에서도 호출 가능)
-    /// </summary>
-    public void CreateLoadingPanelIfNeeded()
+
+    private void OnDestroy()
     {
-        if (LoadingPanel.Instance == null && _loadingPanelPrefab != null)
+        if (Instance == this)
         {
-            GameObject panelObj = Instantiate(_loadingPanelPrefab);
-            panelObj.name = "LoadingPanel";
+            RemoveNetworkEvents();
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
         }
     }
 
-    void OnDestroy()
+    // ==========================================
+    // 1. Core Managers Initialization (Refactored)
+    // ==========================================
+
+    private void InitializeCoreManagers()
     {
-        RemoveNetworkEvents();
-        SceneManager.sceneLoaded -= OnSceneLoaded;
+        // 반복되는 생성 로직을 헬퍼 메서드로 대체
+        EnsureManager<GameDataManager>(_gameDataManagerPrefab, "GameDataManager");
+        EnsureManager<FusionManager>(_fusionManagerPrefab, "FusionManager");
+        EnsureManager<VisualManager>(_visualManagerPrefab, "VisualManager");
     }
 
+    /// <summary>
+    /// 매니저가 씬에 존재하는지 확인하고, 없으면 프리팹으로 생성하는 제네릭 헬퍼 메서드
+    /// </summary>
+    private void EnsureManager<T>(GameObject prefab, string objectName) where T : Component
+    {
+        // 1. 이미 싱글톤 인스턴스가 존재하는지 확인 (각 클래스의 Instance 프로퍼티 체크는 Reflection이 필요하므로 여기선 FindObject로 대체)
+        T existing = FindObjectOfType<T>(); // Unity 2023+라면 FindFirstObjectByType<T>() 권장
+
+        if (existing != null)
+        {
+            if (!existing.gameObject.activeSelf) existing.gameObject.SetActive(true);
+        }
+        else if (prefab != null)
+        {
+            GameObject obj = Instantiate(prefab);
+            obj.name = objectName;
+            DontDestroyOnLoad(obj);
+        }
+        else
+        {
+            Debug.LogError($"[GameManager] Failed to ensure {typeof(T).Name}. Prefab is missing!");
+        }
+    }
+
+    // ==========================================
+    // 2. Scene Flow & Initialization Sequence
+    // ==========================================
+
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        HandleSceneContext(scene);
+    }
+
+    /// <summary>
+    /// 씬 진입 시 공통적으로 수행해야 할 로직 (Start와 OnSceneLoaded에서 공유)
+    /// </summary>
+    private void HandleSceneContext(Scene scene)
     {
         if (scene.name != "Title")
         {
             EnsureMainGameComponents();
         }
-        
+
         FindCanvas();
+
+        // 코루틴 시작 전 기존 코루틴이 있다면 정리하는 것이 좋으나, 
+        // 씬 로드 시점엔 보통 안전하므로 바로 실행
+        StartCoroutine(InitializeSceneFlow());
     }
-    
+
     /// <summary>
-    /// 메인 게임 씬에 필요한 컴포넌트들이 있는지 확인하고 없으면 생성합니다.
+    /// 핵심 매니저 초기화 대기 -> 씬 매니저 연결 흐름 제어
     /// </summary>
+    private IEnumerator InitializeSceneFlow()
+    {
+        // 1. Core Manager들이 초기화될 때까지 대기
+        yield return WaitCoreManagersInit();
+
+        // 2. 현재 씬의 로컬 SceneManager 찾기 및 초기화
+        InitializeLocalSceneManager();
+    }
+
+    private IEnumerator WaitCoreManagersInit()
+    {
+        float timeout = 5f;
+        float timer = 0f;
+
+        // GameDataManager와 FusionManager가 모두 준비될 때까지 대기
+        while (!IsCoreReady())
+        {
+            if (timer > timeout)
+            {
+                Debug.LogError("[GameManager] Core Managers initialization timed out!");
+                yield break;
+            }
+
+            yield return null; // 0.1초 대기보다 매 프레임 체크가 반응성이 좋음 (필요시 WaitForSeconds 사용)
+            timer += Time.deltaTime;
+        }
+
+        // 혹시 모를 초기화 실행 (방어 코드)
+        if (!GameDataManager.Instance.IsInitialized) GameDataManager.Instance.Initialize();
+        if (!FusionManager.Instance.IsInitialized) FusionManager.Instance.Initialize();
+    }
+
+    private bool IsCoreReady()
+    {
+        return GameDataManager.Instance != null && FusionManager.Instance != null;
+        // 각 매니저의 IsInitialized까지 체크하면 더 안전하지만, 
+        // Instance가 생성된 시점에서 Awake가 돌았다고 가정
+    }
+
+    private void InitializeLocalSceneManager()
+    {
+        GameObject sceneManagerObj = GameObject.Find("SceneGameManager");
+        if (sceneManagerObj != null && sceneManagerObj.TryGetComponent(out ISceneGameManager manager))
+        {
+            CurrentSceneManager = manager;
+            CurrentSceneManager.Initialize(this, GameDataManager.Instance);
+            Debug.Log($"[GameManager] Initialized SceneManager: {manager.GetType().Name}");
+        }
+        else
+        {
+            // Title 씬 등 SceneManager가 없는 경우도 있으므로 로그 레벨은 상황에 맞게 조절
+            CurrentSceneManager = null;
+        }
+    }
+
+    // ==========================================
+    // 3. Main Game Components Setup
+    // ==========================================
+
     private void EnsureMainGameComponents()
     {
-        if (MainGameManager.Instance == null)
+        if (MainGameManager.Instance == null && _mainGameManagerPrefab != null)
         {
-            if (_mainGameManagerPrefab == null)
-            {
-                Debug.LogError("[GameManager] MainGameManagerPrefab is not set!");
-                return;
-            }
-            
-            GameObject managerObj = Instantiate(_mainGameManagerPrefab);
-            managerObj.name = "MainGameManager";
-            Debug.Log("[GameManager] MainGameManager created");
+            var obj = Instantiate(_mainGameManagerPrefab);
+            obj.name = "MainGameManager";
         }
-        
-        if (FindAnyObjectByType<UnityEngine.Canvas>() == null)
+
+        if (FindObjectOfType<Canvas>() == null && _mainCanvasPrefab != null)
         {
-            if (_mainCanvasPrefab == null)
-            {
-                Debug.LogError("[GameManager] MainCanvasPrefab is not set!");
-                return;
-            }
-            
-            GameObject canvasObj = Instantiate(_mainCanvasPrefab);
-            canvasObj.name = "Canvas";
-            Debug.Log("[GameManager] MainCanvas created");
+            var obj = Instantiate(_mainCanvasPrefab);
+            obj.name = "Canvas";
         }
-        
+
         EnsureMainCamera();
     }
-    
-    /// <summary>
-    /// Main Camera에 MainCameraController가 있는지 확인하고 없으면 추가합니다.
-    /// </summary>
+
     private void EnsureMainCamera()
     {
-        Camera mainCamera = Camera.main;
-        if (mainCamera == null)
+        Camera mainCam = Camera.main;
+        if (mainCam != null)
         {
-            Debug.LogWarning("[GameManager] Main Camera not found in scene!");
-            return;
-        }
-        
-        MainCameraController cameraController = mainCamera.GetComponent<MainCameraController>();
-        if (cameraController == null)
-        {
-            mainCamera.gameObject.AddComponent<MainCameraController>();
-            Debug.Log("[GameManager] MainCameraController added to Main Camera");
+            if (!mainCam.TryGetComponent(out MainCameraController _))
+            {
+                mainCam.gameObject.AddComponent<MainCameraController>();
+            }
         }
     }
 
-    /// <summary>
-    /// 현재 씬에서 ICanvas 인터페이스를 구현한 캔버스 오브젝트를 안전하게 찾습니다.
-    /// (ICanvas가 MonoBehaviour를 상속한 컴포넌트에 구현되어야 합니다.)
-    /// </summary>
     private void FindCanvas()
     {
-        ICanvas foundCanvas = GameObject.Find("Canvas").GetComponent<ICanvas>();
+        // 인터페이스 탐색 최적화
+        Canvas = FindObjectOfType<TitleCanvas>() as ICanvas ?? FindObjectOfType<MainCanvas>() as ICanvas;
 
-        if (foundCanvas == null)
+        if (Canvas == null)
         {
-            Debug.LogError("GameManager: The found Canvas object does not implement ICanvas.");
-            Canvas = null;
-            return;
+            Debug.LogWarning("[GameManager] Valid ICanvas not found in this scene.");
         }
-
-        Canvas = foundCanvas;
-        
-        // 3. 초기화
-        Canvas.Initialize(this, GameDataManager.Instance);
     }
 
-    // ========== Network Event Setup (이하 동일) ==========
+    // ==========================================
+    // 4. Network Event Handling
+    // ==========================================
+
     private void SetupNetworkEvents()
     {
         FusionManager.OnPlayerJoinedEvent += OnPlayerJoined;
         FusionManager.OnPlayerLeftEvent += OnPlayerLeft;
-        FusionManager.OnShutdownEvent += OnShutdown;
-        FusionManager.OnDisconnectedEvent += OnDisconnected;
+        FusionManager.OnShutdownEvent += OnNetworkShutdown; // 이름 변경: OnShutdown -> OnNetworkShutdown
+        FusionManager.OnDisconnectedEvent += OnNetworkShutdown; // 로직이 같다면 통합
     }
 
     private void RemoveNetworkEvents()
     {
         FusionManager.OnPlayerJoinedEvent -= OnPlayerJoined;
         FusionManager.OnPlayerLeftEvent -= OnPlayerLeft;
-        FusionManager.OnShutdownEvent -= OnShutdown;
-        FusionManager.OnDisconnectedEvent -= OnDisconnected;
+        FusionManager.OnShutdownEvent -= OnNetworkShutdown;
+        FusionManager.OnDisconnectedEvent -= OnNetworkShutdown;
     }
 
-    // ========== Game State & Data Management (이하 동일) ==========
-
-    public void SetGameState(GameStateType newState)
-    {
-        State = newState;
-        Debug.Log($"Game state changed: {State}");
-    }
-
-    private void OnPlayerJoined(PlayerRef player, NetworkRunner runner)
-    {
-        Debug.Log($"GameManager: Player {player} joined");
-    }
+    private void OnPlayerJoined(PlayerRef player, NetworkRunner runner) { /* 필요시 구현 */ }
 
     private void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
     {
-        Debug.Log($"GameManager: Player {player} left");
         _playerData.Remove(player);
     }
 
-    private void OnShutdown(NetworkRunner runner)
+    private void OnNetworkShutdown(NetworkRunner runner)
     {
-        Debug.Log("GameManager: Network session shutdown");
-        
         if (runner == FusionManager.LocalRunner)
         {
             FusionManager.LocalRunner = null;
         }
         
+        ResetGameSession();
+    }
+
+    private void ResetGameSession()
+    {
         SetGameState(GameStateType.Lobby);
         _playerData.Clear();
     }
 
-    private void OnDisconnected(NetworkRunner runner)
-    {
-        Debug.Log("GameManager: Disconnected from server");
-        
-        if (runner == FusionManager.LocalRunner)
-        {
-            FusionManager.LocalRunner = null;
-        }
-        
-        SetGameState(GameStateType.Lobby);
-        _playerData.Clear();
-    }
+    // ==========================================
+    // 5. Data Access & Helpers
+    // ==========================================
+
+    public void SetGameState(GameStateType newState) => State = newState;
 
     public PlayerData GetPlayerData(PlayerRef player, NetworkRunner runner)
     {
+        // 1. 캐시 확인
         if (_playerData.TryGetValue(player, out PlayerData data))
         {
-            return data;
+            if (data != null && data.Object != null && data.Object.IsValid) return data;
+            _playerData.Remove(player); // 유효하지 않으면 제거
         }
 
+        // 2. 러너에서 직접 탐색 (캐시 미스)
         if (runner != null)
         {
-            NetworkObject playerObject = runner.GetPlayerObject(player);
+            var playerObject = runner.GetPlayerObject(player);
             if (playerObject != null && playerObject.TryGetComponent(out data))
             {
-                _playerData[player] = data;
+                _playerData[player] = data; // 캐시 갱신
                 return data;
             }
         }
@@ -388,68 +317,59 @@ public class GameManager : MonoBehaviour
 
     public void SetPlayerData(PlayerRef player, PlayerData data)
     {
-        _playerData[player] = data;
-    }
-    
-    // ========== UI & Utility (이하 동일) ==========
-
-    public void ExitGame()
-    {
-        Application.Quit();
-        Debug.Log("Application Quit requested.");
+        if (data == null) _playerData.Remove(player);
+        else _playerData[player] = data;
     }
 
-    public void ShowWarningPanel(string warningText)
+    // ==========================================
+    // 6. UI & Loading
+    // ==========================================
+
+    public void ExitGame() => Application.Quit();
+
+    public void ShowWarningPanel(string text)
     {
-        if (Canvas == null || _warningPanelPrefab == null)
-        {
-            Debug.LogError($"[GameManager] Cannot show warning panel - Canvas or Prefab is null. Message: {warningText}");
-            return;
-        }
+        if (Canvas == null || _warningPanelPrefab == null) return;
         
-        GameObject warningPanel = Instantiate(_warningPanelPrefab, Canvas.CanvasTransform);
-        
-        if (warningPanel.TryGetComponent(out WarningPanel panel))
+        var panelObj = Instantiate(_warningPanelPrefab, Canvas.CanvasTransform);
+        if (panelObj.TryGetComponent(out WarningPanel panel))
         {
-            panel.Initialize(warningText);
-        }
-        else
-        {
-            Debug.LogError("[GameManager] WarningPanel component not found on the instantiated prefab.");
-            Destroy(warningPanel);
+            panel.Initialize(text);
         }
     }
 
-    public void StartLoadingScreen()
+    public void StartLoadingScreen() => LoadingPanel.Show();
+    public void FinishLoadingScreen() => LoadingPanel.Hide();
+
+    private void CreateLoadingPanelIfNeeded()
     {
-        LoadingPanel.Show();
+        if (LoadingPanel.Instance == null && _loadingPanelPrefab != null)
+        {
+            var obj = Instantiate(_loadingPanelPrefab);
+            obj.name = "LoadingPanel";
+            // LoadingPanel 내부에서 DontDestroyOnLoad 처리한다고 가정
+        }
     }
 
-    public void FinishLoadingScreen()
-    {
-        LoadingPanel.Hide();
-    }
-    
     public void LoadSceneWithLoading(string sceneName)
     {
-        LoadingPanel.ShowDuring(LoadSceneAsync(sceneName));
+        LoadingPanel.ShowDuring(LoadSceneRoutine(sceneName));
     }
 
-    private IEnumerator LoadSceneAsync(string sceneName)
+    private IEnumerator LoadSceneRoutine(string sceneName)
     {
-        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
-        asyncLoad.allowSceneActivation = false;
+        AsyncOperation op = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
+        op.allowSceneActivation = false;
 
-        while (!asyncLoad.isDone)
+        while (!op.isDone)
         {
-            if (asyncLoad.progress >= 0.9f)
+            if (op.progress >= 0.9f)
             {
-                asyncLoad.allowSceneActivation = true;
+                op.allowSceneActivation = true;
             }
-
             yield return null;
         }
-
+        // 씬 전환 후 약간의 딜레이
         yield return new WaitForSeconds(0.5f);
     }
 }

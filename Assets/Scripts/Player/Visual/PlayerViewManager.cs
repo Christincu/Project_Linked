@@ -51,23 +51,15 @@ public class PlayerViewManager : MonoBehaviour
             viewObjParentObj.transform.localScale = Vector3.one;
             
             viewObjParent = viewObjParentObj.transform;
-            
-            Debug.Log($"[PlayerViewManager] ViewObjParent created for Player {_controller.PlayerSlot}");
         }
         
-        // NetworkRigidbody2D의 Interpolation Target 설정
         var networkRb = _controller.GetComponent<NetworkRigidbody2D>();
         if (networkRb != null)
         {
             if (networkRb.InterpolationTarget == null || networkRb.InterpolationTarget != viewObjParent)
             {
                 networkRb.InterpolationTarget = viewObjParent;
-                Debug.Log($"[PlayerViewManager] Interpolation Target set to ViewObjParent for Player {_controller.PlayerSlot}");
             }
-        }
-        else
-        {
-            Debug.LogWarning($"[PlayerViewManager] NetworkRigidbody2D not found on Player {_controller.PlayerSlot}!");
         }
     }
 
@@ -91,12 +83,9 @@ public class PlayerViewManager : MonoBehaviour
             if (viewObjParent != null)
             {
                 instance.transform.SetParent(viewObjParent, false);
-                Debug.Log($"[PlayerViewManager] ViewObj created under ViewObjParent for Player {_controller.PlayerSlot}");
             }
             else
             {
-                // ViewObjParent가 없으면 루트에 생성 (fallback)
-                Debug.LogWarning($"[PlayerViewManager] ViewObjParent not found! Creating ViewObj at root for Player {_controller.PlayerSlot}");
                 instance.transform.SetParent(_controller.transform, false);
             }
 

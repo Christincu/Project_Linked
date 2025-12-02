@@ -11,6 +11,14 @@ using Fusion.Addons.Physics;
 /// </summary>
 public partial class DashMagicObject : NetworkBehaviour
 {
+    #region Networked Properties
+    /// <summary>
+    /// 이 대시 오브젝트의 소유 플레이어(PlayerRef)를 네트워크로 동기화합니다.
+    /// 클라이언트는 이 정보를 기반으로 _owner 참조를 복원합니다.
+    /// </summary>
+    [Networked] private PlayerRef OwnerPlayer { get; set; }
+    #endregion
+
     #region Serialized Fields
     [Header("Collision Settings")]
     [Tooltip("공격 판정용 Circle Collider 반지름")]
@@ -23,31 +31,40 @@ public partial class DashMagicObject : NetworkBehaviour
     [SerializeField] private LayerMask playerLayer;
     #endregion
     
+    #region Constants
+    private const float MIN_VELOCITY_THRESHOLD = 0.1f;
+    private const float MIN_VELOCITY_SQR = 0.01f;
+    private const float GRACE_PERIOD_AFTER_STUN = 0.5f;
+    private const int INVALID_ENHANCEMENT_COUNT = -999;
+    private const float COLLISION_DISTANCE_TOLERANCE = 1.0f;
+    private const int DEBUG_LOG_FRAME_INTERVAL = 60;
+    #endregion
+    
     #region Private Fields
     private PlayerController _owner;
     private DashMagicCombinationData _dashData;
     private GameDataManager _gameDataManager;
     private CircleCollider2D _attackCollider;
     
-    // 이동 관련
-    private Vector2 _currentVelocity = Vector2.zero;
-    private Vector2 _lastInputDirection = Vector2.zero;
-    private bool _hasReceivedInput = false; // 입력을 받았는지 여부
+    // 입력 관련
+    private bool _hasReceivedInput = false;
     
     // 충돌 관련
-    private HashSet<EnemyController> _recentHitEnemies = new HashSet<EnemyController>(); // 최근 충돌한 적 (재충돌 방지)
-    // [개선] NetworkId 기반 쿨다운 관리 (더 안정적)
     private Dictionary<NetworkId, TickTimer> _enemyCollisionCooldowns = new Dictionary<NetworkId, TickTimer>();
-    private HashSet<PlayerController> _recentHitPlayers = new HashSet<PlayerController>(); // 최근 충돌한 플레이어
+    private HashSet<PlayerController> _recentHitPlayers = new HashSet<PlayerController>();
     
     // 베리어 시각화 관련
     private SpriteRenderer _barrierSpriteRenderer;
-    private CircleCollider2D _barrierCollider; // 베리어 콜라이더
-    private int _lastEnhancementCount = -999; // 초기값을 다르게 설정하여 첫 프레임 갱신 보장
+    private CircleCollider2D _barrierCollider;
+    private int _lastEnhancementCount = INVALID_ENHANCEMENT_COUNT;
     private bool _lastIsFinalEnhancement = false;
+    
+    // Owner 찾기 캐싱 (성능 최적화)
+    private int _ownerLookupAttempts = 0;
+    private const int MAX_OWNER_LOOKUP_ATTEMPTS = 10;
     #endregion
     
-    #region Unity Callbacks
+    #region Unity / Fusion Callbacks
     void Awake()
     {
         // [개선] 공격 판정용 Circle Collider는 이제 시각적/디버그 용도로만 사용
@@ -67,14 +84,81 @@ public partial class DashMagicObject : NetworkBehaviour
             playerLayer = LayerMask.GetMask("Player", "Default");
         }
     }
+
+    /// <summary>
+    /// 네트워크 오브젝트가 스폰되었을 때 호출됩니다.
+    /// (모든 클라이언트에서 실행되며, OwnerRef를 기반으로 _owner를 복원합니다.)
+    /// </summary>
+    public override void Spawned()
+    {
+        base.Spawned();
+
+        // [수정] 클라이언트에서도 초기화 수행 (서버는 Initialize에서 이미 했지만, 클라이언트는 여기서 해야 함)
+        InitializeClientComponents();
+        
+        // 이미 서버에서 Initialize로 _owner를 설정했을 수 있으므로,
+        // _owner가 비어 있고 OwnerPlayer가 유효할 때만 복원 시도
+        if (_owner == null && Runner != null && OwnerPlayer != PlayerRef.None)
+        {
+            // MainGameManager를 통해 PlayerController 찾기
+            if (MainGameManager.Instance != null)
+            {
+                _owner = MainGameManager.Instance.GetPlayer(OwnerPlayer);
+            }
+        }
+        
+        // [추가] OwnerPlayer가 아직 설정되지 않았을 수 있으므로, 
+        // 스폰된 오브젝트의 InputAuthority를 통해 찾기 시도
+        if (_owner == null && Runner != null)
+        {
+            // 스폰된 오브젝트의 InputAuthority를 통해 플레이어 찾기
+            PlayerRef inputAuth = Object.InputAuthority;
+            if (inputAuth != PlayerRef.None && MainGameManager.Instance != null)
+            {
+                _owner = MainGameManager.Instance.GetPlayer(inputAuth);
+            }
+        }
+    }
     
     /// <summary>
-    /// [핵심 수정] Render 메서드에서 시각적 업데이트를 강력하게 처리
+    /// Render 메서드에서 시각적 업데이트를 처리합니다.
     /// 모든 클라이언트에서 실행되며, 네트워크 변수 변경을 감지하여 스프라이트를 업데이트합니다.
     /// </summary>
     public override void Render()
     {
-        if (_owner == null) return;
+        if (_barrierSpriteRenderer == null)
+        {
+            InitializeClientComponents();
+        }
+        
+        // Owner 찾기 (최적화: 성공한 후에는 시도하지 않음)
+        if (_owner == null && _ownerLookupAttempts < MAX_OWNER_LOOKUP_ATTEMPTS)
+        {
+            _owner = TryFindOwner();
+            _ownerLookupAttempts++;
+        }
+
+        if (_owner == null) 
+        {
+            if (Time.frameCount % DEBUG_LOG_FRAME_INTERVAL == 0)
+            {
+                Debug.LogWarning($"[DashMagicObject] Cannot find owner. OwnerPlayer: {OwnerPlayer}, InputAuthority: {Object.InputAuthority}");
+            }
+            return;
+        }
+
+        // [수정] 위치 동기화 방식 변경: 부모-자식 관계 활용
+        // 매 프레임 owner의 위치로 강제 이동시키는 대신,
+        // 부모-자식 관계(SetParent)를 믿고 로컬 좌표를 0으로 유지합니다.
+        // 부모(Player)는 이미 NetworkRigidbody2D가 보간(Interpolation)을 해주고 있습니다.
+        if (transform.parent != _owner.transform)
+        {
+            transform.SetParent(_owner.transform);
+        }
+        
+        // 로컬 위치를 0으로 고정 (부모 따라가기)
+        // 이렇게 하면 Player의 부드러운 이동을 그대로 따라갑니다.
+        transform.localPosition = Vector3.zero;
 
         // 1. 데이터 로드 안전장치 (클라이언트 늦은 로드 대응)
         if (_dashData == null) LoadDashData();
@@ -83,38 +167,40 @@ public partial class DashMagicObject : NetworkBehaviour
         // 2. 스킬 활성화 상태일 때만 스프라이트 표시
         if (_owner.HasDashSkill)
         {
-            // 3. 상태 변경 감지 OR 스프라이트가 비어있으면 갱신
-            bool stateChanged = (_lastEnhancementCount != _owner.DashEnhancementCount) ||
-                                (_lastIsFinalEnhancement != _owner.IsDashFinalEnhancement);
+            // 상태 변경 감지 및 스프라이트 업데이트
+        bool stateChanged = (_lastEnhancementCount != _owner.DashEnhancementCount) ||
+                            (_lastIsFinalEnhancement != _owner.IsDashFinalEnhancement);
 
-            if (stateChanged || (_barrierSpriteRenderer != null && _barrierSpriteRenderer.sprite == null))
-            {
-                UpdateBarrierSprite();
-
-                // 상태 갱신
-                _lastEnhancementCount = _owner.DashEnhancementCount;
-                _lastIsFinalEnhancement = _owner.IsDashFinalEnhancement;
-            }
-        }
-        else
+        if (stateChanged || (_barrierSpriteRenderer != null && _barrierSpriteRenderer.sprite == null))
         {
-            // 스킬 비활성화 시 숨김
-            if (_barrierSpriteRenderer != null && _barrierSpriteRenderer.sprite != null)
-            {
-                _barrierSpriteRenderer.sprite = null;
-                _lastEnhancementCount = -999; // 리셋
-            }
+            UpdateBarrierSprite();
+            _lastEnhancementCount = _owner.DashEnhancementCount;
+            _lastIsFinalEnhancement = _owner.IsDashFinalEnhancement;
         }
+    }
+    else
+    {
+        // 스킬 비활성화 시 숨김
+        if (_barrierSpriteRenderer != null && _barrierSpriteRenderer.sprite != null)
+        {
+            _barrierSpriteRenderer.sprite = null;
+            _lastEnhancementCount = INVALID_ENHANCEMENT_COUNT;
+        }
+    }
     }
     
     /// <summary>
     /// 네트워크 틱과 동기화되어 실행되는 업데이트 메서드
-    /// State Authority에서만 실행됩니다.
+    /// [클라이언트 예측] State Authority(서버) OR Input Authority(조종하는 클라이언트)에서 실행됩니다.
+    /// 프록시(다른 플레이어 화면)는 실행하지 않습니다.
     /// </summary>
     public override void FixedUpdateNetwork()
     {
         if (_owner == null || Runner == null) return;
-        if (!_owner.Object.HasStateAuthority) return;
+        
+        // [수정] 클라이언트 예측: 서버(StateAuth) OR 조종하는 클라이언트(InputAuth) 둘 다 실행
+        // 프록시(다른 플레이어 화면)는 실행하지 않음 -> 서버 데이터만 받아옴
+        if (!_owner.Object.HasStateAuthority && !_owner.Object.HasInputAuthority) return;
         
         // [수정] 데이터가 없으면 로드 시도하고, 그래도 없으면 이번 프레임만 스킵
         if (_dashData == null)
@@ -124,9 +210,13 @@ public partial class DashMagicObject : NetworkBehaviour
         }
         
         // 스킬 상태 확인
+        // 주의: 클라이언트는 아직 서버의 HasDashSkill=true를 못 받았을 수 있음.
+        // 하지만 ActivateDashSkill을 로컬에서 예측 실행했다면 HasDashSkill이 true일 것임.
         if (!_owner.HasDashSkill)
         {
-            EndDashSkill();
+            // 클라이언트 예측 중에는 종료 조건을 좀 더 유연하게 처리하거나,
+            // 서버 데이터가 왔을 때 보정되도록 둡니다.
+            if (_owner.Object.HasStateAuthority) EndDashSkill();
             return;
         }
 
@@ -183,8 +273,12 @@ public partial class DashMagicObject : NetworkBehaviour
             ProcessDashMovement();
         }
         
-        // [핵심 개선] 물리 충돌 감지 (FixedUpdateNetwork 내에서 처리하여 롤백 안전)
-        DetectCollisions();
+        // [핵심 개선] 물리 충돌 감지 (State Authority에서만 실행)
+        // 클라이언트 예측에서는 이동만 하고, 충돌은 서버에서만 처리
+        if (_owner.Object.HasStateAuthority)
+        {
+            DetectCollisions();
+        }
         
         // 스킬 종료 조건 확인
         CheckEndConditions();
@@ -202,6 +296,13 @@ public partial class DashMagicObject : NetworkBehaviour
     {
         _owner = owner;
         _dashData = dashData;
+
+        // 서버(StateAuthority)에서만 OwnerRef를 설정하면,
+        // 클라이언트는 Spawned/Render에서 이 값을 통해 _owner를 복원할 수 있습니다.
+        if (Object != null && Object.HasStateAuthority && _owner != null && _owner.Object != null)
+        {
+            OwnerPlayer = _owner.Object.InputAuthority;
+        }
         
         if (_owner == null)
         {
@@ -214,9 +315,12 @@ public partial class DashMagicObject : NetworkBehaviour
             LoadDashData();
         }
         
-        // 플레이어에게 부착
-        transform.SetParent(_owner.transform);
-        transform.localPosition = Vector3.zero;
+        // 서버에서만 계층 구조를 설정 (위치는 Render에서 강제로 동기화하므로 안전)
+        if (Object != null && Object.HasStateAuthority)
+        {
+            transform.SetParent(_owner.transform);
+            transform.localPosition = Vector3.zero;
+        }
         
         // [중요] 공격 콜라이더 설정 (이게 없으면 충돌 감지 안됨)
         if (_attackCollider == null)
@@ -258,7 +362,7 @@ public partial class DashMagicObject : NetworkBehaviour
         UpdateBarrierSprite();
         
         // 초기 강화 상태 추적
-        _lastEnhancementCount = -999; // 첫 프레임 갱신 보장
+        _lastEnhancementCount = INVALID_ENHANCEMENT_COUNT;
         _lastIsFinalEnhancement = false;
 
         // [핵심] 서버라면 즉시 스킬 활성화 로직 실행
@@ -286,12 +390,70 @@ public partial class DashMagicObject : NetworkBehaviour
         _owner.DashStunTimer = TickTimer.CreateFromSeconds(Runner, _dashData.initialStunDuration);
         
         // 상태 초기화
-        _lastEnhancementCount = -999;
+        _lastEnhancementCount = INVALID_ENHANCEMENT_COUNT;
         _hasReceivedInput = false;
     }
     #endregion
     
     #region Helper Methods
+    /// <summary>
+    /// Owner를 찾기 시도합니다. 여러 방법을 순차적으로 시도합니다.
+    /// </summary>
+    private PlayerController TryFindOwner()
+    {
+        if (Runner == null) return null;
+        
+        // 1. OwnerPlayer를 통해 찾기
+        if (OwnerPlayer != PlayerRef.None && MainGameManager.Instance != null)
+        {
+            var owner = MainGameManager.Instance.GetPlayer(OwnerPlayer);
+            if (owner != null) return owner;
+        }
+        
+        // 2. InputAuthority를 통해 찾기
+        PlayerRef inputAuth = Object.InputAuthority;
+        if (inputAuth != PlayerRef.None && MainGameManager.Instance != null)
+        {
+            var owner = MainGameManager.Instance.GetPlayer(inputAuth);
+            if (owner != null) return owner;
+        }
+        
+        return null;
+    }
+    
+    /// <summary>
+    /// 클라이언트에서 필요한 컴포넌트들을 초기화합니다.
+    /// 서버는 Initialize에서 이미 초기화하지만, 클라이언트는 Spawned/Render에서 호출됩니다.
+    /// </summary>
+    private void InitializeClientComponents()
+    {
+        // 베리어 스프라이트 렌더러 초기화 (모든 클라이언트에서)
+        if (_barrierSpriteRenderer == null)
+        {
+            _barrierSpriteRenderer = GetComponent<SpriteRenderer>();
+            if (_barrierSpriteRenderer == null)
+            {
+                _barrierSpriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+            }
+        }
+        
+        if (_barrierSpriteRenderer != null)
+        {
+            _barrierSpriteRenderer.sortingOrder = 10;
+            _barrierSpriteRenderer.sortingLayerName = "Default";
+        }
+        
+        // 데이터 로드 시도
+        if (_dashData == null)
+        {
+            LoadDashData();
+        }
+        
+        // 초기 강화 상태 추적 초기화
+        _lastEnhancementCount = INVALID_ENHANCEMENT_COUNT;
+        _lastIsFinalEnhancement = false;
+    }
+    
     /// <summary>
     /// DashMagicCombinationData를 로드합니다.
     /// 클라이언트에서 초기화 지연 시 대응하기 위한 메서드
@@ -324,18 +486,16 @@ public partial class DashMagicObject : NetworkBehaviour
         if (_owner == null || Runner == null) return;
         if (!_owner.HasDashSkill) return;
         
-        // 정지 상태가 끝난 후 일정 시간(예: 0.5초) 동안은 속도 0으로 종료하지 않음
-        float stunEndTime = _dashData.initialStunDuration;
+        // 정지 상태 종료 후 유예 기간 체크
         float remainingStunTime = _owner.DashStunTimer.RemainingTime(Runner) ?? 0f;
-        bool isInGracePeriod = remainingStunTime <= 0f && remainingStunTime >= -0.5f; // 정지 종료 후 0.5초 유예 기간
+        bool isInGracePeriod = remainingStunTime <= 0f && remainingStunTime >= -GRACE_PERIOD_AFTER_STUN;
         
         // 속도 0 체크 (입력을 받았고, 유예 기간이 지났으며, 정지 상태가 끝났을 때만)
-        // 단, 반동 대기 중이면 종료하지 않음
         if (!_owner.DashIsWaitingToRecoil &&
-            _owner.DashVelocity.magnitude < 0.1f && 
+            _owner.DashVelocity.magnitude < MIN_VELOCITY_THRESHOLD && 
             _owner.DashStunTimer.ExpiredOrNotRunning(Runner) &&
             !isInGracePeriod &&
-            _hasReceivedInput) // 입력을 받았을 때만 속도 0으로 종료
+            _hasReceivedInput)
         {
             // 최종 강화 상태에서는 속도 0으로 종료하지 않음
             if (!_owner.IsDashFinalEnhancement)
@@ -390,26 +550,6 @@ public partial class DashMagicObject : NetworkBehaviour
     
     #region Helper Methods
     /// <summary>
-    /// 모든 플레이어를 가져옵니다.
-    /// </summary>
-    private List<PlayerController> GetAllPlayers()
-    {
-        List<PlayerController> allPlayers = new List<PlayerController>();
-        
-        if (MainGameManager.Instance != null)
-        {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
-        }
-        
-        if (allPlayers == null || allPlayers.Count == 0)
-        {
-            allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
-        }
-        
-        return allPlayers;
-    }
-    
-    /// <summary>
     /// 충돌 쿨다운을 정리합니다.
     /// [개선] NetworkId 기반으로 변경
     /// </summary>
@@ -457,5 +597,3 @@ public partial class DashMagicObject : NetworkBehaviour
     }
     #endregion
 }
-
-

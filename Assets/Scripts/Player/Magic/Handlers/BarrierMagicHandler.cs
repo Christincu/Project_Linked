@@ -369,8 +369,11 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
         playerWithBarrier.RPC_TriggerExplosionVfx(explosionPosition, explosionRadius);
 
         // --- 아래는 물리/데미지 로직 (서버에서만 실행됨) ---
+        // [수정] Collection was modified 에러 방지: 먼저 모든 적을 수집한 후 데미지 적용
         Collider2D[] hitColliders = Physics2D.OverlapCircleAll(explosionPosition, explosionRadius);
+        List<EnemyController> validEnemies = new List<EnemyController>();
         
+        // 1단계: 유효한 적들을 먼저 수집
         foreach (var collider in hitColliders)
         {
             if (collider == null) continue;
@@ -380,13 +383,29 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
                 ?? (collider.attachedRigidbody != null ? collider.attachedRigidbody.GetComponent<EnemyController>() : null)
                 ?? (collider.transform.root != null ? collider.transform.root.GetComponent<EnemyController>() : null);
             
-            if (enemy == null || enemy.IsDead) continue;
+            // Networked 프로퍼티(IsDead 등)에 직접 접근하기 전에
+            // EnemyController와 그 NetworkObject의 유효성을 먼저 확인
+            if (enemy == null) continue;
+            if (enemy.Object == null || !enemy.Object.IsValid) continue;
             
             float distance = Vector3.Distance(explosionPosition, enemy.transform.position);
             if (distance <= explosionRadius && enemy.State != null)
             {
-                enemy.State.TakeDamage(explosionDamage);
+                validEnemies.Add(enemy);
             }
+        }
+        
+        // 2단계: 수집된 적들에게 데미지 적용
+        // 이렇게 하면 여러 적이 동시에 죽어도 OnEnemyKilled()가 순차적으로 호출되어
+        // Dictionary 수정 중 순회 문제를 방지할 수 있습니다.
+        foreach (var enemy in validEnemies)
+        {
+            // 다시 한번 유효성 확인 (수집 후 시간이 지나면서 상태가 변경될 수 있음)
+            if (enemy == null || enemy.Object == null || !enemy.Object.IsValid || enemy.State == null) continue;
+            
+            // EnemyState 내부에서 Networked 프로퍼티 접근을 try/catch로 보호하므로
+            // 여기서는 단순히 데미지만 위임
+            enemy.State.TakeDamage(explosionDamage);
         }
     }
     

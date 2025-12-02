@@ -96,10 +96,22 @@ public class BarrierVisualizationManager : MonoBehaviour
         bool hasAnyBarrier = false;
         foreach (var player in allPlayers)
         {
-            if (player != null && player.HasBarrier)
+            if (player != null && player.Object != null && player.Object.IsValid)
             {
-                hasAnyBarrier = true;
-                break;
+                // 네트워크 오브젝트가 스폰된 상태인지 확인
+                try
+                {
+                    if (player.HasBarrier)
+                    {
+                        hasAnyBarrier = true;
+                        break;
+                    }
+                }
+                catch (System.InvalidOperationException)
+                {
+                    // 네트워크 오브젝트가 아직 스폰되지 않았거나 이미 파괴된 경우 무시
+                    continue;
+                }
             }
         }
         
@@ -127,6 +139,12 @@ public class BarrierVisualizationManager : MonoBehaviour
         {
             if (player == null) continue;
             
+            // 네트워크 오브젝트가 유효한지 확인
+            if (player.Object == null || !player.Object.IsValid)
+            {
+                continue;
+            }
+            
             // 베리어 시각화 데이터 가져오기 또는 생성
             if (!_barrierVisuals.ContainsKey(player))
             {
@@ -139,25 +157,35 @@ public class BarrierVisualizationManager : MonoBehaviour
             
             var visualData = _barrierVisuals[player];
             
-            // 사망 시 베리어 시각화 제거
-            if (player.IsDead && visualData.barrierVisualObject != null)
+            // 네트워크 속성 접근 전에 스폰 상태 확인
+            try
             {
-                DestroyBarrierVisual(player);
-                visualData.previousHasBarrier = false;
+                // 사망 시 베리어 시각화 제거
+                if (player.IsDead && visualData.barrierVisualObject != null)
+                {
+                    DestroyBarrierVisual(player);
+                    visualData.previousHasBarrier = false;
+                    continue;
+                }
+                
+                // 베리어 상태에 따라 시각화 업데이트
+                bool hasBarrier = player.HasBarrier;
+                if (hasBarrier && visualData.barrierVisualObject == null)
+                {
+                    CreateBarrierVisual(player);
+                }
+                else if (!hasBarrier && visualData.barrierVisualObject != null)
+                {
+                    DestroyBarrierVisual(player);
+                }
+                
+                visualData.previousHasBarrier = hasBarrier;
+            }
+            catch (System.InvalidOperationException)
+            {
+                // 네트워크 오브젝트가 아직 스폰되지 않았거나 이미 파괴된 경우 무시
                 continue;
             }
-            
-            // 베리어 상태에 따라 시각화 업데이트
-            if (player.HasBarrier && visualData.barrierVisualObject == null)
-            {
-                CreateBarrierVisual(player);
-            }
-            else if (!player.HasBarrier && visualData.barrierVisualObject != null)
-            {
-                DestroyBarrierVisual(player);
-            }
-            
-            visualData.previousHasBarrier = player.HasBarrier;
         }
         
         // 사라진 플레이어 정리
@@ -284,6 +312,12 @@ public class BarrierVisualizationManager : MonoBehaviour
         {
             if (player == null) continue;
             
+            // 네트워크 오브젝트가 유효한지 확인
+            if (player.Object == null || !player.Object.IsValid)
+            {
+                continue;
+            }
+            
             // 폭발 범위 시각화 데이터 가져오기 또는 생성
             if (!_explosionRangeVisuals.ContainsKey(player))
             {
@@ -308,7 +342,18 @@ public class BarrierVisualizationManager : MonoBehaviour
             }
             
             // 사망 시 범위 표시 제거
-            if (player.IsDead)
+            bool isDead = false;
+            try
+            {
+                isDead = player.IsDead;
+            }
+            catch (System.InvalidOperationException)
+            {
+                // 네트워크 오브젝트가 아직 스폰되지 않았거나 이미 파괴된 경우
+                continue;
+            }
+            
+            if (isDead)
             {
                 // 역할 종료: 폭발 범위 오브젝트 완전히 제거
                 DestroyExplosionRangeVisual(player);
@@ -317,7 +362,16 @@ public class BarrierVisualizationManager : MonoBehaviour
             }
             
             // 베리어가 있고 타이머가 실행 중일 때만 표시
-            bool shouldShow = player.HasBarrier && player.BarrierTimer.IsRunning;
+            bool shouldShow = false;
+            try
+            {
+                shouldShow = player.HasBarrier && player.BarrierTimer.IsRunning;
+            }
+            catch (System.InvalidOperationException)
+            {
+                // 네트워크 오브젝트가 아직 스폰되지 않았거나 이미 파괴된 경우
+                continue;
+            }
             
             // 범위 표시 상태 업데이트
             if (shouldShow != visualData.isRangeVisible)
@@ -338,10 +392,18 @@ public class BarrierVisualizationManager : MonoBehaviour
                     // 표시 상태가 켜질 때 즉시 1회 업데이트
                     if (player.Runner != null)
                     {
-                        UpdateExplosionRangeVisualization(player);
-                        visualData.lastPosition = player.transform.position;
-                        float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
-                        visualData.lastExplosionRadius = GetExplosionRadius(remainingTime);
+                        try
+                        {
+                            UpdateExplosionRangeVisualization(player);
+                            visualData.lastPosition = player.transform.position;
+                            float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
+                            visualData.lastExplosionRadius = GetExplosionRadius(remainingTime);
+                        }
+                        catch (System.InvalidOperationException)
+                        {
+                            // 네트워크 오브젝트가 아직 스폰되지 않았거나 이미 파괴된 경우
+                            continue;
+                        }
                     }
                 }
                 else
@@ -356,19 +418,27 @@ public class BarrierVisualizationManager : MonoBehaviour
             // 범위 시각화 업데이트 (범위가 보일 때만)
             if (visualData.isRangeVisible && player.Runner != null)
             {
-                Vector3 currentPosition = player.transform.position;
-                bool hasMoved = Vector3.Distance(currentPosition, visualData.lastPosition) > 0.01f;
-                
-                float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
-                float currentRadius = GetExplosionRadius(remainingTime);
-                
-                // 위치가 변경되었거나 범위가 변경되었을 때 업데이트
-                // 또는 초기 업데이트 (lastExplosionRadius가 -1일 때)
-                if (hasMoved || Mathf.Abs(currentRadius - visualData.lastExplosionRadius) > 0.01f || visualData.lastExplosionRadius < 0f)
+                try
                 {
-                    UpdateExplosionRangeVisualization(player);
-                    visualData.lastPosition = currentPosition;
-                    visualData.lastExplosionRadius = currentRadius;
+                    Vector3 currentPosition = player.transform.position;
+                    bool hasMoved = Vector3.Distance(currentPosition, visualData.lastPosition) > 0.01f;
+                    
+                    float remainingTime = player.BarrierTimer.RemainingTime(player.Runner) ?? 0f;
+                    float currentRadius = GetExplosionRadius(remainingTime);
+                    
+                    // 위치가 변경되었거나 범위가 변경되었을 때 업데이트
+                    // 또는 초기 업데이트 (lastExplosionRadius가 -1일 때)
+                    if (hasMoved || Mathf.Abs(currentRadius - visualData.lastExplosionRadius) > 0.01f || visualData.lastExplosionRadius < 0f)
+                    {
+                        UpdateExplosionRangeVisualization(player);
+                        visualData.lastPosition = currentPosition;
+                        visualData.lastExplosionRadius = currentRadius;
+                    }
+                }
+                catch (System.InvalidOperationException)
+                {
+                    // 네트워크 오브젝트가 아직 스폰되지 않았거나 이미 파괴된 경우
+                    continue;
                 }
             }
         }

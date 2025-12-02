@@ -49,7 +49,6 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
         
         ApplyDashSkillToPlayer(_controller);
         ApplyDashSkillToPlayer(otherPlayer);
-        
         return true;
     }
     

@@ -1,695 +1,424 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement; // SceneManager 사용을 위해 추가
 using Fusion;
-using UnityEngine.SceneManagement;
+using Fusion.Sockets; // NetDisconnectReason 사용을 위해 추가
+using WaveGoalTypeEnum = WaveGoalType;
 
 /// <summary>
-/// 메인 게임 씬의 게임 관리자입니다.
-/// 테스트 모드(로컬 다중 플레이어 시뮬레이션)와 실제 네트워크 모드를 모두 처리합니다.
+/// 게임의 전반적인 상태(스테이지, 웨이브, 플레이어 관리)를 총괄하는 매니저입니다.
+/// (Core 로직: 상태 변수, 생명주기, 변경 감지)
 /// </summary>
-public partial class MainGameManager : MonoBehaviour
+public partial class MainGameManager : NetworkBehaviour, ISceneGameManager
 {
-    [Header("Mode & Settings")]
+    public static MainGameManager Instance { get; private set; }
+
+    [Header("Settings")]
     [SerializeField] private bool _isTestMode = false;
-    
-    [Header("Player Prefabs & Data")]
+    public bool IsTestMode => _isTestMode;
+
+    [Header("References")]
     [SerializeField] private NetworkPrefabRef _playerPrefab;
+    [SerializeField] private StageData _currentStageData;
+    [SerializeField] private List<RoundTrigger> _roundTriggers = new List<RoundTrigger>();
+    
+    [Header("Prefabs")]
+    [Tooltip("메인 카메라 프리팹 (MainCameraController 컴포넌트 포함, 없으면 자동 생성)")]
+    [SerializeField] private GameObject _mainCameraPrefab;
+    [Tooltip("Canvas 프리팹 (타이틀 씬이 아닐 때 자동 생성)")]
+    [SerializeField] private GameObject _canvasPrefab;
+    
+    // Spawn Positions
+    [SerializeField] private Vector2[] _spawnPositions = new Vector2[]
+    {
+        new Vector2(0, 2), new Vector2(0, -2)
+    };
+
+    // Internal State
+    [System.NonSerialized] private NetworkRunner _runner;
+    [System.NonSerialized] private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
+    [System.NonSerialized] private ChangeDetector _changeDetector;
+    
+    // Test Mode Vars
+    public static int SelectedSlot = 0;
+    [System.NonSerialized] private NetworkObject _playerObj1;
+    [System.NonSerialized] private NetworkObject _playerObj2;
+
+    // ========================================================================
+    // Networked Game State
+    // ========================================================================
+    [Networked] public int RoundIndex { get; private set; } = -1;
+    [Networked] public int WaveIndex { get; private set; } = -1;
+    
+    [Networked] public int WaveGoalType { get; private set; } = -1;
+    [Networked] public int WaveCurrentGoal { get; private set; } = 0;
+    [Networked] public int WaveTotalGoal { get; private set; } = 0;
+    [Networked] public float WaveElapsedTime { get; private set; } = 0f;
+
+    // ========================================================================
+    // Local Logic State
+    // ========================================================================
+    private Dictionary<int, WaveProgress> _activeWaves = new Dictionary<int, WaveProgress>();
+    
+    private int _currentRoundIndex = -1;
+    private int _currentWaveIndex = -1;
+    
+    private List<EnemySpawner> _currentRoundEnemySpawners = new List<EnemySpawner>();
+    private List<GoalSpawner> _currentRoundGoalSpawners = new List<GoalSpawner>();
+    private List<RoundDoorNetworkController> _currentRoundDoorObjects = new List<RoundDoorNetworkController>();
+    private List<GameObject> _currentRoundEndActiveObject = new List<GameObject>();
+    
     [SerializeField] private int _firstCharacterIndex = 0;
     [SerializeField] private int _secondCharacterIndex = 1;
     
-    [Header("Spawn Settings")]
-    [SerializeField] private Vector2[] _spawnPositions = new Vector2[]
+    private class WaveProgress
     {
-        new Vector2(0, 2),
-        new Vector2(0, -2)
-    };
-    [SerializeField] private List<EnemySpawner> _enemySpawners = new List<EnemySpawner>();
-    
-    [Header("Stage Settings")]
-    [Tooltip("현재 스테이지 데이터 (StageData)")]
-    [SerializeField] private StageData _currentStageData;
-
-    [Header("Level Settings")]
-    [SerializeField] private GameObject _mapDoorObject;
-    [SerializeField] private Collider2D _mapDoorTriggerColider;
-
-    // Singleton instance
-    public static MainGameManager Instance { get; private set; }
-    
-    // 생성된 플레이어 오브젝트 추적
-    private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
-    private NetworkRunner _runner;
-    
-    // 테스트 모드 전용 필드
-    public static int SelectedSlot = 0; // 0: first, 1: second
-    private NetworkObject _playerObj1;
-    private NetworkObject _playerObj2;
-    public bool IsTestMode => _isTestMode;
-
-    // 맵 문 상태
-    private bool _isMapDoorClosed = false;
-    
-    void Awake()
-    {
-        if (Instance == null)
+        public WaveData waveData;
+        public int currentGoalCount = 0;
+        public float elapsedTime = 0f;
+        public bool isCompleted = false;
+        
+        public WaveProgress() { }
+        public WaveProgress(WaveData data)
         {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-            return;
+            waveData = data;
+            currentGoalCount = 0;
+            elapsedTime = 0f;
+            isCompleted = false;
         }
     }
-    
-    async void Start()
+
+    #region Unity Lifecycle
+
+    private void Awake()
     {
-        // 게임 중 플레이어 참여 이벤트 구독
-        FusionManager.OnPlayerJoinedEvent += OnPlayerJoinedDuringGame;
-        FusionManager.OnPlayerLeftEvent += OnPlayerLeft;
-        FusionManager.OnShutdownEvent += OnNetworkShutdown;
-        FusionManager.OnDisconnectedEvent += OnDisconnected;
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+        UnregisterEvents();
+    }
+
+    private void Start()
+    {
+        RegisterEvents();
         
-        // BarrierVisualizationManager 초기화 (게임 씬에서만 필요)
         _ = BarrierVisualizationManager.Instance;
 
-        // 맵 문 초기 상태 설정: 시작 시 문은 "열린" 상태로 두고(비활성화),
-        // 모든 플레이어가 트리거 안에 들어오면 닫힐 때 활성화되도록 한다.
-        InitializeMapDoorState();
-        
+        // [수정] Start에서는 테스트 모드만 처리합니다.
+        // 일반 모드는 Spawned()에서 초기화를 시작합니다.
         if (_isTestMode)
         {
-            await StartTestSession();
+            _ = StartTestSession();
         }
-        else
+        // 일반 모드는 Spawned()에서 Co_InitializeGameSession_Direct()를 호출합니다.
+    }
+
+    #endregion
+    
+    #region ISceneManager Implementation
+    
+    /// <summary>
+    /// ISceneManager 인터페이스 구현: GameManager에서 호출되는 초기화 메서드
+    /// MainGameManager는 NetworkBehaviour이므로 실제 초기화는 Spawned()에서 진행됩니다.
+    /// 하지만 Canvas는 네트워크와 무관하므로 여기서 초기화합니다.
+    /// </summary>
+    public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
+    {
+        // 필수 컴포넌트 자동 생성 (타이틀 씬 제외)
+        EnsureRequiredComponents();
+        
+        // MainCanvas 찾기 및 초기화 (씬 매니저가 직접 초기화)
+        InitializeMainCanvas(gameManager, gameDataManager);
+        
+        Debug.Log("[MainGameManager] ISceneManager.Initialize called. Canvas initialized. Full game initialization will happen in Spawned().");
+    }
+    
+    /// <summary>
+    /// 필수 컴포넌트(카메라, Canvas)가 없을 경우 자동 생성합니다.
+    /// </summary>
+    private void EnsureRequiredComponents()
+    {
+        // 타이틀 씬인지 확인
+        string currentSceneName = SceneManager.GetActiveScene().name;
+        bool isTitleScene = currentSceneName == "Title";
+        
+        // 1. 메인 카메라 확인 및 생성
+        EnsureMainCamera();
+        
+        // 2. Canvas 확인 및 생성 (타이틀 씬 제외)
+        if (!isTitleScene)
         {
-            StartCoroutine(WaitForRunnerAndSpawn());
+            EnsureCanvas();
         }
     }
     
-    void Update()
+    /// <summary>
+    /// MainCameraController가 붙어있는 메인 카메라가 없을 경우 생성합니다.
+    /// </summary>
+    private void EnsureMainCamera()
     {
+        // MainCameraController가 붙어있는 카메라 찾기
+        MainCameraController existingController = FindObjectOfType<MainCameraController>();
+        
+        if (existingController != null)
+        {
+            // 이미 존재하면 태그 확인 및 설정
+            Camera cam = existingController.GetComponent<Camera>();
+            if (cam != null && !cam.CompareTag("MainCamera"))
+            {
+                cam.tag = "MainCamera";
+            }
+            return;
+        }
+        
+        // 프리팹이 있으면 프리팹으로 생성
+        if (_mainCameraPrefab != null)
+        {
+            GameObject cameraObj = Instantiate(_mainCameraPrefab);
+            cameraObj.name = "Main Camera";
+            
+            // 태그 설정
+            cameraObj.tag = "MainCamera";
+            
+            // MainCameraController 확인 및 추가
+            if (!cameraObj.TryGetComponent(out MainCameraController _))
+            {
+                cameraObj.AddComponent<MainCameraController>();
+            }
+            
+            Debug.Log("[MainGameManager] Main Camera created from prefab.");
+            return;
+        }
+        
+        // 프리팹이 없으면 기본 카메라 생성
+        GameObject newCamera = new GameObject("Main Camera");
+        newCamera.tag = "MainCamera";
+        
+        Camera camera = newCamera.AddComponent<Camera>();
+        camera.orthographic = true;
+        camera.orthographicSize = 5f;
+        camera.clearFlags = CameraClearFlags.SolidColor;
+        camera.backgroundColor = Color.black;
+        
+        // MainCameraController 추가
+        newCamera.AddComponent<MainCameraController>();
+        
+        Debug.Log("[MainGameManager] Main Camera created (default settings).");
+    }
+    
+    /// <summary>
+    /// Canvas가 없을 경우 Canvas 프리팹을 생성합니다. (타이틀 씬 제외)
+    /// </summary>
+    private void EnsureCanvas()
+    {
+        // MainCanvas 찾기 (MainCanvas는 Canvas를 상속받거나 포함함)
+        MainCanvas existingCanvas = FindObjectOfType<MainCanvas>();
+        
+        if (existingCanvas != null)
+        {
+            return; // 이미 MainCanvas가 존재함
+        }
+        
+        // 일반 Canvas도 확인 (MainCanvas가 아닌 Canvas가 있을 수 있음)
+        Canvas generalCanvas = FindObjectOfType<Canvas>();
+        if (generalCanvas != null)
+        {
+            // MainCanvas 컴포넌트가 있는지 다시 확인
+            if (generalCanvas.GetComponent<MainCanvas>() == null)
+            {
+                Debug.LogWarning("[MainGameManager] Canvas found but it's not a MainCanvas. Consider using MainCanvas prefab.");
+            }
+            return; // Canvas가 이미 존재함
+        }
+        
+        // 프리팹이 없으면 경고 후 종료
+        if (_canvasPrefab == null)
+        {
+            Debug.LogWarning("[MainGameManager] Canvas prefab is not assigned! Please assign Canvas.prefab in inspector.");
+            return;
+        }
+        
+        // 프리팹으로 Canvas 생성
+        GameObject canvasObj = Instantiate(_canvasPrefab);
+        canvasObj.name = "Canvas";
+        
+        Debug.Log("[MainGameManager] Canvas created from prefab.");
+    }
+    
+    /// <summary>
+    /// MainCanvas를 찾아서 초기화합니다.
+    /// </summary>
+    private void InitializeMainCanvas(GameManager gameManager, GameDataManager gameDataManager)
+    {
+        // FindObjectOfType 사용 (GameObject.Find보다 효율적)
+        MainCanvas mainCanvas = FindObjectOfType<MainCanvas>();
+        
+        if (mainCanvas != null)
+        {
+            // ICanvas 인터페이스를 통해 초기화
+            ICanvas canvas = mainCanvas as ICanvas;
+            if (canvas != null)
+            {
+                canvas.Initialize(gameManager, gameDataManager);
+                Debug.Log("[MainGameManager] MainCanvas initialized successfully.");
+            }
+            else
+            {
+                Debug.LogError("[MainGameManager] MainCanvas does not implement ICanvas!");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[MainGameManager] MainCanvas not found. Some UI features may not work.");
+        }
+    }
+    
+    #endregion
+
+    #region Unity Update
+
+    /// <summary>
+    /// Unity Update - 로컬 입력 처리를 위해 사용 (테스트 모드)
+    /// 주의: 네트워크 동기화가 필요한 로직은 FixedUpdateNetwork에서 처리해야 합니다.
+    /// </summary>
+    private void Update()
+    {
+        // 테스트 모드 입력 처리 (Unity Update에서 처리해야 Input.GetKeyDown이 제대로 작동함)
+        // FixedUpdateNetwork는 네트워크 틱 단위로 실행되므로 입력 반응이 느립니다.
         if (_isTestMode)
         {
             HandleTestModeInput();
         }
-
-        // 레벨 디자인: 모든 플레이어가 문 트리거에 들어왔는지 확인
-        UpdateMapDoorState();
     }
 
-    void OnDestroy()
+    #endregion
+
+    #region Fusion Lifecycle & Logic
+
+    public override void Spawned()
     {
-        if (Instance == this)
+        base.Spawned();
+        
+        _runner = Runner;
+        _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
+
+        if (_roundTriggers == null || _roundTriggers.Count == 0)
         {
-            Instance = null;
+            _roundTriggers = new List<RoundTrigger>();
+            _roundTriggers.AddRange(FindObjectsOfType<RoundTrigger>());
+        }
+
+        // [핵심] Runner가 확실히 존재하는 이 시점에 바로 초기화 코루틴을 시작합니다.
+        // 테스트 모드가 아닐 때만 실행 (테스트 모드는 Start()에서 처리)
+        if (!_isTestMode)
+        {
+            StartCoroutine(Co_InitializeGameSession_Direct());
+        }
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        if (_runner != null && _runner.IsServer && _activeWaves.Count > 0)
+        {
+            UpdateSurviveWaveGoals(_runner.DeltaTime);
         }
         
-        // 이벤트 구독 해제
+        // 주의: 테스트 모드 입력 처리는 Unity Update()에서 처리합니다.
+        // FixedUpdateNetwork는 네트워크 틱 단위로 실행되므로 Input.GetKeyDown이 제대로 작동하지 않습니다.
+    }
+
+    public override void Render()
+    {
+        if (_changeDetector == null) return;
+
+        bool uiNeedsUpdate = false;
+
+        foreach (var change in _changeDetector.DetectChanges(this))
+        {
+            switch (change)
+            {
+                case nameof(RoundIndex):
+                case nameof(WaveIndex):
+                case nameof(WaveGoalType):
+                case nameof(WaveCurrentGoal):
+                case nameof(WaveTotalGoal):
+                    uiNeedsUpdate = true;
+                    break;
+            }
+        }
+
+        if (uiNeedsUpdate || (WaveElapsedTime > 0 && WaveGoalType >= 0)) 
+        {
+            if (GameManager.Instance != null && GameManager.Instance.Canvas is MainCanvas canvas)
+            {
+                UpdateWaveUI(canvas);
+            }
+        }
+    }
+
+    #endregion
+
+    #region UI Synchronization
+
+    private void UpdateWaveUI(MainCanvas canvas)
+    {
+        if (canvas == null)
+        {
+            Debug.LogWarning("[MainGameManager] UpdateWaveUI: Canvas is null!");
+            return;
+        }
+        
+        string waveInfo = $"Wave: {WaveIndex + 1}";
+        canvas.SetWaveText(waveInfo);
+
+        string goalText = "";
+        WaveGoalTypeEnum goalTypeEnum = (WaveGoalTypeEnum)this.WaveGoalType;
+        switch (goalTypeEnum)
+        {
+            case WaveGoalTypeEnum.Kill:
+                goalText = $"Kill: {WaveCurrentGoal}/{WaveTotalGoal}";
+                break;
+            case WaveGoalTypeEnum.Survive:
+                float remaining = Mathf.Max(0, WaveTotalGoal - WaveElapsedTime);
+                goalText = $"Survive: {remaining:F1}s";
+                break;
+            case WaveGoalTypeEnum.Collect:
+                goalText = $"Collect: {WaveCurrentGoal}/{WaveTotalGoal}";
+                break;
+            default:
+                goalText = "Ready";
+                break;
+        }
+        canvas.SetGoalText(goalText);
+    }
+
+    #endregion
+
+    #region Event Registration
+
+    // RegisterEvents는 MainGameManager.NetworkEvents.cs에 정의됨
+    // OnPlayerLeft, OnNetworkShutdown, OnDisconnected도 NetworkEvents.cs에 정의됨
+
+    private void UnregisterEvents()
+    {
         FusionManager.OnPlayerJoinedEvent -= OnPlayerJoinedDuringGame;
         FusionManager.OnPlayerLeftEvent -= OnPlayerLeft;
         FusionManager.OnShutdownEvent -= OnNetworkShutdown;
         FusionManager.OnDisconnectedEvent -= OnDisconnected;
     }
-    
-    // =========================================================
-    // 네트워크 모드 로직
-    // =========================================================
 
-    /// <summary>
-    /// 맵 문과 관련된 초기 상태를 설정합니다.
-    /// - 씬 시작 시 문은 열린 상태(비활성화)로 두고
-    /// - 모든 플레이어가 트리거에 들어왔을 때 닫히면서 활성화되도록 합니다.
-    /// </summary>
-    private void InitializeMapDoorState()
-    {
-        _isMapDoorClosed = false;
+    #endregion
 
-        // 문 오브젝트가 설정되어 있다면 비활성화해서 "열린" 상태로 시작
-        if (_mapDoorObject != null)
-        {
-            _mapDoorObject.SetActive(false);
-        }
-    }
+    #region Data Accessors
 
-    private IEnumerator WaitForRunnerAndSpawn()
-    {
-        NetworkRunner runner = FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
-        
-        while (runner == null || !runner.IsRunning)
-        {
-            yield return null;
-            runner = FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
-        }
-        
-        _runner = runner;
-        
-        yield return new WaitForSeconds(0.5f);
-        
-        if (runner.IsServer)
-        {
-            yield return StartCoroutine(SpawnAllPlayersAsync(runner));
-        }
-        else
-        {
-            // 클라이언트: 서버가 스폰한 플레이어를 찾아서 딕셔너리에 추가
-            yield return new WaitForSeconds(1.0f);
-            FindAndRegisterSpawnedPlayers(runner);
-        }
-        
-        InitializeMainCameraForNetworkMode();
-        
-        // 스테이지 데이터 기반 적 스폰 초기화
-        InitializeStageEnemySpawning();
-        
-        GameManager.Instance?.FinishLoadingScreen();
-    }
-    
-    /// <summary>
-    /// 스테이지 데이터를 기반으로 적 스폰을 초기화합니다.
-    /// </summary>
-    private void InitializeStageEnemySpawning()
-    {
-        if (_currentStageData == null)
-        {
-            Debug.LogWarning("[MainGameManager] Current stage data is not set. Enemy spawning will be skipped.");
-            return;
-        }
-
-        if (_currentStageData.waveDataList == null || _currentStageData.waveDataList.Count == 0)
-        {
-            Debug.LogWarning($"[MainGameManager] Stage '{_currentStageData.stageName}' has no wave data.");
-            return;
-        }
-
-        // 첫 번째 웨이브 자동 시작 (추후 웨이브 진행 로직 추가 가능)
-        StartWave(0);
-    }
-    
-    /// <summary>
-    /// 특정 웨이브를 시작합니다.
-    /// </summary>
-    /// <param name="waveIndex">시작할 웨이브 인덱스</param>
-    public void StartWave(int waveIndex)
-    {
-        if (_currentStageData == null)
-        {
-            Debug.LogError("[MainGameManager] Current stage data is null!");
-            return;
-        }
-
-        if (waveIndex < 0 || waveIndex >= _currentStageData.waveDataList.Count)
-        {
-            Debug.LogError($"[MainGameManager] Invalid wave index: {waveIndex} (Total waves: {_currentStageData.waveDataList.Count})");
-            return;
-        }
-
-        WaveData waveData = _currentStageData.waveDataList[waveIndex];
-        if (waveData == null)
-        {
-            Debug.LogError($"[MainGameManager] Wave data at index {waveIndex} is null!");
-            return;
-        }
-
-        Debug.Log($"[MainGameManager] Starting wave {waveIndex} for stage '{_currentStageData.stageName}'");
-
-        // 모든 EnemySpawner에 웨이브 데이터 전달
-        foreach (var spawner in _enemySpawners)
-        {
-            if (spawner != null)
-            {
-                spawner.SpawnWave(waveData);
-            }
-        }
-    }
-    
-    /// <summary>
-    /// 현재 스테이지 데이터를 설정합니다.
-    /// </summary>
-    /// <param name="stageData">설정할 스테이지 데이터</param>
-    public void SetStageData(StageData stageData)
-    {
-        _currentStageData = stageData;
-        Debug.Log($"[MainGameManager] Stage data set to: {stageData?.stageName ?? "null"}");
-    }
-    
-    /// <summary>
-    /// 현재 스테이지 데이터를 가져옵니다.
-    /// </summary>
+    public void SetStageData(StageData stageData) => _currentStageData = stageData;
     public StageData GetCurrentStageData() => _currentStageData;
-    
-    /// <summary>
-    /// 클라이언트에서 이미 스폰된 플레이어를 찾아서 딕셔너리에 등록합니다.
-    /// </summary>
-    private void FindAndRegisterSpawnedPlayers(NetworkRunner runner)
-    {
-        PlayerController[] allPlayers = FindObjectsOfType<PlayerController>();
-        int newlyRegistered = 0;
-        
-        foreach (var player in allPlayers)
-        {
-            if (player.Object != null)
-            {
-                PlayerRef playerRef = player.Object.InputAuthority;
-                
-                // PlayerRef.None이 아니고 아직 등록되지 않은 경우에만 추가
-                if (playerRef != PlayerRef.None && !_spawnedPlayers.ContainsKey(playerRef))
-                {
-                    _spawnedPlayers[playerRef] = player.Object;
-                    newlyRegistered++;
-                    Debug.Log($"[MainGameManager] Client: Registered player {playerRef} (Local: {playerRef == runner.LocalPlayer})");
-                }
-            }
-        }
-        
-        if (newlyRegistered > 0)
-        {
-            Debug.Log($"[MainGameManager] Client: Registered {newlyRegistered} new player(s). Total: {_spawnedPlayers.Count}");
-        }
-    }
-    
-    private void InitializeMainCameraForNetworkMode()
-    {
-        Camera mainCamera = Camera.main;
-        if (mainCamera == null) return;
-        
-        MainCameraController cameraController = mainCamera.GetComponent<MainCameraController>();
-        if (cameraController == null) return;
-        
-        PlayerController localPlayer = GetLocalPlayer();
-        if (localPlayer != null)
-        {
-            cameraController.SetTarget(localPlayer);
-            Debug.Log($"[MainGameManager] Camera target set to local player");
-        }
-    }
-    
-    // 게임 중 플레이어 참여 처리
-    private void OnPlayerJoinedDuringGame(PlayerRef player, NetworkRunner runner)
-    {
-        if (SceneManager.GetActiveScene().name == "Main")
-        {
-            if (runner.IsServer && !_spawnedPlayers.ContainsKey(player))
-            {
-                // 서버: 플레이어 스폰
-                int spawnIndex = _spawnedPlayers.Count;
-                StartCoroutine(SpawnPlayerAsync(runner, player, spawnIndex));
-            }
-            else if (!runner.IsServer)
-            {
-                // 클라이언트: 서버가 스폰한 플레이어가 동기화될 때까지 대기 후 등록
-                StartCoroutine(WaitAndRegisterPlayer(runner, player));
-            }
-        }
-    }
-    
-    /// <summary>
-    /// 클라이언트에서 새로 참여한 플레이어가 스폰될 때까지 대기 후 등록합니다.
-    /// </summary>
-    private IEnumerator WaitAndRegisterPlayer(NetworkRunner runner, PlayerRef player)
-    {
-        Debug.Log($"[MainGameManager] Client: Waiting for player {player} to spawn...");
-        
-        // 플레이어가 스폰될 때까지 대기
-        int maxAttempts = 50; // 5초 (0.1초 * 50)
-        int attempts = 0;
-        
-        while (attempts < maxAttempts)
-        {
-            FindAndRegisterSpawnedPlayers(runner);
-            
-            if (_spawnedPlayers.ContainsKey(player))
-            {
-                Debug.Log($"[MainGameManager] Client: Player {player} registered successfully");
-                yield break;
-            }
-            
-            yield return new WaitForSeconds(0.1f);
-            attempts++;
-        }
-        
-        Debug.LogWarning($"[MainGameManager] Client: Timeout waiting for player {player} to spawn");
-    }
-    
-    private IEnumerator SpawnAllPlayersAsync(NetworkRunner runner)
-    {
-        if (!runner.IsServer) yield break;
-        
-        int spawnIndex = 0;
-        foreach (var player in runner.ActivePlayers)
-        {
-            // 플레이어가 이미 스폰되었을 수 있으므로 검사
-            if (!_spawnedPlayers.ContainsKey(player))
-            {
-                yield return SpawnPlayerAsync(runner, player, spawnIndex);
-            }
-            spawnIndex++;
-        }
-    }
-    
-    /// <summary>
-    /// ScenSpawner에서 스폰 위치를 가져옵니다. 없으면 기본 위치 사용.
-    /// </summary>
-    private Vector3 GetSceneSpawnPosition(int index)
-    {
-        if (ScenSpawner.Instance != null)
-        {
-            Vector3 pos = ScenSpawner.Instance.GetSpawnPosition(index);
-            return pos;
-        }
-        
-        Vector3 defaultPos = _spawnPositions[index % _spawnPositions.Length];
-        return defaultPos;
-    }
-    
-    private IEnumerator SpawnPlayerAsync(NetworkRunner runner, PlayerRef player, int spawnIndex)
-    {
-        if (_spawnedPlayers.ContainsKey(player)) yield break;
-        
-        Vector2 spawnPosition = GetSceneSpawnPosition(spawnIndex);
-        
-        yield return null;
+    public int GetCurrentRoundIndex() => RoundIndex;
 
-        NetworkObject playerObject = runner.Spawn(
-            _playerPrefab, 
-            spawnPosition, 
-            Quaternion.identity, 
-            player,
-            (runner, obj) => 
-            {
-                Debug.Log($"[MainGameManager] OnBeforeSpawned for player {player}");
-            }
-        );
-        
-        if (playerObject != null)
-        {
-            _spawnedPlayers[player] = playerObject;
-            
-            if (playerObject.TryGetComponent(out PlayerController playerController))
-            {
-                // PlayerData에서 캐릭터 인덱스 가져오기 및 설정
-                PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
-                if (playerData != null)
-                {
-                    playerController.SetCharacterIndex(playerData.CharacterIndex);
-                    // PlayerData에 실제 플레이어 오브젝트 연결 (서버만)
-                    if (runner.IsServer)
-                    {
-                        playerData.PlayerInstance = playerObject;
-                    }
-                }
-                
-                // PlayerState 이벤트 구독 (UI 업데이트를 위해)
-                if (playerController.State != null)
-                {
-                    playerController.State.OnHealthChanged += (current, max) => OnPlayerHealthChanged(player, current, max);
-                    playerController.State.OnDeath += (killer) => OnPlayerDied(player, killer);
-                    playerController.State.OnRespawned += () => OnPlayerRespawned(player);
-                }
-            }
-            else
-            {
-                Debug.LogError($"PlayerController not found on spawned player object!");
-            }
-        }
-        else
-        {
-            Debug.LogError($"Failed to spawn player {player}");
-        }
-    }
-
-    // =========================================================
-    // 공용 메서드 및 이벤트 핸들러
-    // =========================================================
-
-    /// <summary>
-    /// 맵 문 트리거에 모든 플레이어가 들어왔는지 체크하고, 들어왔다면 문을 닫습니다.
-    /// </summary>
-    private void UpdateMapDoorState()
-    {
-        // 문이 이미 닫혔거나, 문/트리거가 설정되지 않았다면 처리하지 않음
-        if (_isMapDoorClosed || _mapDoorObject == null || _mapDoorTriggerColider == null)
-            return;
-
-        // 현재 씬에 존재하는 모든 플레이어 가져오기
-        List<PlayerController> players = GetAllPlayers();
-        if (players == null || players.Count == 0)
-            return;
-
-        // 한 명이라도 트리거 영역 밖이면 아직 닫지 않음
-        foreach (var player in players)
-        {
-            if (player == null || player.IsDead) continue;
-
-            Vector2 pos = player.transform.position;
-            // Collider2D의 OverlapPoint를 사용해 포인트가 트리거 안에 있는지 검사
-            if (!_mapDoorTriggerColider.OverlapPoint(pos))
-            {
-                return; // 아직 모두 들어오지 않음
-            }
-        }
-
-        // 여기까지 왔으면 "모든 살아있는 플레이어"가 트리거 안에 있음 → 문 닫기
-        CloseMapDoor();
-    }
-
-    /// <summary>
-    /// 맵 문을 닫습니다. (애니메이션/상태 변경은 이 메서드 안에서 처리)
-    /// </summary>
-    private void CloseMapDoor()
-    {
-        if (_isMapDoorClosed) return;
-
-        _isMapDoorClosed = true;
-
-        if (_mapDoorObject != null)
-        {
-            // 기본 구현: 문 오브젝트 비활성화 (필요 시 애니메이션으로 교체 가능)
-            _mapDoorObject.SetActive(true);
-        }
-
-        Debug.Log("[MainGameManager] All players entered map door trigger. Door closed.");
-    }
-    
-    // 플레이어 제거 처리
-    public void OnPlayerLeft(PlayerRef player, NetworkRunner runner)
-    {
-        Debug.Log($"[MainGameManager] OnPlayerLeft - Player {player}, IsServer: {runner.IsServer}");
-        
-        // 이미 처리된 플레이어인지 확인 (중복 호출 방지)
-        if (!_spawnedPlayers.ContainsKey(player))
-        {
-            Debug.Log($"[MainGameManager] Player {player} already processed, skipping duplicate call");
-            return;
-        }
-        
-        // PlayerData 가져오기 및 제거 (서버만) - 먼저 처리
-        if (runner.IsServer)
-        {
-            PlayerData playerData = GameManager.Instance?.GetPlayerData(player, runner);
-            if (playerData != null && playerData.Object != null)
-            {
-                Debug.Log($"[MainGameManager] Despawning PlayerData for player {player}");
-                runner.Despawn(playerData.Object);
-            }
-            else
-            {
-                Debug.LogWarning($"[MainGameManager] PlayerData not found or already despawned for player {player}");
-            }
-        }
-        
-        // PlayerController 제거
-        if (_spawnedPlayers.TryGetValue(player, out NetworkObject playerObject))
-        {
-            // 플레이어 오브젝트 제거 (서버만)
-            if (playerObject != null && runner.IsServer)
-            {
-                Debug.Log($"[MainGameManager] Despawning PlayerController for player {player}");
-                runner.Despawn(playerObject);
-            }
-            _spawnedPlayers.Remove(player);
-        }
-        else
-        {
-            Debug.LogWarning($"[MainGameManager] PlayerController not found in _spawnedPlayers for player {player}");
-        }
-        
-        // 게임 중 플레이어가 나가면 경고창만 표시 (게임은 계속 진행)
-        if (!_isTestMode && SceneManager.GetActiveScene().name == "Main")
-        {
-            int remainingPlayers = runner.ActivePlayers.Count();
-            Debug.Log($"[MainGameManager] Remaining players: {remainingPlayers}");
-            if (remainingPlayers < 2)
-            {
-                GameManager.Instance?.ShowWarningPanel("상대방이 나갔습니다.");
-            }
-        }
-    }
-    
-
-    /// <summary>
-    /// 로컬 플레이어의 PlayerController를 가져옵니다.
-    /// </summary>
-    public PlayerController GetLocalPlayer()
-    {
-        if (_isTestMode)
-        {
-            return GetSelectedPlayer();
-        }
-        
-        NetworkRunner runner = _runner ?? FusionManager.LocalRunner ?? FindObjectOfType<NetworkRunner>();
-        
-        if (runner == null)
-        {
-            return null;
-        }
-
-        var localPlayerRef = runner.LocalPlayer;
-        
-        if (_spawnedPlayers.TryGetValue(localPlayerRef, out var playerObj))
-        {
-            return playerObj?.GetComponent<PlayerController>();
-        }
-
-        // 플레이어를 찾지 못한 경우 한 번 더 시도 (클라이언트 초기화 타이밍 문제 대응)
-        FindAndRegisterSpawnedPlayers(runner);
-        
-        if (_spawnedPlayers.TryGetValue(localPlayerRef, out playerObj))
-        {
-            // NetworkObject가 파괴되었는지 확인
-            if (playerObj == null || !playerObj.IsValid)
-            {
-                return null;
-            }
-            
-            return playerObj.GetComponent<PlayerController>();
-        }
-
-        return null;
-    }
-    
-    /// <summary>
-    /// [테스트 모드 전용] 현재 선택된 플레이어의 PlayerController를 가져옵니다.
-    /// </summary>
-    public PlayerController GetSelectedPlayer()
-    {
-        var playerObj = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
-        
-        // NetworkObject가 파괴되었는지 확인
-        if (playerObj == null || !playerObj.IsValid)
-        {
-            return null;
-        }
-        
-        return playerObj.GetComponent<PlayerController>();
-    }
-
-    /// <summary>
-    /// 특정 PlayerRef의 PlayerController를 가져옵니다.
-    /// </summary>
-    public PlayerController GetPlayer(PlayerRef playerRef)
-    {
-        if (_spawnedPlayers.TryGetValue(playerRef, out var playerObj))
-        {
-            return playerObj.GetComponent<PlayerController>();
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// 모든 플레이어의 PlayerController를 가져옵니다.
-    /// </summary>
-    public List<PlayerController> GetAllPlayers()
-    {
-        // 테스트 모드: 로컬에서 생성한 두 플레이어를 모두 반환
-        if (_isTestMode)
-        {
-            var result = new List<PlayerController>();
-            if (_playerObj1 != null && _playerObj1.IsValid)
-            {
-                var c1 = _playerObj1.GetComponent<PlayerController>();
-                if (c1 != null) result.Add(c1);
-            }
-            if (_playerObj2 != null && _playerObj2.IsValid)
-            {
-                var c2 = _playerObj2.GetComponent<PlayerController>();
-                if (c2 != null) result.Add(c2);
-            }
-            return result;
-        }
-
-        // 네트워크 모드: 서버/클라이언트가 등록한 맵을 기준으로 반환
-        return _spawnedPlayers.Values
-            .Select(obj => obj != null ? obj.GetComponent<PlayerController>() : null)
-            .Where(controller => controller != null)
-            .ToList();
-    }
-
-    #region Event Handlers
-    private void OnPlayerHealthChanged(PlayerRef player, float current, float max)
-    {
-        // UI 업데이트 등 추가 로직 (MainCanvas가 PlayerState 이벤트를 구독하고 있으므로 여기서는 선택적)
-    }
-
-    private void OnPlayerDied(PlayerRef player, PlayerRef killer)
-    {
-        // 추가 게임 로직 (점수, 통계 등)
-    }
-
-    private void OnPlayerRespawned(PlayerRef player)
-    {
-        // 추가 리스폰 로직
-    }
-
-    /// <summary>
-    /// 네트워크 세션이 종료되었을 때 호출됩니다 (호스트가 나가거나 세션이 종료됨)
-    /// </summary>
-    private void OnNetworkShutdown(NetworkRunner runner)
-    {
-        Debug.Log("[MainGameManager] Network shutdown detected, returning to title...");
-        
-        // 테스트 모드가 아닐 때만 타이틀로 돌아감
-        if (!_isTestMode)
-        {
-            GameManager.Instance?.ShowWarningPanel("호스트가 나갔습니다. 타이틀로 돌아갑니다.");
-            StartCoroutine(ReturnToTitleAfterDelay());
-        }
-    }
-
-    /// <summary>
-    /// 서버와의 연결이 끊어졌을 때 호출됩니다 (클라이언트 관점)
-    /// FusionManager.OnDisconnectedEvent를 통해 호출됩니다.
-    /// </summary>
-    private void OnDisconnected(NetworkRunner runner)
-    {
-        Debug.Log("[MainGameManager] Disconnected from server, returning to title...");
-        
-        // 테스트 모드가 아닐 때만 타이틀로 돌아감
-        if (!_isTestMode)
-        {
-            GameManager.Instance?.ShowWarningPanel("서버와의 연결이 끊어졌습니다. 타이틀로 돌아갑니다.");
-            StartCoroutine(ReturnToTitleAfterDelay());
-        }
-    }
-
-    /// <summary>
-    /// 일정 시간 후 타이틀 씬으로 돌아갑니다.
-    /// </summary>
-    private IEnumerator ReturnToTitleAfterDelay()
-    {
-        yield return new WaitForSeconds(2f);
-        
-        // NetworkRunner가 있으면 정리
-        if (_runner != null)
-        {
-            _runner.Shutdown();
-        }
-        
-        // 타이틀 씬으로 이동
-        UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
-    }
     #endregion
 }

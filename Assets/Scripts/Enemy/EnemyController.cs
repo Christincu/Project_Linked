@@ -73,6 +73,16 @@ public class EnemyController : NetworkBehaviour
     /// </summary>
     public override void Spawned()
     {
+        base.Spawned();
+        
+        // Fusion Physics 시뮬레이션에 포함시킴 (NetworkRigidbody2D가 있을 때 필요)
+        // 클라이언트 물리 예측 모드에서 NetworkRigidbody 경고 제거
+        // base.Spawned() 직후에 호출하여 NetworkRigidbody의 AfterSpawned() 전에 설정되도록 함
+        if (Runner != null && Object != null && GetComponent<Fusion.Addons.Physics.NetworkRigidbody2D>() != null)
+        {
+            Runner.SetIsSimulated(Object, true);
+        }
+
         _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
         _gameDataManager = GameDataManager.Instance;
         _previousPosition = transform.position;
@@ -313,7 +323,6 @@ public class EnemyController : NetworkBehaviour
             if (networkRb.InterpolationTarget == null || networkRb.InterpolationTarget != viewObjParent)
             {
                 networkRb.InterpolationTarget = viewObjParent;
-                Debug.Log($"[EnemyController] Interpolation Target set to ViewObjParent");
             }
         }
         else
@@ -504,7 +513,6 @@ public class EnemyController : NetworkBehaviour
             if (viewObjParent != null)
             {
                 instance.transform.SetParent(viewObjParent, false);
-                Debug.Log($"[EnemyController] ViewObj created under ViewObjParent");
             }
             else
             {
