@@ -48,20 +48,22 @@ MonoBehaviour:
   _isTestMode: 0
   _playerPrefab:
     RawGuidValue: 8c37017ae471a3245bf694d928af1960
-  _firstCharacterIndex: 0
-  _secondCharacterIndex: 1
-  _spawnPositions:
-  - {x: 0, y: 2}
-  - {x: 0, y: -2}
   _currentStageData: {fileID: 11400000, guid: 5e228b11a262e2a428718c7aba306bdb, type: 2}
   _roundTriggers:
   - {fileID: 0}
-  _NetworkRoundIndex: -1
-  _NetworkWaveIndex: -1
-  _NetworkWaveGoalType: -1
-  _NetworkWaveCurrentGoal: 0
-  _NetworkWaveTotalGoal: 0
-  _NetworkWaveElapsedTime: 0
+  _mainCameraPrefab: {fileID: 5215916245106365373, guid: e5ea1979600001443a4ee0e001dc8592, type: 3}
+  _canvasPrefab: {fileID: 6663652681012781032, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+  _spawnPositions:
+  - {x: 0, y: 2}
+  - {x: 0, y: -2}
+  _RoundIndex: -1
+  _WaveIndex: -1
+  _WaveGoalType: -1
+  _WaveCurrentGoal: 0
+  _WaveTotalGoal: 0
+  _WaveElapsedTime: 0
+  _firstCharacterIndex: 0
+  _secondCharacterIndex: 1
 --- !u!114 &8716870012835804170
 MonoBehaviour:
   m_ObjectHideFlags: 0
