@@ -106,16 +106,11 @@ public partial class MainGameManager : NetworkBehaviour, ISceneGameManager
     private void Start()
     {
         RegisterEvents();
-        
-        _ = BarrierVisualizationManager.Instance;
 
-        // [수정] Start에서는 테스트 모드만 처리합니다.
-        // 일반 모드는 Spawned()에서 초기화를 시작합니다.
         if (_isTestMode)
         {
             _ = StartTestSession();
         }
-        // 일반 모드는 Spawned()에서 Co_InitializeGameSession_Direct()를 호출합니다.
     }
 
     #endregion

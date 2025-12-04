@@ -56,6 +56,10 @@ public class BarrierMagicCombinationData : MagicCombinationData
     [Tooltip("베리어 폭발 이펙트 프리팹 (GameObject)")]
     public GameObject explosionVfxPrefab;
     
+    [Header("Explosion VFX Settings")]
+    [Tooltip("폭발 이펙트 크기 배율 (반지름에 곱해지는 값)")]
+    public float explosionVfxScale = 1f;
+    
     /// <summary>
     /// 남은 시간에 따라 폭발 반지름과 데미지를 반환합니다.
     /// </summary>

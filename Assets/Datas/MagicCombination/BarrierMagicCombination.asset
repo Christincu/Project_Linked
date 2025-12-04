@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4301e9cfb6ef6bb46a76777b1c9660ac, type: 3}
   m_Name: BarrierMagicCombination
   m_EditorClassIdentifier: 
+  code: 875cef44-1974-4435-83f5-7464778a1774
   magicCode1: 2
   magicCode2: 3
   resultMagicCode: 10
@@ -29,4 +30,5 @@ MonoBehaviour:
   nonReceiverHealth: 1
   barrierMagicObjectPrefab:
     RawGuidValue: 42ca306a686a8024a996cbe404f0a01f
-  explosionVfxPrefab: {fileID: 495353710250101849, guid: 7afec738fee33bc44a549fdbf59fb04d, type: 3}
+  explosionVfxPrefab: {fileID: 9173138282139430196, guid: dae7456a44c7aea49ad9efe3c4b810f2, type: 3}
+  explosionVfxScale: 2

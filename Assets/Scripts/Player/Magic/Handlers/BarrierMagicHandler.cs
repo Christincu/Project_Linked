@@ -105,7 +105,7 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
     public void Update()
     {
         // 하이라이트 시각 효과 업데이트 (선택 모드용)
-        // 베리어 시각화는 BarrierVisualizationManager에서 처리
+        // 베리어 시각화는 BarrierMagicObject에서 처리
         UpdateHighlightVisuals();
     }
     
@@ -315,6 +315,9 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
                 player.BarrierTimer = TickTimer.CreateFromSeconds(_controller.Runner, barrierData.barrierDuration);
                 player.HasBarrier = true;
                 Debug.Log($"[BarrierMagicHandler] {targetPlayer.name} received barrier (HP: {barrierData.barrierReceiverHealth}, Duration: {barrierData.barrierDuration}s)");
+                
+                // BarrierMagicObject 스폰
+                SpawnBarrierMagicObject(targetPlayer, barrierData);
             }
             else
             {
@@ -340,6 +343,38 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
             _sharedHighlightInstance.transform.SetParent(null);
         }
         _currentHighlightedPlayer = null;
+    }
+    
+    /// <summary>
+    /// 플레이어에게 베리어 마법 오브젝트를 스폰합니다. (Runner.Spawn 사용)
+    /// </summary>
+    private void SpawnBarrierMagicObject(PlayerController player, BarrierMagicCombinationData barrierData)
+    {
+        if (player == null || !player.Object.HasStateAuthority) return;
+        if (barrierData == null || barrierData.barrierMagicObjectPrefab == default) 
+        {
+            Debug.LogError("[BarrierHandler] Missing Data or Prefab");
+            return;
+        }
+
+        // Runner.Spawn 사용 (네트워크 동기화 필수)
+        NetworkObject spawnedObj = player.Runner.Spawn(
+            barrierData.barrierMagicObjectPrefab, 
+            player.transform.position, 
+            Quaternion.identity, 
+            player.Object.InputAuthority
+        );
+
+        Debug.Log($"[BarrierMagicHandler] Spawned Barrier Magic Object for {player.name}");
+
+        if (spawnedObj != null)
+        {
+            var magicObj = spawnedObj.GetComponent<BarrierMagicObject>();
+            if (magicObj != null)
+            {
+                magicObj.Initialize(player, barrierData);
+            }
+        }
     }
     #endregion
     

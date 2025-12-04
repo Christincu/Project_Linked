@@ -355,7 +355,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         if (barrierData?.explosionVfxPrefab != null)
         {
             GameObject vfx = Instantiate(barrierData.explosionVfxPrefab, position, Quaternion.identity);
-            vfx.transform.localScale = Vector3.one * radius;
+            // 폭발 반지름에 배율을 적용하여 이펙트 크기 설정
+            float vfxScale = radius * barrierData.explosionVfxScale;
+            vfx.transform.localScale = Vector3.one * vfxScale;
             Destroy(vfx, 2.0f);
         }
     }
@@ -527,6 +529,8 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
 
             if (BarrierTimer.Expired(Runner))
             {
+                // 타이머 만료 시 베리어만 해제 (플레이어가 살아있으면 폭발하지 않음)
+                // 폭발은 플레이어가 죽었을 때만 발생 (PlayerState.HandleDeath에서 처리)
                 ClearBarrierState();
                 Debug.Log($"[BarrierMagic] {name} barrier expired");
             }

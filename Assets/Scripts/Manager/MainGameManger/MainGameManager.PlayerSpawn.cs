@@ -26,8 +26,8 @@ public partial class MainGameManager
         // 2. (Client) 내 로컬 플레이어 객체 찾기 (비상 대책 포함)
         yield return StartCoroutine(Client_WaitForLocalPlayerObject_ForceFind());
 
-        // 3. 컴포넌트 연결
-        InitializeLocalPlayerComponents();
+        // 3. 컴포넌트 연결 (재시도 로직 포함)
+        yield return StartCoroutine(Co_InitializeLocalPlayerComponents());
 
         // 4. 로딩 종료
         if (GameManager.Instance != null)
@@ -110,8 +110,8 @@ public partial class MainGameManager
         // 3. (Client) 내 로컬 플레이어 객체가 생성되고 매핑될 때까지 대기
         yield return StartCoroutine(Client_WaitForLocalPlayerObject());
 
-        // 4. 컴포넌트 연결 (카메라, UI 등)
-        InitializeLocalPlayerComponents();
+        // 4. 컴포넌트 연결 (카메라, UI 등) - 재시도 로직 포함
+        yield return StartCoroutine(Co_InitializeLocalPlayerComponents());
 
         // 5. 로딩 종료
         if (GameManager.Instance != null)
@@ -221,14 +221,32 @@ public partial class MainGameManager
 
     /// <summary>
     /// 로컬 플레이어를 찾은 직후 실행되는 연결 로직입니다. (UI, 카메라)
+    /// GetLocalPlayer()가 null을 반환하면 기다렸다가 재시도합니다.
     /// </summary>
-    private void InitializeLocalPlayerComponents()
+    private IEnumerator Co_InitializeLocalPlayerComponents()
     {
-        var localPlayer = GetLocalPlayer();
+        const float maxWaitTime = 10f;
+        const float retryInterval = 0.1f;
+        float elapsedTime = 0f;
+        
+        PlayerController localPlayer = null;
+        
+        // GetLocalPlayer()가 null이 아닐 때까지 재시도
+        while (localPlayer == null && elapsedTime < maxWaitTime)
+        {
+            localPlayer = GetLocalPlayer();
+            
+            if (localPlayer == null)
+            {
+                elapsedTime += retryInterval;
+                yield return new WaitForSeconds(retryInterval);
+            }
+        }
+        
         if (localPlayer == null)
         {
-            Debug.LogError("[MainGameManager] InitializeLocalPlayerComponents GetLocalPlayer() null");
-            return;
+            Debug.LogError($"[MainGameManager] InitializeLocalPlayerComponents GetLocalPlayer() null after {maxWaitTime}s timeout");
+            yield break;
         }
 
         // 1. 카메라 연결
@@ -402,13 +420,53 @@ public partial class MainGameManager
         return null;
     }
     
-    // 단순 조회용
+    // 단순 조회용 (fallback 로직 포함)
     public PlayerController GetPlayer(PlayerRef playerRef)
     {
-        if (_spawnedPlayers.TryGetValue(playerRef, out var playerObj) && playerObj != null)
+        // 1. 캐시된 딕셔너리 우선 확인
+        if (_spawnedPlayers.TryGetValue(playerRef, out var playerObj) && playerObj != null && playerObj.IsValid)
         {
-            return playerObj.GetComponent<PlayerController>();
+            var controller = playerObj.GetComponent<PlayerController>();
+            if (controller != null) return controller;
         }
+
+        // 2. Runner에서 직접 조회
+        if (_runner != null)
+        {
+            var networkObj = _runner.GetPlayerObject(playerRef);
+            if (networkObj != null && networkObj.IsValid)
+            {
+                var controller = networkObj.GetComponent<PlayerController>();
+                if (controller != null)
+                {
+                    // 딕셔너리에 등록 (다음번엔 빠르게 찾을 수 있도록)
+                    if (!_spawnedPlayers.ContainsKey(playerRef))
+                    {
+                        _spawnedPlayers[playerRef] = networkObj;
+                    }
+                    return controller;
+                }
+            }
+        }
+
+        // 3. 모든 플레이어를 순회하며 찾기 (fallback)
+        var allPlayers = GetAllPlayers();
+        foreach (var player in allPlayers)
+        {
+            if (player != null && player.Object != null && player.Object.IsValid)
+            {
+                if (player.Object.InputAuthority == playerRef)
+                {
+                    // 딕셔너리에 등록
+                    if (!_spawnedPlayers.ContainsKey(playerRef))
+                    {
+                        _spawnedPlayers[playerRef] = player.Object;
+                    }
+                    return player;
+                }
+            }
+        }
+
         return null;
     }
 

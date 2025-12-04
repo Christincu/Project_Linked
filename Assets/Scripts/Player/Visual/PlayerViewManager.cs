@@ -76,20 +76,12 @@ public class PlayerViewManager : MonoBehaviour
         {
             if (_viewObj != null) Destroy(_viewObj);
 
-            GameObject instance = new GameObject("ViewObj");
-            
-            // ViewObjParent를 찾아서 그 자식으로 설정
+            // ViewObjParent를 찾아서 그 자식으로 직접 인스턴스화
             Transform viewObjParent = _controller.transform.Find("ViewObjParent");
-            if (viewObjParent != null)
-            {
-                instance.transform.SetParent(viewObjParent, false);
-            }
-            else
-            {
-                instance.transform.SetParent(_controller.transform, false);
-            }
+            Transform parent = viewObjParent != null ? viewObjParent : _controller.transform;
 
-            _viewObj = Instantiate(data.viewObj, instance.transform);
+            _viewObj = Instantiate(data.viewObj, parent);
+            _viewObj.name = "ViewObj"; // 이름을 ViewObj로 설정 (참조 용이성)
             
             // ViewObj 생성 후 다른 컴포넌트에 알림
             NotifyViewObjCreated(_viewObj);
