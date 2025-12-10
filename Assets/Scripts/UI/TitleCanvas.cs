@@ -45,7 +45,7 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         _titleGameManager = titleGameManager;
     }
 
-    public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
+    public void OnInitialize(GameManager gameManager, GameDataManager gameDataManager)
     {
         ShowTitlePanel();
         _titleGameManager?.OnInitialize(this);

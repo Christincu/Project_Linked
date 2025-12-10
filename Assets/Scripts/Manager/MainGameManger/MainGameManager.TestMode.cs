@@ -242,8 +242,8 @@ public partial class MainGameManager
 
     private void HandleTestModeInput()
     {
-        // 1/2 키로 조작 대상 전환
-        if (Input.GetKeyDown(KeyCode.Alpha1))
+        // F1/F2 키로 조작 대상 전환
+        if (Input.GetKeyDown(KeyCode.F1))
         {
             if (SelectedSlot != 0)
             {
@@ -251,7 +251,7 @@ public partial class MainGameManager
                 UpdateCanvasForSelectedPlayer();
             }
         }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
+        if (Input.GetKeyDown(KeyCode.F2))
         {
             if (SelectedSlot != 1)
             {
@@ -276,10 +276,14 @@ public partial class MainGameManager
         var controller = targetObj.GetComponent<PlayerController>();
         if (controller == null) return;
 
-        // Canvas 등록
+        // Canvas 등록 및 전체 UI 업데이트
         if (GameManager.Instance != null && GameManager.Instance.Canvas is MainCanvas canvas)
         {
             canvas.RegisterPlayer(controller);
+            
+            // 플레이어 등록 후 전체 UI 업데이트 (코루틴 완료 대기 없이 즉시 업데이트)
+            // RegisterPlayer는 코루틴으로 실행되므로, 약간의 지연 후 전체 UI 업데이트
+            canvas.StartCoroutine(Co_DelayedFullUIUpdate(canvas));
         }
 
         // 카메라 타겟 변경
@@ -291,6 +295,39 @@ public partial class MainGameManager
             {
                 camController.SetTarget(controller);
             }
+        }
+    }
+    
+    /// <summary>
+    /// 플레이어 등록 후 전체 UI를 업데이트합니다.
+    /// RegisterPlayer의 코루틴이 완료될 때까지 대기한 후 업데이트합니다.
+    /// </summary>
+    private IEnumerator Co_DelayedFullUIUpdate(MainCanvas canvas)
+    {
+        // 플레이어 등록 코루틴이 완료될 때까지 대기 (최대 1초)
+        float timeout = 1.0f;
+        float timer = 0f;
+        
+        while (timer < timeout)
+        {
+            // MainCanvas의 _localPlayer가 설정되었는지 확인
+            if (canvas != null)
+            {
+                // 리플렉션을 사용하지 않고, RegisterPlayer가 완료되면 자동으로 UpdateAllUI가 호출되도록
+                // RegisterPlayer 내부에서 처리하므로 여기서는 단순 대기만 함
+                yield return new WaitForSeconds(0.1f);
+                timer += 0.1f;
+            }
+            else
+            {
+                yield break;
+            }
+        }
+        
+        // 최종적으로 전체 UI 업데이트 (안전장치)
+        if (canvas != null)
+        {
+            canvas.UpdateAllUI();
         }
     }
 

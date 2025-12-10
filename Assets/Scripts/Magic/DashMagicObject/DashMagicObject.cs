@@ -486,27 +486,23 @@ public partial class DashMagicObject : NetworkBehaviour
         if (_owner == null || Runner == null) return;
         if (!_owner.HasDashSkill) return;
         
-        // 정지 상태 종료 후 유예 기간 체크
-        float remainingStunTime = _owner.DashStunTimer.RemainingTime(Runner) ?? 0f;
-        bool isInGracePeriod = remainingStunTime <= 0f && remainingStunTime >= -GRACE_PERIOD_AFTER_STUN;
-        
-        // 속도 0 체크 (입력을 받았고, 유예 기간이 지났으며, 정지 상태가 끝났을 때만)
-        if (!_owner.DashIsWaitingToRecoil &&
-            _owner.DashVelocity.magnitude < MIN_VELOCITY_THRESHOLD && 
-            _owner.DashStunTimer.ExpiredOrNotRunning(Runner) &&
-            !isInGracePeriod &&
-            _hasReceivedInput)
+        // 시간 경과 체크 (최우선)
+        if (_owner.DashSkillTimer.Expired(Runner))
         {
-            // 최종 강화 상태에서는 속도 0으로 종료하지 않음
-            if (!_owner.IsDashFinalEnhancement)
-            {
-                EndDashSkill();
-                return;
-            }
+            EndDashSkill();
+            return;
         }
         
-        // 시간 경과 체크
-        if (_owner.DashSkillTimer.Expired(Runner))
+        // 반동 대기 중이거나 정지 상태면 속도 체크 안 함
+        if (_owner.DashIsWaitingToRecoil) return;
+        if (_owner.DashStunTimer.IsRunning && !_owner.DashStunTimer.Expired(Runner)) return;
+        
+        // 속도가 0에 가까우면 마법 종료
+        // [주의] 최종 강화 상태에서는 속도가 0이어도 종료하지 않음 (시간 경과로만 종료)
+        // 일반 상태에서만 속도 0으로 종료
+        if (!_owner.IsDashFinalEnhancement &&
+            _hasReceivedInput &&
+            _owner.DashVelocity.sqrMagnitude < MIN_VELOCITY_SQR)
         {
             EndDashSkill();
             return;

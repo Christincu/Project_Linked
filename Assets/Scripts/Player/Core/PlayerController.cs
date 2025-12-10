@@ -33,6 +33,10 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public Vector3 MagicAnchorLocalPosition { get; set; }
     [Networked] public bool MagicActive { get; set; }
     [Networked] public int MagicActivationTick { get; set; }
+    
+    // Character Magic Codes (스폰 시 CharacterData에서 로드)
+    [Networked] public int Magic1Code { get; set; }
+    [Networked] public int Magic2Code { get; set; }
 
     // Teleporter & Barrier
     [Networked] public TickTimer TeleportCooldownTimer { get; set; }
@@ -149,6 +153,12 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
             }
         }
 
+        // 서버: 마법 코드 초기화 (CharacterIndex가 설정된 후)
+        if (Object.HasStateAuthority && CharacterIndex >= 0)
+        {
+            InitializeMagicCodes();
+        }
+        
         // 로컬/리모트 공통: 하위 컴포넌트 의존성 주입
         _state?.Initialize(this, initialData);
         _movement?.Initialize(this, initialData);
@@ -260,6 +270,13 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public void SetCharacterIndex(int characterIndex)
     {
         CharacterIndex = characterIndex;
+        
+        // 마법 코드 초기화 (CharacterIndex 변경 시)
+        if (Object.HasStateAuthority)
+        {
+            InitializeMagicCodes();
+        }
+        
         _viewManager?.TryCreateView();
     }
 
@@ -297,7 +314,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         AbsorbedMagicCode = -1;
         MagicActivationTick = Runner.Tick;
         ActiveMagicSlotNetworked = magicSlot;
-        MagicAnchorLocalPosition = Vector3.zero;
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
@@ -307,9 +323,21 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_ChangeMagicCode(int slot, int magicCode)
+    {
+        if (slot == 1)
+        {
+            Magic1Code = magicCode;
+        }
+        else if (slot == 2)
+        {
+            Magic2Code = magicCode;
+        }
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_CastMagic(Vector3 targetPosition)
     {
-        Debug.Log($"[PlayerController] RPC_CastMagic: {targetPosition}");
         if (_magicController != null)
         {
             _magicController.CastMagic(targetPosition);
@@ -445,6 +473,29 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         DashVelocity = Vector2.zero;
         DashLastInputDirection = Vector2.zero;
         DashPendingRecoilDirection = Vector2.zero;
+        
+        // 마법 코드 초기화 (CharacterData에서 로드)
+        InitializeMagicCodes();
+    }
+    
+    /// <summary>
+    /// CharacterData에서 마법 코드를 로드하여 네트워크 변수에 저장합니다.
+    /// </summary>
+    private void InitializeMagicCodes()
+    {
+        if (_gameDataManager == null) return;
+        
+        CharacterData characterData = _gameDataManager.CharacterService.GetCharacter(CharacterIndex);
+        if (characterData != null)
+        {
+            Magic1Code = characterData.magicData1 != null ? characterData.magicData1.magicCode : -1;
+            Magic2Code = characterData.magicData2 != null ? characterData.magicData2.magicCode : -1;
+        }
+        else
+        {
+            Magic1Code = -1;
+            Magic2Code = -1;
+        }
     }
 
     public bool IsEnemyNearby(EnemyDetector enemy)
@@ -481,6 +532,11 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                     _animationController?.UpdateScale();
                     break;
                 case nameof(CharacterIndex):
+                    // CharacterIndex 변경 시 마법 코드도 업데이트
+                    if (Object.HasStateAuthority)
+                    {
+                        InitializeMagicCodes();
+                    }
                     _viewManager?.TryCreateView();
                     break;
                 case nameof(CurrentHealth):
@@ -498,6 +554,11 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
                     break;
                 case nameof(AbsorbedMagicCode):
                     _magicController.UpdateMagicUIState(MagicActive);
+                    break;
+                case nameof(Magic1Code):
+                case nameof(Magic2Code):
+                    // 마법 코드 변경 시 UI 업데이트 (MainCanvas에서 감지)
+                    // 여기서는 특별한 처리가 필요 없지만, 변경 감지를 위해 명시적으로 추가
                     break;
                 case nameof(HasBarrier):
                     UpdateThreatScore();

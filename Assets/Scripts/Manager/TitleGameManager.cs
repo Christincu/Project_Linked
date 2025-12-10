@@ -58,7 +58,7 @@ public class TitleGameManager : MonoBehaviour, ISceneGameManager
             ICanvas canvas = _titleCanvas as ICanvas;
             if (canvas != null)
             {
-                canvas.Initialize(gameManager, gameDataManager);
+                canvas.OnInitialize(gameManager, gameDataManager);
                 // TitleCanvas.Initialize() 내부에서 OnInitialize(this)가 호출됨
             }
             else

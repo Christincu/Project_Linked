@@ -9,6 +9,7 @@ public class MagicData : ScriptableObject
     [Header("Basic Info")]
     public int magicCode;
     public string magicName;
+    public Sprite magicCombinedSprite;
     public Sprite magicIdleSprite;
     public Sprite magicInsideSprite;
     

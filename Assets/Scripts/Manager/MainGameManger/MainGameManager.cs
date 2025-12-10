@@ -259,7 +259,7 @@ public partial class MainGameManager : NetworkBehaviour, ISceneGameManager
             ICanvas canvas = mainCanvas as ICanvas;
             if (canvas != null)
             {
-                canvas.Initialize(gameManager, gameDataManager);
+                canvas.OnInitialize(gameManager, gameDataManager);
                 Debug.Log("[MainGameManager] MainCanvas initialized successfully.");
             }
             else
