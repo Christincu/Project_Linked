@@ -77,7 +77,6 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_FrameRateCounter.cs" />
     <Compile Include="Assets\Scripts\Manager\GameDataManager\StageService.cs" />
     <Compile Include="Assets\Scripts\Magic\BarrierMagicObject.cs" />
-    <Compile Include="Assets\Scripts\UI\MainCanvas.cs" />
     <Compile Include="Assets\Scripts\Data\CharacterData.cs" />
     <Compile Include="Assets\Scripts\UI\LoadingPanel.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark01.cs" />
@@ -85,6 +84,7 @@
     <Compile Include="Assets\Scripts\Magic\DashMagicObject\DashMagicObject.cs" />
     <Compile Include="Assets\Scripts\Data\StageData\StageData.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark02.cs" />
+    <Compile Include="Assets\Scripts\UI\MainCanvas\MainCanvas.cs" />
     <Compile Include="Assets\Scripts\Player\Visual\PlayerAnimationController.cs" />
     <Compile Include="Assets\Particle\Script\FlameThrowerLightController.cs" />
     <Compile Include="Assets\Scripts\Manager\GameDataManager\GameDataManager.cs" />

@@ -323,12 +323,6 @@ public partial class MainGameManager
                 yield break;
             }
         }
-        
-        // 최종적으로 전체 UI 업데이트 (안전장치)
-        if (canvas != null)
-        {
-            canvas.UpdateAllUI();
-        }
     }
 
     private void ApplyTestHealthChange(float amount, string type)

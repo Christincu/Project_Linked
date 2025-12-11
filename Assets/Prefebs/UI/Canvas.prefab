@@ -1312,11 +1312,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _magicSelectBtnPrefab: {fileID: 3488338395725521328, guid: 572690a3334b1644fb761c868feb41a4, type: 3}
   _magicSelectBtnContentTransform: {fileID: 5512199269109054592}
-  _magicIconImage1: {fileID: 6104407554914036525}
-  _magicIconImage2: {fileID: 1605422041978181753}
-  _otherPlayerImage: {fileID: 3932712278713169188}
-  _otherPlayerMagicIconImage1: {fileID: 1519893222169164435}
-  _otherPlayerMagicIconImage2: {fileID: 1085036598158135789}
+  _localMagicIcon1: {fileID: 6104407554914036525}
+  _localMagicIcon2: {fileID: 1605422041978181753}
+  _otherPlayerIcon: {fileID: 3932712278713169188}
+  _otherPlayerMagicIcon1: {fileID: 1519893222169164435}
+  _otherPlayerMagicIcon2: {fileID: 1085036598158135789}
   _emptyHeart: {fileID: 21300000, guid: a962e9c7807a14e45873cadd8bb288a3, type: 3}
   _filledHeart: {fileID: 21300000, guid: bdf1715707ad607439e3a79d017a7305, type: 3}
   _hpImgObjPrefab: {fileID: 7626897409025638824, guid: 5ddad93269d160f48b6e58f5436fe9cb, type: 3}

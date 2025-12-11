@@ -328,10 +328,20 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         if (slot == 1)
         {
             Magic1Code = magicCode;
+            // 현재 사용 중인 슬롯의 마법이 바뀌면 활성화된 마법 코드도 갱신
+            if (MagicActive && ActiveMagicSlotNetworked == 1)
+            {
+                ActivatedMagicCode = magicCode;
+            }
         }
         else if (slot == 2)
         {
             Magic2Code = magicCode;
+            // 현재 사용 중인 슬롯의 마법이 바뀌면 활성화된 마법 코드도 갱신
+            if (MagicActive && ActiveMagicSlotNetworked == 2)
+            {
+                ActivatedMagicCode = magicCode;
+            }
         }
     }
 
@@ -476,6 +486,12 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         
         // 마법 코드 초기화 (CharacterData에서 로드)
         InitializeMagicCodes();
+
+        ActivatedMagicCode = -1;
+        AbsorbedMagicCode = -1;
+        ActiveMagicSlotNetworked = 0;
+        MagicActive = false;
+        MagicActivationTick = 0;
     }
     
     /// <summary>

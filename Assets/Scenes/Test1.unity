@@ -20958,6 +20958,54 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4238636040219810862, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4238636040219810862, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4238636040219810862, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4238636040219810862, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4238636040219810862, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4238636040219810862, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4516747671083766374, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4516747671083766374, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4516747671083766374, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4516747671083766374, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4516747671083766374, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4516747671083766374, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5474855232778062175, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -21045,6 +21093,30 @@ PrefabInstance:
     - target: {fileID: 6663652681012781032, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
       propertyPath: m_Name
       value: Canvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768652840553006424, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768652840553006424, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768652840553006424, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768652840553006424, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768652840553006424, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768652840553006424, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -21178,7 +21250,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1935061100617456413, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: m_Name
-      value: MainGameManager
+      value: SceneGameManager
       objectReference: {fileID: 0}
     - target: {fileID: 8716870012835804170, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
       propertyPath: SortKey

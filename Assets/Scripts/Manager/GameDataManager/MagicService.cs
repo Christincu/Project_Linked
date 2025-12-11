@@ -349,4 +349,26 @@ public class MagicService
         Debug.LogWarning($"Combination with code '{code}' not found");
         return null;
     }
+    
+    /// <summary>
+    /// 합체 마법 코드 목록을 가져옵니다.
+    /// </summary>
+    /// <returns>합체 마법 코드들의 HashSet</returns>
+    public HashSet<int> GetCombinationMagicCodes()
+    {
+        HashSet<int> combinationCodes = new HashSet<int>();
+        
+        List<MagicCombinationData> combinations = GetAllCombinations();
+        if (combinations == null) return combinationCodes;
+        
+        foreach (var combination in combinations)
+        {
+            if (combination != null && combination.IsValid())
+            {
+                combinationCodes.Add(combination.resultMagicCode);
+            }
+        }
+        
+        return combinationCodes;
+    }
 }

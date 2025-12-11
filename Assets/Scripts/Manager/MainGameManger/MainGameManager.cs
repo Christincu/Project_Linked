@@ -129,8 +129,6 @@ public partial class MainGameManager : NetworkBehaviour, ISceneGameManager
         
         // MainCanvas 찾기 및 초기화 (씬 매니저가 직접 초기화)
         InitializeMainCanvas(gameManager, gameDataManager);
-        
-        Debug.Log("[MainGameManager] ISceneManager.Initialize called. Canvas initialized. Full game initialization will happen in Spawned().");
     }
     
     /// <summary>

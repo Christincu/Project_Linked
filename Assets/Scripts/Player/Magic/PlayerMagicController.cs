@@ -3,43 +3,45 @@ using UnityEngine;
 using Fusion;
 
 /// <summary>
-/// 플레이어의 마법 시스템(선택, 시전, 조합, UI)을 총괄하는 컨트롤러입니다.
+/// 플레이어의 마법 시스템 전반을 관리하는 컨트롤러입니다.
+/// 마법 선택(UI), 활성화/비활성화, 발사(Casting), 조합(Combination), 시각적 표현(Visuals)을 처리합니다.
 /// </summary>
 public class PlayerMagicController : MonoBehaviour
 {
-    // 상수 및 타이머 변수 모두 삭제됨 (불필요)
-
-    #region Private Fields - Dependencies
+    #region [Dependencies] 외부 의존성
     private PlayerController _controller;
     private GameDataManager _gameDataManager;
     private CharacterData _characterData;
     private NetworkBehaviour.ChangeDetector _changeDetector;
     #endregion
 
-    #region Private Fields - State
+    #region [State] 내부 상태 변수
     private bool _isInitialized = false;
     
-    // Magic Handlers
+    // 마법 핸들러 (특수 마법 로직 처리용)
     private Dictionary<int, ICombinedMagicHandler> _magicHandlers = new Dictionary<int, ICombinedMagicHandler>();
     private ICombinedMagicHandler _currentHandler = null;
 
-    // Input Logic
+    // 입력 처리용 상태
     private NetworkButtons _prevButtons;
+    
+    // 버그 수정용: 마법 선택 모드 상태 추적
+    private bool _wasInSelectionMode = false; 
     #endregion
 
-    #region Private Fields - UI & Visuals
-    private GameObject _magicViewObj;
-    private GameObject _magicAnchor;
-    private GameObject _magicIdleFirstFloor;
-    private GameObject _magicIdleSecondFloor;
-    private GameObject _magicInsideFloor;
+    #region [Visuals] UI 및 시각 효과 참조
+    private GameObject _magicViewObj;          // 마법 UI 전체 부모
+    private GameObject _magicAnchor;           // 조준점(Anchor) 오브젝트
+    private GameObject _magicIdleFirstFloor;   // 1슬롯(활성) 마법 아이콘
+    private GameObject _magicIdleSecondFloor;  // 2슬롯(흡수) 마법 아이콘
+    private GameObject _magicInsideFloor;      // 내부 활성 효과
 
     private SpriteRenderer _idleFirstFloorRenderer;
     private SpriteRenderer _idleSecondFloorRenderer;
     private SpriteRenderer _activeInsideRenderer;
     #endregion
 
-    #region Properties
+    #region [Properties]
     public PlayerController Controller => _controller;
     public bool IsMagicUIActive => _magicViewObj != null && _magicViewObj.activeSelf;
     public GameObject MagicViewObj => _magicViewObj;
@@ -55,12 +57,12 @@ public class PlayerMagicController : MonoBehaviour
     }
     #endregion
 
-    #region Events
-    public System.Action<Vector3, Vector3, int> OnMagicCast;
+    #region [Events]
+    public System.Action<Vector3, Vector3, int> OnMagicCast; 
     public System.Action OnCooldownStarted;
     #endregion
 
-    #region Initialization
+    #region [Initialization] 초기화
 
     public void Initialize(PlayerController controller, GameDataManager gameDataManager)
     {
@@ -103,6 +105,9 @@ public class PlayerMagicController : MonoBehaviour
 
         InitializeUIStructure();
         _isInitialized = true;
+        
+        UpdateUIVisuals();
+        UpdateAnchorVisual();
     }
 
     private void InitializeUIStructure()
@@ -127,53 +132,86 @@ public class PlayerMagicController : MonoBehaviour
 
     #endregion
 
-    #region Core Logic: Input Processing
+    #region [Core Logic] 입력 처리 (Input Processing)
 
+    /// <summary>
+    /// 매 프레임(FixedUpdateNetwork) 호출되어 플레이어의 입력을 처리합니다.
+    /// </summary>
     public void ProcessInput(InputData inputData, PlayerController controller, bool isTestMode)
     {
         if (!_isInitialized || !controller.Object.HasInputAuthority) return;
         if (isTestMode && inputData.ControlledSlot != controller.PlayerSlot) return;
 
-        // 1. 버튼 상태 갱신 (InputData로부터 현재 프레임의 클릭 여부 판단)
+        // 1. 마법 선택 모드 상태 확인
+        bool isSelectionMode = IsMagicSelectionModeActive();
+
+        // 2. [선택 모드 종료 처리] 선택 모드에서 막 빠져나온 프레임
+        // (선택을 위해 눌렀던 클릭이 마법 발동으로 이어지는 것을 방지)
+        if (_wasInSelectionMode && !isSelectionMode)
+        {
+            _prevButtons = inputData.MouseButtons; // 버튼 상태만 갱신하고 입력 무시
+            _wasInSelectionMode = false;
+            return;
+        }
+
+        // 3. [선택 모드 유지 처리] 현재 선택 모드인 경우
+        if (isSelectionMode)
+        {
+            // [중요 수정] 선택 모드라면 무조건 마법을 비활성화(Deactivate)
+            // 활성화된 상태로 진입했거나, 진입 중에 켜져있다면 즉시 끕니다.
+            if (controller.MagicActive)
+            {
+                controller.RPC_DeactivateMagic();
+            }
+
+            // 입력 소비 및 상태 업데이트
+            _prevButtons = inputData.MouseButtons;
+            _wasInSelectionMode = true;
+            _currentHandler?.Update(); // 핸들러 로직만 유지 (필요하다면)
+            return; // 마법 발사 로직 진입 차단
+        }
+
+        _wasInSelectionMode = false; // 선택 모드 아님
+
+        // 4. 입력 버튼 상태 갱신
         NetworkButtons currentButtons = inputData.MouseButtons;
         NetworkButtons pressedButtons = inputData.GetMouseButtonPressed(_prevButtons);
         _prevButtons = currentButtons;
 
-        // 2. 핸들러 동기화
+        // 5. 핸들러 동기화
         SyncHandlerChoice();
 
-        // 3. 차단 로직 (돌진 중, UI 모드)
-        if (controller.HasDashSkill || IsMagicSelectionModeActive())
+        // 6. 기타 차단 조건 (돌진 스킬 사용 중 등)
+        if (controller.HasDashSkill)
         {
             _currentHandler?.Update();
             return;
         }
 
-        // 4. 입력 플래그 추출 (pressedButtons는 이번 프레임에 눌린 순간만 True)
+        // 7. 입력 데이터 추출
         bool leftClick = pressedButtons.IsSet(InputMouseButton.LEFT);
         bool rightClick = pressedButtons.IsSet(InputMouseButton.RIGHT);
         Vector3 mousePos = GetMouseWorldPosition(inputData);
 
-        // 5. 로직 분기
+        // 8. 상태별 로직 실행
         if (!controller.MagicActive)
         {
-            // 비활성 상태: 활성화만 수행하고 종료
             HandleInactiveState(leftClick, rightClick, controller);
         }
         else
         {
-            // 활성 상태: 교체 혹은 발사
             HandleActiveState(inputData, leftClick, rightClick, mousePos, controller);
         }
 
-        // 6. 핸들러 업데이트
+        // 9. 핸들러 업데이트
         _currentHandler?.Update();
     }
 
+    /// <summary>
+    /// 마법이 활성화되지 않았을 때의 입력 처리 (슬롯 선택 및 활성화)
+    /// </summary>
     private void HandleInactiveState(bool leftClick, bool rightClick, PlayerController controller)
     {
-        // 여기서 활성화를 시키면 controller.MagicActive가 다음 프레임부터 True가 됨.
-        // GetMouseButtonPressed 특성상 다음 프레임에는 click이 False이므로 발사되지 않음.
         if (leftClick)
         {
             controller.RPC_ActivateMagic(1, controller.Magic1Code);
@@ -184,26 +222,29 @@ public class PlayerMagicController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 마법이 이미 활성화된 상태에서의 입력 처리 (교체, 발사, 조준)
+    /// </summary>
     private void HandleActiveState(InputData inputData, bool leftClick, bool rightClick, Vector3 mousePos, PlayerController controller)
     {
-        // 1. 교체 로직 (Return으로 확실하게 프레임 종료)
+        // 1. 교체 로직 (Swap)
         if (leftClick && controller.ActiveMagicSlotNetworked == 2)
         {
             controller.RPC_ActivateMagic(1, controller.Magic1Code);
-            return; // [핵심] 교체했으면 이번 프레임엔 발사하지 않고 끝냄
+            return;
         }
         if (rightClick && controller.ActiveMagicSlotNetworked == 1)
         {
             controller.RPC_ActivateMagic(2, controller.Magic2Code);
-            return; // [핵심] 교체했으면 이번 프레임엔 발사하지 않고 끝냄
+            return;
         }
 
-        // 2. 발사 로직 (교체가 아닐 때만 도달)
+        // 2. 발사 로직 (Cast)
         if (leftClick || rightClick)
         {
             TryCastMagic(mousePos, controller);
         }
-        // 3. 조준 로직
+        // 3. 조준 로직 (Aim)
         else
         {
             CalculateAndSetAnchorPosition(mousePos);
@@ -230,13 +271,17 @@ public class PlayerMagicController : MonoBehaviour
 
     #endregion
 
-    #region Core Logic: Magic Casting & Handler
+    #region [Core Logic] 마법 시전 및 핸들러 (Casting & Handler)
 
     private void TryCastMagic(Vector3 targetPos, PlayerController controller)
     {
-        // 불필요한 타이머 체크 로직 삭제됨
-
         if (_currentHandler != null && _currentHandler.IsCasting()) return;
+
+        if (!_controller.Object.HasStateAuthority)
+        {
+            _controller.RPC_CastMagic(targetPos);
+            return;
+        }
 
         int code = GetCurrentCombinedCode();
         if (code == -1)
@@ -267,14 +312,17 @@ public class PlayerMagicController : MonoBehaviour
         int magicCode = GetCurrentCombinedCode();
         if (magicCode == -1) return;
 
-        if (!_magicHandlers.ContainsKey(magicCode))
+        if (_magicHandlers.TryGetValue(magicCode, out var handler))
         {
-            Vector3 startPos = _controller.transform.position;
-            Vector3 direction = (targetPosition - startPos).normalized;
-            
-            OnMagicCast?.Invoke(startPos, direction, magicCode);
-            OnCooldownStarted?.Invoke();
+            handler.CastMagic(targetPosition);
+            return;
         }
+
+        Vector3 startPos = _controller.transform.position;
+        Vector3 direction = (targetPosition - startPos).normalized;
+        
+        OnMagicCast?.Invoke(startPos, direction, magicCode);
+        OnCooldownStarted?.Invoke();
     }
 
     private int GetCurrentCombinedCode()
@@ -325,7 +373,7 @@ public class PlayerMagicController : MonoBehaviour
 
     #endregion
 
-    #region Visuals & Updates
+    #region [Visuals & Updates] 렌더링 및 UI 업데이트
 
     public void OnRender()
     {
@@ -406,7 +454,7 @@ public class PlayerMagicController : MonoBehaviour
 
     #endregion
 
-    #region Interaction & Legacy Support
+    #region [Interaction & Utils] 상호작용 및 유틸리티
 
     public void OnPlayerCollisionEnter(PlayerController otherPlayer)
     {
@@ -434,7 +482,6 @@ public class PlayerMagicController : MonoBehaviour
         absorbed.MagicController?.OnAbsorbed();
 
         absorber.AbsorbedMagicCode = absorbedCode;
-        Debug.Log($"[Absorption] {absorber.name} absorbed {absorbed.name}'s magic ({absorbedCode})");
     }
 
     private bool DetermineAbsorber(int myTick, int otherTick, int myCharIndex, int otherCharIndex, uint myId, uint otherId)
