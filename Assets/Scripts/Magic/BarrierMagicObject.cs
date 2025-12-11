@@ -213,4 +213,14 @@ public class BarrierMagicObject : NetworkBehaviour
         return texture;
     }
     #endregion
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        // 자식 오브젝트(폭발 범위 표시 등)는 Unity가 자동 파괴하므로 별도 처리 불필요
+        // 로컬 변수나 참조만 정리
+        _owner = null;
+        _barrierData = null;
+        
+        Debug.Log($"[BarrierMagicObject] Despawned (StateAuth: {hasState})");
+    }
 }

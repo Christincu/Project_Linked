@@ -368,7 +368,6 @@ public partial class DashMagicObject : NetworkBehaviour
         // [핵심] 서버라면 즉시 스킬 활성화 로직 실행
         if (_owner.Object.HasStateAuthority)
         {
-            Debug.Log($"[DashMagicObject] Initialized and Activated for {_owner.name}");
             ActivateDashSkill();
         }
     }
@@ -511,35 +510,17 @@ public partial class DashMagicObject : NetworkBehaviour
     
     /// <summary>
     /// 돌진 스킬을 종료합니다.
+    /// 이제 서버에서는 StopAllDashMagic을 통해 모든 클라이언트에 종료를 알립니다.
+    /// 실제 정리 작업은 PlayerController -> DashMagicHandler에서 수행됩니다.
     /// </summary>
     private void EndDashSkill()
     {
         if (_owner == null) return;
         
-        // 스킬 상태 초기화 (State Authority에서만)
+        // State Authority라면 모든 플레이어의 대시를 중단시키는 로직 실행
         if (_owner.Object != null && _owner.Object.HasStateAuthority)
         {
-            _owner.HasDashSkill = false;
-            _owner.DashSkillTimer = TickTimer.None;
-            _owner.DashEnhancementCount = 0;
-            _owner.IsDashFinalEnhancement = false;
-            _owner.DashIsMoving = false;
-            _owner.DashVelocity = Vector2.zero;
-            _owner.DashLastInputDirection = Vector2.zero;
-            _owner.DashPendingRecoilDirection = Vector2.zero;
-            _owner.DashIsWaitingToRecoil = false;
-            
-            // 속도 초기화 (Rigidbody 속도도 0으로)
-            UpdateRigidbodyVelocity(Vector2.zero);
-            
-            // [중요] PlayerController의 참조 제거 (되돌아가지 못하는 문제 해결)
-            _owner.DashMagicObject = null;
-        }
-        
-        // 오브젝트 제거
-        if (gameObject != null)
-        {
-            Destroy(gameObject);
+            _owner.StopAllDashMagic();
         }
     }
     #endregion
@@ -580,15 +561,39 @@ public partial class DashMagicObject : NetworkBehaviour
     #endregion
     
     #region Cleanup
+    /// <summary>
+    /// 네트워크 오브젝트가 제거될 때 호출됩니다.
+    /// 로컬 참조 정리 및 안전한 상태 초기화를 수행합니다.
+    /// </summary>
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        // 1. Owner의 참조 제거 (클라이언트/서버 모두)
+        if (_owner != null && _owner.DashMagicObject == this)
+        {
+            _owner.DashMagicObject = null;
+        }
+
+        // 2. 공격 콜라이더 비활성화
+        if (_attackCollider != null)
+        {
+            _attackCollider.enabled = false;
+        }
+
+        // 3. 베리어 렌더러 초기화
+        if (_barrierSpriteRenderer != null)
+        {
+            _barrierSpriteRenderer.sprite = null;
+        }
+        
+        Debug.Log($"[DashMagicObject] Despawned (StateAuth: {hasState})");
+    }
+
     void OnDestroy()
     {
-        // 스킬 상태 정리 (안전한 null 체크)
-        if (_owner != null && _owner.Object != null && _owner.Object.HasStateAuthority)
+        // 일반 파괴 시에도 참조 정리 시도 (Despawned가 호출되지 않은 경우 대비)
+        if (_owner != null && _owner.DashMagicObject == this)
         {
-            _owner.HasDashSkill = false;
-            _owner.DashSkillTimer = TickTimer.None;
-            _owner.DashIsMoving = false;
-            _owner.DashVelocity = Vector2.zero;
+            _owner.DashMagicObject = null;
         }
     }
     #endregion

@@ -362,5 +362,73 @@ public class DashMagicHandler : MonoBehaviour, ICombinedMagicHandler
         return null;
     }
     #endregion
+
+    #region Formatting & Cleanup
+    /// <summary>
+    /// 대시 마법을 중단하고 상태를 정리합니다.
+    /// </summary>
+    public void StopMagic()
+    {
+        if (_controller == null) return;
+
+        // 1. 카메라 복원 (로컬 클라이언트)
+        if (_controller.Object.HasInputAuthority)
+        {
+            RestoreCamera();
+        }
+
+        // 2. 상태 초기화 (State Authority에서만 동기화 변수 변경)
+        if (_controller.Object.HasStateAuthority)
+        {
+            // [중요] 재귀 호출 방지를 위해 내 상태를 먼저 해제
+            _controller.HasDashSkill = false;
+            _controller.DashSkillTimer = TickTimer.None;
+            _controller.DashEnhancementCount = 0;
+            _controller.IsDashFinalEnhancement = false;
+            _controller.DashIsMoving = false;
+            _controller.DashVelocity = Vector2.zero;
+            _controller.DashLastInputDirection = Vector2.zero;
+            _controller.DashPendingRecoilDirection = Vector2.zero;
+            _controller.DashIsWaitingToRecoil = false;
+
+            // [중요] 파트너 플레이어도 함께 중단 (동기화 보장)
+            // StopAllDashMagic이 실패하거나 호출되지 않은 경우 대비
+            // 내 상태를 먼저 껐으므로, 상대방이 나를 다시 Stop 시키지 않음 -> 무한 루프 방지
+            PlayerController partner = FindOtherDashPlayer();
+            if (partner != null && partner.HasDashSkill)
+            {
+                Debug.Log($"[DashHandler] Force stopping partner: {partner.name}");
+                partner.RPC_StopDashMagic();
+            }
+        }
+
+        // 3. DashMagicObject 제거
+        if (_controller.DashMagicObject != null)
+        {
+            // Server: Runner.Despawn을 사용해 네트워크 오브젝트 제거
+            if (_controller.Object.HasStateAuthority && _controller.Runner != null)
+            {
+                if (_controller.DashMagicObject.Object != null)
+                {
+                    _controller.Runner.Despawn(_controller.DashMagicObject.Object);
+                }
+                else
+                {
+                    // 혹시 NetworkObject가 없는 경우(거의 없겠지만) 일반 파괴
+                    Destroy(_controller.DashMagicObject.gameObject);
+                }
+            }
+            // Client: 참조 해제 (실제 파괴는 Despawn 동기화를 통해 처리됨)
+            // 즉시 null로 만들어 접근 차단
+            _controller.DashMagicObject = null;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // 컴포넌트 파괴 시 카메라 복원 보장
+        RestoreCamera();
+    }
+    #endregion
 }
 

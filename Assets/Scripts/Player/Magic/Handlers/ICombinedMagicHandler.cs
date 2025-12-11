@@ -57,5 +57,10 @@ public interface ICombinedMagicHandler
     /// </summary>
     /// <returns>시전 중이면 true, 아니면 false</returns>
     bool IsCasting();
+
+    /// <summary>
+    /// 마법을 강제로 중단하고 정리합니다.
+    /// </summary>
+    void StopMagic();
 }
 

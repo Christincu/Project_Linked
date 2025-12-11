@@ -122,8 +122,6 @@ public partial class DashMagicObject
         
         // [중요] NetworkObject가 완전히 스폰되었는지 확인
         float damage = 0f;
-        float healthBefore = 0f;
-        float healthAfter = 0f;
         
         try
         {
@@ -131,13 +129,7 @@ public partial class DashMagicObject
             damage = CalculateDamage();
             
             // 적에게 데미지 적용
-            healthBefore = enemy.State.CurrentHealth;
             enemy.State.TakeDamage(damage);
-            healthAfter = enemy.State.CurrentHealth;
-            
-            Debug.Log($"[DashHit] {_owner.name} - Applied {damage} damage to {enemy.name} " +
-                     $"(Health: {healthBefore} -> {healthAfter}/{enemy.State.MaxHealth}, " +
-                     $"Actual Damage: {healthBefore - healthAfter})");
         }
         catch (System.InvalidOperationException ex)
         {
@@ -190,14 +182,9 @@ public partial class DashMagicObject
         if (networkRb != null && networkRb.Rigidbody != null)
         {
             float knockbackForce = _dashData.enemyKnockbackForce;
-            Vector2 velocityBefore = networkRb.Rigidbody.velocity;
             
             networkRb.Rigidbody.velocity = finalDirection * knockbackForce;
             enemy.KnockbackTimer = TickTimer.CreateFromSeconds(enemy.Runner, _dashData.enemyKnockbackDuration);
-            
-            Debug.Log($"[DashKnockback] {_owner.name} - Applied knockback to {enemy.name}: " +
-                     $"Direction={finalDirection}, Force={knockbackForce}, " +
-                     $"Velocity: {velocityBefore} -> {networkRb.Rigidbody.velocity}");
         }
         else
         {
@@ -210,8 +197,6 @@ public partial class DashMagicObject
     /// </summary>
     private void HandlePlayerCollision(PlayerController otherPlayer)
     {
-        Debug.Log($"[DashMagicObject] {_owner.name} - HandlePlayerCollision called with {otherPlayer?.name ?? "null"}");
-        
         if (otherPlayer == null || otherPlayer == _owner) return;
         if (!_owner.HasDashSkill || !otherPlayer.HasDashSkill) return;
         if (!_owner.DashIsMoving || !otherPlayer.DashIsMoving) return;
@@ -219,21 +204,16 @@ public partial class DashMagicObject
         // 최근 충돌 체크
         if (_recentHitPlayers.Contains(otherPlayer))
         {
-            Debug.Log($"[DashMagicObject] {_owner.name} - Recent collision with {otherPlayer.name}, ignoring");
             return;
         }
         
-        Debug.Log($"[DashMagicObject] {_owner.name} collided with {otherPlayer.name} - All checks passed, processing collision");
-        
-        // 정면 판정 확인 (+ 이유 로깅)
+        // 정면 판정 확인
         string frontReason;
         bool isFrontCollision = CheckFrontCollision(otherPlayer, out frontReason);
         
         if (isFrontCollision)
         {
             // 정면 충돌: 강화 및 정지→튕김 시퀀스 시작
-            Debug.Log($"[DashCollision] {_owner.name} - Perfect Hit! Freezing for {_dashData.playerCollisionFreezeDuration}s...");
-            
             // --- A. 강화 적용 ---
             HandleEnhancement(otherPlayer);
             
@@ -253,8 +233,6 @@ public partial class DashMagicObject
         else
         {
             // 잘못된 충돌
-            Debug.LogWarning($"[DashCollision] {_owner.name} - Wrong collision with {otherPlayer.name}, " +
-                             $"skill ending and stun applied. Reason: {frontReason}");
             HandleWrongCollision();
             
             if (otherPlayer.DashMagicObject != null)
@@ -307,7 +285,6 @@ public partial class DashMagicObject
         if (headingDot > headingThreshold) 
         {
             reason = $"Heading failed: dot={headingDot:F2} > threshold={headingThreshold:F2}";
-            Debug.LogWarning($"[DashCheck] Fail: Heading Check. Dot({headingDot:F2}) > Threshold({headingThreshold}). Players are not facing each other.");
             return false; 
         }
 
@@ -323,7 +300,6 @@ public partial class DashMagicObject
         if (!inFov)
         {
              reason = $"FOV failed: dot={fovDot:F2} < threshold={fovThreshold:F2}";
-             Debug.LogWarning($"[DashCheck] Fail: FOV Check. Dot({fovDot:F2}) < Threshold({fovThreshold:F2}). Other player is not in front.");
              return false;
         }
 
@@ -514,8 +490,6 @@ public partial class DashMagicObject
     {
         if (_owner == null || Runner == null) return;
         
-        Debug.Log($"[DashRecoil] {_owner.name} - Launching Recoil! Direction: {_owner.DashPendingRecoilDirection}");
-        
         _owner.DashIsWaitingToRecoil = false;
         
         Vector2 launchVelocity = _owner.DashPendingRecoilDirection * _dashData.playerCollisionRecoilForce;
@@ -551,8 +525,6 @@ public partial class DashMagicObject
         {
             damage += _dashData.damageIncreasePerEnhancement * _owner.DashEnhancementCount;
         }
-
-        Debug.Log($"[DashMagicObject] {_owner.name} - Calculated damage: {damage}");
         
         return damage;
     }

@@ -97,7 +97,6 @@ public class PlayerEffectManager : MonoBehaviour
                     existingEffect.timer = TickTimer.CreateFromSeconds(_controller.Runner, duration);
                     _activeEffects[i] = existingEffect;
                     
-                    Debug.Log($"[PlayerEffectManager] Stacked effect {type}: {value} (Total stacks: {existingEffect.stackCount}, Total value: {existingEffect.value})");
                     return existingEffect.effectId;
                 }
             }
@@ -115,7 +114,6 @@ public class PlayerEffectManager : MonoBehaviour
         };
 
         _activeEffects.Add(newEffect);
-        Debug.Log($"[PlayerEffectManager] Added effect {type}: {value} ({duration}s)");
 
         return newEffect.effectId;
     }
@@ -136,8 +134,6 @@ public class PlayerEffectManager : MonoBehaviour
         {
             if (_activeEffects[i].effectId == effectId)
             {
-                var effect = _activeEffects[i];
-                Debug.Log($"[PlayerEffectManager] Removed effect {effect.type} (ID: {effectId})");
                 _activeEffects.RemoveAt(i);
                 return;
             }
@@ -163,8 +159,6 @@ public class PlayerEffectManager : MonoBehaviour
                 _activeEffects.RemoveAt(i);
             }
         }
-
-        Debug.Log($"[PlayerEffectManager] Removed all effects of type {type}");
     }
 
     /// <summary>
@@ -179,7 +173,6 @@ public class PlayerEffectManager : MonoBehaviour
         }
 
         _activeEffects.Clear();
-        Debug.Log("[PlayerEffectManager] Cleared all effects");
     }
 
     /// <summary>
@@ -199,7 +192,6 @@ public class PlayerEffectManager : MonoBehaviour
             var effect = _activeEffects[i];
             if (effect.timer.Expired(_controller.Runner))
             {
-                Debug.Log($"[PlayerEffectManager] Effect {effect.type} expired (ID: {effect.effectId})");
                 _activeEffects.RemoveAt(i);
             }
         }

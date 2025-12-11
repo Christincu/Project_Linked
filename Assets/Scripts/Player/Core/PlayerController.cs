@@ -421,6 +421,55 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         ExecuteTeleport(targetPosition);
     }
 
+    /// <summary>
+    /// 모든 플레이어의 대시 마법을 중단시킵니다. (Server Only)
+    /// </summary>
+    public void StopAllDashMagic()
+    {
+        if (!Object.HasStateAuthority) return;
+
+        // 모든 플레이어를 순회하며 대시 마법 중단 RPC 호출
+        foreach (var playerRef in Runner.ActivePlayers)
+        {
+            if (MainGameManager.Instance != null)
+            {
+                var player = MainGameManager.Instance.GetPlayer(playerRef);
+                if (player != null && player.HasDashSkill)
+                {
+                    player.RPC_StopDashMagic();
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 대시 마법을 중단하라는 RPC입니다.
+    /// DashMagicHandler를 통해 상태를 정리합니다.
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_StopDashMagic()
+    {
+        // 마법 핸들러(코드 11: Dash)를 찾아 중단 로직 수행
+        if (_magicController != null)
+        {
+            // MagicController를 통해 Handler 접근 (ICombinedMagicHandler로 캐스팅 필요할 수 있음)
+            // 여기서는 _magicHandlers 딕셔너리에 직접 접근이 어려우므로
+            // MagicController에 GetHandler 같은 메서드가 있거나, 
+            // PlayerController가 Handler 목록을 알 수 있는 방법이 필요함.
+            // 하지만 현재 구조상 PlayerController는 _magicController를 가지고 있음.
+            
+            // PlayerMagicController에 public 접근 메서드 추가보다는 
+            // _magicController.StopMagic(11) 처럼 호출하는게 좋으나
+            // 현재는 직접 구현된 Handler를 찾기 위해 GetComponent 사용이 안전함 (PlayerMagicController가 Handler를 컴포넌트로 관리)
+            
+            var handler = GetComponent<DashMagicHandler>();
+            if (handler != null)
+            {
+                handler.StopMagic();
+            }
+        }
+    }
+
     private void ExecuteTeleport(Vector3 targetPosition)
     {
         var networkRb = GetComponent<NetworkRigidbody2D>();
@@ -439,6 +488,32 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _animationController?.Initialize(this);
     }
 
+    /// <summary>
+    /// 플레이어의 모든 행동 상태(마법, 대시, 배리어 등)를 완벽하게 초기화합니다.
+    /// 마법 종료, 리스폰, 피격 등으로 인한 상태 초기화 시 사용합니다.
+    /// [Server Only] 이 메서드는 State Authority에서만 호출해야 합니다.
+    /// </summary>
+    public void ResetPlayerActionState()
+    {
+        if (!Object.HasStateAuthority) return;
+
+        // 1. 마법 활성화 상태 초기화
+        MagicActive = false;
+        ActivatedMagicCode = -1;
+        AbsorbedMagicCode = -1;
+        ActiveMagicSlotNetworked = 0;
+        MagicActivationTick = 0;
+
+        // 2. 각 마법 핸들러에게 초기화 위임 (Dash, Barrier 등)
+        if (_magicController != null)
+        {
+            _magicController.StopAllMagics();
+        }
+        
+        // 4. 기타 상태 초기화
+        // _barrierMoveSpeedEffectId는 로컬 관리이므로 ChangeDetector나 개별 로직에서 처리됨
+        // 하지만 필요하다면 EffectManager를 통해 모든 효과 제거도 고려 가능
+    }
     #endregion
 
     #region Private Methods - Initialization & Helper

@@ -454,6 +454,37 @@ public class BarrierMagicHandler : MonoBehaviour, ICombinedMagicHandler
         MagicCombinationData combinationData = _gameDataManager.MagicService.GetCombinationDataByResult(10);
         return combinationData as BarrierMagicCombinationData;
     }
+
+    /// <summary>
+    /// 베리어 마법을 중단하고 상태를 정리합니다.
+    /// </summary>
+    public void StopMagic()
+    {
+        if (_controller == null) return;
+        
+        // 하이라이트 정리
+        if (_controller.Object.HasInputAuthority)
+        {
+            if (_sharedHighlightInstance != null)
+            {
+                _sharedHighlightInstance.SetActive(false);
+                _sharedHighlightInstance.transform.SetParent(null);
+            }
+            _selectedPlayer = null;
+            _currentHighlightedPlayer = null;
+        }
+
+        // 상태 초기화 (State Authority에서만)
+        if (_controller.Object.HasStateAuthority)
+        {
+            _controller.HasBarrier = false;
+            _controller.BarrierTimer = TickTimer.None;
+            // 위에서 설명한 MoveSpeedEffect 제거 로직 등도 필요하다면 여기서 호출
+            // 하지만 현재 BarrierMagicHandler 구조상 Effect 제거는 PlayerController에서 타이머 만료 시 하도록 되어있음
+            // 강제 중단 시에도 제거가 필요하다면? PlayerController.ManageBarrierMoveSpeedEffect 로직 참조
+            // 여기서는 단순 상태 초기화만 수행
+        }
+    }
     #endregion
     
     #region Cleanup

@@ -543,5 +543,16 @@ public class PlayerMagicController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 모든 등록된 합체 마법 핸들러의 StopMagic을 호출합니다.
+    /// </summary>
+    public void StopAllMagics()
+    {
+        foreach (var handler in _magicHandlers.Values)
+        {
+            handler.StopMagic();
+        }
+    }
+
     #endregion
 }
