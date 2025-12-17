@@ -25,21 +25,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     [Networked] public TickTimer InvincibilityTimer { get; set; }
     [Networked] public TickTimer RespawnTimer { get; set; }
 
-    // Magic
-    [Networked] public int ActiveMagicSlotNetworked { get; set; }
-    [Networked] public int ActivatedMagicCode { get; set; }
-    [Networked] public int AbsorbedMagicCode { get; set; }
-    [Networked] public Vector3 MagicAnchorLocalPosition { get; set; }
-
-    // Teleporter & Barrier
+    // Teleporter
     [Networked] public TickTimer TeleportCooldownTimer { get; set; }
     [Networked] public NetworkBool DidTeleport { get; set; }
-
-    [SerializeField] private GameObject _magicViewObj;
-    [SerializeField] private GameObject _magicAnchor;
-    [SerializeField] private GameObject _magicIdleFirstFloor;
-    [SerializeField] private GameObject _magicIdleSecondFloor;
-    [SerializeField] private GameObject _magicActiveFloor;
     
     private GameDataManager _gameDataManager;
     private ChangeDetector _changeDetector;
@@ -63,14 +51,11 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     public bool IsInvincible => !InvincibilityTimer.ExpiredOrNotRunning(Runner);
     public bool IsTestMode => _isTestMode;
 
-    /// <summary>
-    /// UI 갱신용 이벤트
-    /// </summary>
-    public System.Action<float, float> OnHealthChanged; // (current, max)
-    public System.Action<PlayerRef> OnDeath; // (killer)
+    public System.Action<float, float> OnHealthChanged;
+    public System.Action<PlayerRef> OnDeath;
     public System.Action OnRespawned;
-    public System.Action<float> OnDamageTaken; // (damage)
-    public System.Action<float> OnHealed; // (healAmount)
+    public System.Action<float> OnDamageTaken;
+    public System.Action<float> OnHealed;
 
     #region Fusion Callbacks
 
@@ -79,7 +64,7 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         base.Spawned();
 
         Runner.SetIsSimulated(Object, true);
-        _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
+        _isTestMode = GameManager.Instance.CurrentSceneManager.IsTestMode;
         _gameDataManager = GameDataManager.Instance;
 
         InitializeComponents();
@@ -226,22 +211,9 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_UpdateMagicAnchorPosition(Vector3 localPosition)
-    {
-        MagicAnchorLocalPosition = localPosition;
-    }
-
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_CastMagic(Vector3 targetPosition)
     {
 
-    }
-
-    public void DeactivateMagicInternal()
-    {
-        ActivatedMagicCode = -1;
-        AbsorbedMagicCode = -1;
-        ActiveMagicSlotNetworked = 0;
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -282,24 +254,11 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         _animationController?.Initialize(this);
     }
 
-    /// <summary>
-    /// 플레이어의 모든 행동 상태(마법, 대시, 배리어 등)를 완벽하게 초기화합니다.
-    /// 마법 종료, 리스폰, 피격 등으로 인한 상태 초기화 시 사용합니다.
-    /// [Server Only] 이 메서드는 State Authority에서만 호출해야 합니다.
-    /// </summary>
-    public void ResetPlayerActionState()
-    {
-        if (!Object.HasStateAuthority) return;
-
-        ActivatedMagicCode = -1;
-        AbsorbedMagicCode = -1;
-        ActiveMagicSlotNetworked = 0;
-    }
-
     private void InitializeComponents()
     {
-        _movement = GetComponent<PlayerRigidBodyMovement>() ?? gameObject.AddComponent<PlayerRigidBodyMovement>();
-        _animationController = GetComponent<PlayerAnimationController>() ?? gameObject.AddComponent<PlayerAnimationController>();
+        _movement = GetComponent<PlayerRigidBodyMovement>();
+        _animationController = GetComponent<PlayerAnimationController>();
+
         _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
     }
 
@@ -310,10 +269,6 @@ public class PlayerController : NetworkBehaviour, IPlayerLeft
         ScaleX = 1f;
         AnimationState = "idle";
         IsDead = false;
-
-        ActivatedMagicCode = -1;
-        AbsorbedMagicCode = -1;
-        ActiveMagicSlotNetworked = 0;
     }
 
     public bool IsEnemyNearby(EnemyDetector enemy)

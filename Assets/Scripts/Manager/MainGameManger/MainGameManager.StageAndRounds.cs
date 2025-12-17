@@ -62,6 +62,22 @@ public partial class MainGameManager
         _currentStageData = stageData;
     }
 
+    /// <summary>
+    /// _roundTriggers 리스트에 있는 RoundTrigger를 초기화합니다.
+    /// RoundTrigger는 자신이 가지고 있는 EnemySpawner와 GoalSpawner를 자동으로 초기화합니다.
+    /// </summary>
+    private void InitializeSceneObjects()
+    {
+        // _roundTriggers 리스트에 있는 것만 초기화
+        foreach (var trigger in _roundTriggers)
+        {
+            if (trigger != null)
+            {
+                trigger.OnInitialize(this);
+            }
+        }
+    }
+
     private StageData GetStageDataBySceneName(string sceneName)
     {
         if (_currentStageData != null)
@@ -439,5 +455,13 @@ public partial class MainGameManager
                 if (spawner != null) spawner.DestroyAllGoals();
             }
         }
+    }
+
+    /// <summary>
+    /// 현재 라운드 인덱스를 반환합니다. 라운드가 종료되면 -1을 반환합니다.
+    /// </summary>
+    public int GetCurrentRoundIndex()
+    {
+        return RoundIndex;
     }
 }

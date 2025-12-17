@@ -15,10 +15,10 @@ public class EnemyDetector : MonoBehaviour
     #region Private Fields
     private EnemyController _controller;
     private EnemyData _enemyData;
+    private MainGameManager _mainGameManager;
     private PlayerController _detectedPlayer;
     private Vector2 _lastDetectedPosition;
-    
-    // 런타임 시각화용 Mesh
+
     private MeshFilter _detectionRangeMeshFilter;
     private MeshRenderer _detectionRangeMeshRenderer;
     private Mesh _fieldOfViewMesh;
@@ -27,9 +27,7 @@ public class EnemyDetector : MonoBehaviour
     private Vector3 _lastPosition;
     private float _lastRotation;
     [Header("Performance Settings")]
-    [Tooltip("시야 범위 업데이트 주기 (초) - 유휴 상태")]
     [SerializeField] private float _updateIntervalIdle = 0.2f;
-    [Tooltip("시야 범위 업데이트 주기 (초) - 탐지 중")]
     [SerializeField] private float _updateIntervalDetected = 0.08f;
     private float _lastUpdateTime = 0f;
     private Dictionary<PlayerController, Vector3> _lastPlayerPositions = new Dictionary<PlayerController, Vector3>();
@@ -40,30 +38,14 @@ public class EnemyDetector : MonoBehaviour
     [SerializeField] private LayerMask _obstacleLayerMask;
     
     [Header("Visualization Settings")]
-    [Tooltip("에디터에서 탐지 범위 표시 여부")]
     [SerializeField] private bool _showDetectionRange = true;
-    
-    [Tooltip("런타임에서 탐지 범위 표시 여부")]
     [SerializeField] private bool _showRuntimeRange = true;
-    
-    [Tooltip("시야 범위를 표시할 트리거 범위 (플레이어가 이 범위 안에 들어가면 시야 표시)")]
     [SerializeField] private float _visualizationTriggerRange = 10f;
-    
-    [Tooltip("항상 시야 범위를 표시할지 여부 (false면 플레이어가 범위 안에 있을 때만 표시)")]
     [SerializeField] private bool _alwaysShowRange = false;
-    
-    [Tooltip("탐지 범위 표시 색상")]
     [SerializeField] private Color _detectionRangeColor = new Color(1f, 0f, 0f, 0.3f);
-    
-    [Tooltip("탐지 중인 플레이어 표시 색상")]
     [SerializeField] private Color _detectedPlayerColor = new Color(1f, 0.5f, 0f, 0.5f);
-    
-    [Tooltip("트리거 범위 표시 색상 (선택 시 표시)")]
     [SerializeField] private Color _triggerRangeColor = new Color(0f, 1f, 0f, 0.2f);
-    
-    [Tooltip("원형 범위를 그릴 세그먼트 수 (유휴 상태)")]
     [SerializeField] private int _segmentsWhenIdle = 24;
-    [Tooltip("원형 범위를 그릴 세그먼트 수 (탐지 중)")]
     [SerializeField] private int _segmentsWhenDetected = 64;
     #endregion
 
@@ -81,6 +63,20 @@ public class EnemyDetector : MonoBehaviour
     {
         _controller = controller;
         _enemyData = enemyData;
+        
+        // EnemyController에서 MainGameManager 참조 가져오기
+        if (_controller != null)
+        {
+            _mainGameManager = _controller.MainGameManager;
+        }
+    }
+    
+    /// <summary>
+    /// MainGameManager에서 직접 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
         
         // 기본 레이어 설정
         if (_playerLayerMask.value == 0)
@@ -160,15 +156,26 @@ public class EnemyDetector : MonoBehaviour
         // 모든 플레이어를 가져옴
         List<PlayerController> allPlayers = new List<PlayerController>();
         
-        if (MainGameManager.Instance != null)
+        if (_mainGameManager != null)
         {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
+            allPlayers = _mainGameManager.GetAllPlayers();
         }
         
         // 보조 안전망: 리스트가 비면 씬에서 직접 검색
         if (allPlayers == null || allPlayers.Count == 0)
         {
             allPlayers = new List<PlayerController>(FindObjectsOfType<PlayerController>());
+        }
+        
+        // MainGameManager가 없으면 EnemyController에서 가져오기
+        if (_mainGameManager == null && _controller != null)
+        {
+            _mainGameManager = _controller.MainGameManager;
+        }
+        
+        if (_mainGameManager != null && (allPlayers == null || allPlayers.Count == 0))
+        {
+            allPlayers = _mainGameManager.GetAllPlayers();
         }
 
         // 위협점수 기반으로 플레이어 목록 정렬
@@ -242,9 +249,13 @@ public class EnemyDetector : MonoBehaviour
         
         // 로컬 플레이어만 확인
         PlayerController localPlayer = null;
-        if (MainGameManager.Instance != null)
+        if (_mainGameManager == null && _controller != null)
         {
-            localPlayer = MainGameManager.Instance.GetLocalPlayer();
+            _mainGameManager = _controller.MainGameManager;
+        }
+        if (_mainGameManager != null)
+        {
+            localPlayer = _mainGameManager.GetLocalPlayer();
         }
         
         if (localPlayer == null || localPlayer.IsDead) return false;
@@ -333,9 +344,13 @@ public class EnemyDetector : MonoBehaviour
         // 모든 플레이어 가져오기
         List<PlayerController> allPlayers = new List<PlayerController>();
         
-        if (MainGameManager.Instance != null)
+        if (_mainGameManager == null && _controller != null)
         {
-            allPlayers = MainGameManager.Instance.GetAllPlayers();
+            _mainGameManager = _controller.MainGameManager;
+        }
+        if (_mainGameManager != null)
+        {
+            allPlayers = _mainGameManager.GetAllPlayers();
         }
         
         if (allPlayers == null || allPlayers.Count == 0)

@@ -9,4 +9,6 @@ public interface ISceneGameManager
     /// 씬 매니저 초기화 메서드
     /// </summary>
     void OnInitialize(GameManager gameManager, GameDataManager gameDataManager);
+
+    bool IsTestMode { get; }
 }

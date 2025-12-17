@@ -17,11 +17,38 @@ public class RoundTrigger : MonoBehaviour
 
     private bool _hasTriggered = false;
     private readonly HashSet<PlayerController> _playersInside = new HashSet<PlayerController>();
+    private MainGameManager _mainGameManager;
     
     /// <summary>
     /// 이 트리거의 라운드 인덱스를 반환합니다.
     /// </summary>
     public int RoundIndex => _roundIndex;
+    
+    /// <summary>
+    /// MainGameManager에서 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
+        
+        // 자신이 가지고 있는 EnemySpawner 초기화
+        foreach (var enemySpawner in _enemySpawners)
+        {
+            if (enemySpawner != null)
+            {
+                enemySpawner.OnInitialize(mainGameManager);
+            }
+        }
+        
+        // 자신이 가지고 있는 GoalSpawner 초기화
+        foreach (var goalSpawner in _goalSpawners)
+        {
+            if (goalSpawner != null)
+            {
+                goalSpawner.OnInitialize(mainGameManager);
+            }
+        }
+    }
     
     /// <summary>
     /// 이 트리거의 EnemySpawner 리스트를 반환합니다.
@@ -71,16 +98,16 @@ public class RoundTrigger : MonoBehaviour
             // 모든 살아있는 플레이어가 이 트리거 안에 있을 때만 라운드 시작
             if (!_hasTriggered && AreAllAlivePlayersInside())
             {
-                if (MainGameManager.Instance != null)
+                if (_mainGameManager != null)
                 {
-                    MainGameManager.Instance.StartRound(_roundIndex, _enemySpawners, _goalSpawners, _doorObjects, _roundEndActiveObject);
+                    _mainGameManager.StartRound(_roundIndex, _enemySpawners, _goalSpawners, _doorObjects, _roundEndActiveObject);
 
                     _hasTriggered = true;
                     Debug.Log($"[RoundTrigger] Round {_roundIndex} started (EnemySpawners: {_enemySpawners.Count}, GoalSpawners: {_goalSpawners.Count}, Doors: {_doorObjects.Count}, EndActiveObjects: {_roundEndActiveObject.Count})");
                 }
                 else
                 {
-                    Debug.LogWarning($"[RoundTrigger] MainGameManager.Instance is null! Cannot start round {_roundIndex}");
+                    Debug.LogWarning($"[RoundTrigger] MainGameManager is null! Cannot start round {_roundIndex}");
                 }
             }
         }
@@ -103,9 +130,9 @@ public class RoundTrigger : MonoBehaviour
     /// </summary>
     private bool AreAllAlivePlayersInside()
     {
-        if (MainGameManager.Instance == null) return false;
+        if (_mainGameManager == null) return false;
 
-        List<PlayerController> players = MainGameManager.Instance.GetAllPlayers();
+        List<PlayerController> players = _mainGameManager.GetAllPlayers();
         if (players == null || players.Count == 0) return false;
 
         foreach (var player in players)

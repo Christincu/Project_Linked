@@ -9,23 +9,17 @@ using Fusion;
 public class GoalSpawner : MonoBehaviour
 {
     [Header("Identity")]
-    [Tooltip("스포너 인덱스 (WaveData의 GoalSpawnData.spawnerIndex와 매칭)")]
     [SerializeField] private int _spawnerIndex = 0;
 
     [Header("Goal Settings")]
-    [Tooltip("스폰할 목표 오브젝트 프리팹 (Collect 목표에서 사용, NetworkObject 필수)")]
     [SerializeField] private GameObject _goalPrefab;
 
     [Header("Spawn Area")]
-    [Tooltip("목표 오브젝트를 스폰할 위치들 (랜덤으로 선택됨)")]
     [SerializeField] private List<Transform> _spawnTransforms = new List<Transform>();
 
     [Header("Collision Prevention")]
-    [Tooltip("스폰 시 겹침을 방지할 레이어")]
     [SerializeField] private LayerMask _collisionLayerMask;
-    [Tooltip("겹침 확인 반경")]
     [SerializeField] private float _checkRadius = 0.5f;
-    [Tooltip("빈 공간 찾기 최대 시도 횟수")]
     [SerializeField] private int _maxSpawnAttempts = 10;
 
     // State
@@ -33,9 +27,18 @@ public class GoalSpawner : MonoBehaviour
     private readonly List<NetworkObject> _spawnedGoals = new List<NetworkObject>();
     private readonly List<Coroutine> _activeSpawnCoroutines = new List<Coroutine>();
     private bool _isSpawningActive = true;
+    private MainGameManager _mainGameManager;
 
     // Public Property
     public int SpawnerIndex => _spawnerIndex;
+    
+    /// <summary>
+    /// MainGameManager에서 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
+    }
 
     private void Start()
     {
@@ -133,9 +136,9 @@ public class GoalSpawner : MonoBehaviour
                 }
 
                 // MainGameManager가 없거나 라운드가 종료되었는지 확인
-                if (MainGameManager.Instance != null)
+                if (_mainGameManager != null)
                 {
-                    int currentRound = MainGameManager.Instance.GetCurrentRoundIndex();
+                    int currentRound = _mainGameManager.GetCurrentRoundIndex();
                     if (currentRound < 0) // 라운드가 종료되면 -1로 설정됨
                     {
                         _isSpawningActive = false;
@@ -184,6 +187,12 @@ public class GoalSpawner : MonoBehaviour
                 if (obj.TryGetComponent(out GoalObject goalObject))
                 {
                     goalObject.Initialize(waveData);
+                    
+                    // MainGameManager 초기화
+                    if (_mainGameManager != null)
+                    {
+                        goalObject.OnInitialize(_mainGameManager);
+                    }
                 }
             });
 

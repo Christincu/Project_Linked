@@ -39,6 +39,7 @@ public class EnemyController : NetworkBehaviour
 
     #region Private Fields - Components
     private GameDataManager _gameDataManager;
+    private MainGameManager _mainGameManager;
     private GameObject _viewObj;
     private Animator _animator;
     private ChangeDetector _changeDetector;
@@ -57,6 +58,7 @@ public class EnemyController : NetworkBehaviour
 
     #region Properties
     public GameDataManager GameDataManager => _gameDataManager;
+    public MainGameManager MainGameManager => _mainGameManager;
     public GameObject ViewObj => _viewObj;
     public EnemyState State => _state;
     public EnemyDetector Detector => _detector;
@@ -66,6 +68,14 @@ public class EnemyController : NetworkBehaviour
     // Health Properties
     public float HealthPercentage => MaxHealth > 0 ? CurrentHealth / MaxHealth : 0;
     #endregion
+    
+    /// <summary>
+    /// EnemySpawner에서 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
+    }
 
     #region Fusion Callbacks
     /// <summary>
@@ -83,7 +93,7 @@ public class EnemyController : NetworkBehaviour
             Runner.SetIsSimulated(Object, true);
         }
 
-        _isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
+        _isTestMode = _mainGameManager != null && _mainGameManager.IsTestMode;
         _gameDataManager = GameDataManager.Instance;
         _previousPosition = transform.position;
 
@@ -138,6 +148,13 @@ public class EnemyController : NetworkBehaviour
         _state?.Initialize(this, enemyData);
         _detector?.Initialize(this, enemyData);
         _movement?.Initialize(this, enemyData);
+        
+        // 2-1. MainGameManager 참조 전달 (각 컴포넌트 초기화)
+        if (_mainGameManager != null)
+        {
+            _state?.OnInitialize(_mainGameManager);
+            _detector?.OnInitialize(_mainGameManager);
+        }
         
         // 3. Rigidbody2D 물리 설정 (플레이어가 밀어도 관성이 빠르게 감소하도록)
         ConfigureRigidbodyPhysics();

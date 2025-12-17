@@ -7,28 +7,20 @@ using UnityEngine;
 /// </summary>
 public class VisualManager : MonoBehaviour
 {
-    #region Singleton
     private static VisualManager _instance;
     public static VisualManager Instance
     {
         get => _instance;
     }
-    #endregion
 
-    #region Inspector
     [Header("Explosion Range Visual")]
-    [Tooltip("폭발 범위 표시용 1x1 동그란 오브젝트 프리팹 (SpriteRenderer 등을 포함한 GameObject)")]
     [SerializeField] private GameObject _explosionRangePrefab;
-    #endregion
-    
-    #region Properties
+
     /// <summary>
     /// 폭발 범위 표시용 오브젝트 프리팹 (null일 수 있음)
     /// </summary>
     public GameObject ExplosionRangePrefab => _explosionRangePrefab;
-    #endregion
 
-    #region Unity Lifecycle
     private void Awake()
     {
         if (_instance == null)
@@ -41,6 +33,10 @@ public class VisualManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
-    #endregion
+
+    public void OnInitialize(GameManager gameManager)
+    {
+
+    }
 }
 

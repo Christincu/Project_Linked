@@ -7,9 +7,6 @@ using WaveGoalTypeEnum = WaveGoalType; // 네트워크 변수 WaveGoalType(int)�
 /// </summary>
 public partial class MainGameManager
 {
-    // Note: UpdateUIFromNetworkedVariables() 메서드는 사용되지 않으므로 제거됨
-    // UpdateWaveUI() 메서드가 동일한 기능을 수행함
-    
     /// <summary>
     /// 서버에서 네트워크 변수를 업데이트합니다. (웨이브 정보 동기화)
     /// 주의: 서버에서만 호출 가능하며, 클라이언트는 자동으로 동기화된 값을 받습니다.
@@ -19,18 +16,6 @@ public partial class MainGameManager
         if (_runner == null)
         {
             Debug.LogError("[MainGameManager] UpdateNetworkedWaveVariables: _runner is null!");
-            return;
-        }
-        
-        if (!_runner.IsServer)
-        {
-            Debug.LogWarning("[MainGameManager] UpdateNetworkedWaveVariables: Called on client! Only server can update networked variables.");
-            return;
-        }
-        
-        if (Object == null || !Object.IsValid)
-        {
-            Debug.LogWarning("[MainGameManager] UpdateNetworkedWaveVariables: NetworkObject is null or not valid!");
             return;
         }
         
@@ -51,18 +36,6 @@ public partial class MainGameManager
         if (_runner == null)
         {
             Debug.LogError("[MainGameManager] ResetNetworkedWaveVariables: _runner is null!");
-            return;
-        }
-        
-        if (!_runner.IsServer)
-        {
-            Debug.LogWarning("[MainGameManager] ResetNetworkedWaveVariables: Called on client! Only server can reset networked variables.");
-            return;
-        }
-        
-        if (Object == null || !Object.IsValid)
-        {
-            Debug.LogWarning("[MainGameManager] ResetNetworkedWaveVariables: NetworkObject is null or not valid!");
             return;
         }
         

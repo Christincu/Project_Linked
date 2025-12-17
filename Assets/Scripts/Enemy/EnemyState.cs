@@ -12,7 +12,16 @@ public class EnemyState : MonoBehaviour
     #region Private Fields
     private EnemyController _controller;
     private EnemyData _enemyData;
+    private MainGameManager _mainGameManager;
     #endregion
+    
+    /// <summary>
+    /// MainGameManager에서 직접 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
+    }
 
     #region Properties (EnemyController의 네트워크 변수 참조)
     public float CurrentHealth
@@ -143,9 +152,13 @@ public class EnemyState : MonoBehaviour
         OnDeath?.Invoke();
 
         // Kill 타입 웨이브 목표 알림 (서버/StateAuthority에서만 의미 있음)
-        if (MainGameManager.Instance != null)
+        if (_mainGameManager == null && _controller != null)
         {
-            MainGameManager.Instance.OnEnemyKilled();
+            _mainGameManager = _controller.MainGameManager;
+        }
+        if (_mainGameManager != null)
+        {
+            _mainGameManager.OnEnemyKilled();
         }
 
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);

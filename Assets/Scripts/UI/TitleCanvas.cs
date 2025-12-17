@@ -48,8 +48,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
     public void OnInitialize(GameManager gameManager, GameDataManager gameDataManager)
     {
         ShowTitlePanel();
-        _titleGameManager?.OnInitialize(this);
-        SetupButtonEvents();
         InitializeChapterButtons();
 
         string savedNickname = GameManager.MyLocalNickname;
@@ -82,7 +80,7 @@ public class TitleCanvas : MonoBehaviour, ICanvas
             ChapterBtn chapterBtn = btnObj.GetComponent<ChapterBtn>();
             if (chapterBtn != null)
             {
-                string displayName = $"Chapter {i + 1}: {sceneName}";
+                string displayName = $"Chapter : {sceneName}";
                 chapterBtn.Initialize(sceneName, displayName, this);
             }
         }
@@ -101,64 +99,10 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         }
     }
 
-    // Auto assign button events
-    private void SetupButtonEvents()
-    {
-        RemoveButtonEvents();
-
-        if (_createRoomButton != null)
-            _createRoomButton.onClick.AddListener(OnCreateRoomButton);
-
-        if (_joinRoomButton != null)
-            _joinRoomButton.onClick.AddListener(OnJoinRoomButton);
-
-        if (_startGameButton != null)
-            _startGameButton.onClick.AddListener(OnStartGameButton);
-
-        if (_leaveRoomButton != null)
-            _leaveRoomButton.onClick.AddListener(OnLeaveRoomButton);
-    }
-
-    void OnDestroy()
-    {
-        RemoveButtonEvents();
-    }
-
-    // Remove button event connections
-    private void RemoveButtonEvents()
-    {
-        if (_createRoomButton != null)
-            _createRoomButton.onClick.RemoveListener(OnCreateRoomButton);
-
-        if (_joinRoomButton != null)
-            _joinRoomButton.onClick.RemoveListener(OnJoinRoomButton);
-
-        if (_startGameButton != null)
-            _startGameButton.onClick.RemoveListener(OnStartGameButton);
-
-        if (_leaveRoomButton != null)
-            _leaveRoomButton.onClick.RemoveListener(OnLeaveRoomButton);
-    }
-
-    // ========== UI Panel Switching ==========
-
     public void ShowTitlePanel()
     {
-        // GameObject가 파괴되었는지 확인
-        if (this == null || gameObject == null)
-        {
-            return;
-        }
-        
-        if (_titlePanel != null)
-        {
-            _titlePanel.SetActive(true);
-        }
-        
-        if (_lobbyPanel != null)
-        {
-            _lobbyPanel.SetActive(false);
-        }
+        _titlePanel.SetActive(true);
+        _lobbyPanel.SetActive(false);
     }
 
     public void ShowLobbyPanel()
@@ -166,7 +110,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         _titlePanel.SetActive(false);
         _lobbyPanel.SetActive(true);
 
-        // [수정됨] 즉시 초기화하는 대신, 데이터가 준비될 때까지 기다리는 코루틴 실행
         StartCoroutine(WaitForLocalPlayerAndRefreshUI());
     }
     
@@ -228,11 +171,8 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         }
     }
 
-    // ========== Button Events ==========
-
     public void OnCreateRoomButton()
     {
-        // 버튼 즉시 비활성화 (중복 클릭 방지)
         SetButtonsInteractable(false);
 
         string roomName = _roomNameInput.text;
@@ -243,7 +183,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
 
     public void OnJoinRoomButton()
     {
-        // 버튼 즉시 비활성화 (중복 클릭 방지)
         SetButtonsInteractable(false);
 
         string roomName = _roomNameInput.text;
@@ -277,12 +216,9 @@ public class TitleCanvas : MonoBehaviour, ICanvas
             Debug.LogError("[TitleCanvas] Scene name is empty!");
             return;
         }
-        
-        Debug.Log($"[TitleCanvas] Chapter selected: {sceneName}");
-        _titleGameManager?.LoadChapterScene(sceneName);
-    }
 
-    // ========== Character Selection Functions ==========
+        _titleGameManager.LoadChapterScene(sceneName);
+    }
 
     public void OnSelectCharacter0()
     {
@@ -317,8 +253,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         GameManager.MyLocalCharacterIndex = characterIndex;
 
         UpdateCharacterUI(characterData);
-
-        // Set character index in network if connected
         if (FusionManager.LocalRunner != null)
         {
             // PlayerData가 생성될 때까지 대기하는 코루틴 시작
@@ -334,7 +268,7 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         if (FusionManager.LocalRunner == null) yield break;
         
         var localPlayerRef = FusionManager.LocalRunner.LocalPlayer;
-        float timeout = 5f; // 최대 5초 대기
+        float timeout = 5f;
         float timer = 0f;
         
         while (timer < timeout)
@@ -384,8 +318,6 @@ public class TitleCanvas : MonoBehaviour, ICanvas
             }
         }
     }
-
-    // ========== UI Update (public for TitleGameManager access) ==========
 
     public void UpdateLobbyUI()
     {
@@ -439,16 +371,11 @@ public class TitleCanvas : MonoBehaviour, ICanvas
         }
     }
 
-    // ========== Helper Functions ==========
-
-    // 버튼 활성화/비활성화 설정 (public for TitleGameManager access)
     public void SetButtonsInteractable(bool interactable)
     {
         if (_createRoomButton != null)
             _createRoomButton.interactable = interactable;
         if (_joinRoomButton != null)
             _joinRoomButton.interactable = interactable;
-
-        // 로비 패널 진입 후에는 startGameButton과 leaveRoomButton은 UpdateLobbyUI에서 관리
     }
 }

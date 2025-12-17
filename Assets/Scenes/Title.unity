@@ -232,8 +232,6 @@ MonoBehaviour:
   _deadZone: 0.5
   _useBoundary: 0
   _cameraBounds: {x: -50, y: -50, z: 50, w: 50}
-  _initialSize: 5
-  _maxSize: 10
 --- !u!1 &455745813
 GameObject:
   m_ObjectHideFlags: 0
@@ -3082,7 +3080,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1455647505552674754}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1183088880}
+        m_TargetAssemblyTypeName: TitleCanvas, Assembly-CSharp
+        m_MethodName: OnCreateRoomButton
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!224 &4470108532225808393
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5828,7 +5838,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2951744359191531150}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1183088880}
+        m_TargetAssemblyTypeName: TitleCanvas, Assembly-CSharp
+        m_MethodName: OnJoinRoomButton
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!222 &9006290918837102390
 CanvasRenderer:
   m_ObjectHideFlags: 0

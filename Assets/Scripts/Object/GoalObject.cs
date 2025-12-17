@@ -16,6 +16,7 @@ public class GoalObject : NetworkBehaviour
     // 이 목표가 속한 웨이브 데이터 (서버에서만 사용)
     private WaveData _waveData;
     private bool _isCollected = false;
+    private MainGameManager _mainGameManager;
 
     /// <summary>
     /// GoalSpawner에서 생성 직후 호출하여 이 목표가 속한 WaveData를 설정합니다.
@@ -24,6 +25,14 @@ public class GoalObject : NetworkBehaviour
     public void Initialize(WaveData waveData)
     {
         _waveData = waveData;
+    }
+    
+    /// <summary>
+    /// MainGameManager에서 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
     }
 
     public override void Spawned()
@@ -60,9 +69,9 @@ public class GoalObject : NetworkBehaviour
         // 목표 달성 처리
         _isCollected = true;
 
-        if (_waveData != null && MainGameManager.Instance != null)
+        if (_waveData != null && _mainGameManager != null)
         {
-            MainGameManager.Instance.AddWaveGoalProgress(_waveData, 1);
+            _mainGameManager.AddWaveGoalProgress(_waveData, 1);
         }
 
         // 오브젝트 제거 (네트워크/로컬 상황에 따라 처리)

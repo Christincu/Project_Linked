@@ -10,10 +10,12 @@ GameObject:
   m_Component:
   - component: {fileID: 5249862136135998375}
   - component: {fileID: 4600561303719498630}
+  - component: {fileID: 7669918356441716779}
+  - component: {fileID: 3134339782262527313}
+  - component: {fileID: 7930489244872943270}
   - component: {fileID: 7159770031046681830}
   - component: {fileID: 4924376003885490738}
   - component: {fileID: 7212694276323073538}
-  - component: {fileID: 7930489244872943270}
   m_Layer: 7
   m_Name: PlayerPrefab
   m_TagString: Player
@@ -66,11 +68,53 @@ MonoBehaviour:
   _MagicAnchorLocalPosition: {x: 0, y: 0, z: 0}
   _DidTeleport:
     _value: 0
-  _magicViewObj: {fileID: 0}
-  _magicAnchor: {fileID: 0}
-  _magicIdleFirstFloor: {fileID: 0}
-  _magicIdleSecondFloor: {fileID: 0}
-  _magicActiveFloor: {fileID: 0}
+--- !u!114 &7669918356441716779
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4305966876063921749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0492cec74dd9dfe49af80b177b085e0a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &3134339782262527313
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4305966876063921749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4bfe1728d3623a54eac1e6fd0f22b970, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &7930489244872943270
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4305966876063921749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5e690b5fb1084f5ab1c86457af401d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _stateAuthorityChangeErrorCorrectionDelta: 0
+  SyncScale: 0
+  SyncParent: 1
+  _interpolationTarget: {fileID: 3972847840167599031}
+  UsePreciseRotation: 0
+  UseRenderSleepThresholds: 1
+  RenderThresholds:
+    UseEnergy: 1
+    Position: 0.01
+    Rotation: 0.01
+    Scale: 0.01
 --- !u!70 &7159770031046681830
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -153,29 +197,6 @@ Rigidbody2D:
   m_SleepingMode: 0
   m_CollisionDetection: 1
   m_Constraints: 4
---- !u!114 &7930489244872943270
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4305966876063921749}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c5e690b5fb1084f5ab1c86457af401d4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _stateAuthorityChangeErrorCorrectionDelta: 0
-  SyncScale: 0
-  SyncParent: 1
-  _interpolationTarget: {fileID: 3972847840167599031}
-  UsePreciseRotation: 0
-  UseRenderSleepThresholds: 1
-  RenderThresholds:
-    UseEnergy: 1
-    Position: 0.01
-    Rotation: 0.01
-    Scale: 0.01
 --- !u!1 &8833550867302704697
 GameObject:
   m_ObjectHideFlags: 0

@@ -31,9 +31,6 @@ public class GameManager : MonoBehaviour
     private FusionManager _fusionManager;
     private VisualManager _visualManager;
 
-    private ISceneGameManager _sceneGameManager;
-    private ICanvas _mainCanvas;
-
     private LoadingPanel _loadingPanel;
 
     public void SetGameState(GameStateType newState) => State = newState;
@@ -80,28 +77,47 @@ public class GameManager : MonoBehaviour
         {
             GameObject obj = Instantiate(_gameDataManagerPrefab);
             _gameDataManager = obj.GetComponent<GameDataManager>();
+            _gameDataManager.OnInitialize(this);
+        }
+        else
+        {
+            Debug.LogWarning("GameDataManager prefab is not assigned or instance already exists.");
         }
 
-        if(_fusionManagerPrefab != null && FusionManager.Instance == null)
+        if (_fusionManagerPrefab != null && FusionManager.Instance == null)
         {
             GameObject obj = Instantiate(_fusionManagerPrefab);
             _fusionManager = obj.GetComponent<FusionManager>();
+            _fusionManager.OnInitialize(this);
+        }
+        else
+        {
+            Debug.LogWarning("FusionManager prefab is not assigned or instance already exists.");
         }
 
-        if(_visualManagerPrefab != null && VisualManager.Instance == null)
+        if (_visualManagerPrefab != null && VisualManager.Instance == null)
         {
             GameObject obj = Instantiate(_visualManagerPrefab);
             _visualManager = obj.GetComponent<VisualManager>();
+            _visualManager.OnInitialize(this);
+        }
+        else
+        {
+            Debug.LogWarning("VisualManager prefab is not assigned or instance already exists.");
         }
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if(_sceneGameManager != null)
+        GameObject obj = GameObject.Find("SceneGameManager");
+        CurrentSceneManager = obj.GetComponent<ISceneGameManager>();
+        CurrentSceneManager.OnInitialize(this, _gameDataManager);
+
+        GameObject canvasObj = GameObject.Find("Canvas");
+        if (canvasObj != null && canvasObj.TryGetComponent(out ICanvas canvas))
         {
-            GameObject obj = GameObject.Find("SceneGameManager");
-            _sceneGameManager = obj.GetComponent<ISceneGameManager>();
-            _sceneGameManager.OnInitialize(this, _gameDataManager);
+            Canvas = canvas;
+            Canvas.OnInitialize(this, _gameDataManager);
         }
     }
 
@@ -123,7 +139,10 @@ public class GameManager : MonoBehaviour
 
     private void OnPlayerJoined(PlayerRef player, NetworkRunner runner)
     {
-        _playerData.Add(player, null);
+        if (!_playerData.ContainsKey(player))
+        {
+            _playerData[player] = null;
+        }
     }
 
     private void OnPlayerLeft(PlayerRef player, NetworkRunner runner)

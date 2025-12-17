@@ -25,14 +25,21 @@ public class EnemySpawner : MonoBehaviour
     [Tooltip("빈 공간 찾기 최대 시도 횟수")]
     [SerializeField] private int _maxSpawnAttempts = 10;
 
-    // State
     private NetworkRunner _runner;
     private readonly List<NetworkObject> _spawnedEnemies = new List<NetworkObject>();
     private readonly List<Coroutine> _activeSpawnCoroutines = new List<Coroutine>();
     private bool _isSpawningActive = true;
-    
-    // Public Property
+    private MainGameManager _mainGameManager;
+
     public int SpawnerIndex => _spawnerIndex;
+    
+    /// <summary>
+    /// MainGameManager에서 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
+    }
 
     private void Start()
     {
@@ -100,7 +107,6 @@ public class EnemySpawner : MonoBehaviour
                 yield break;
             }
 
-            // ★ 핵심: 이번 웨이브 루프 동안 예약된 위치들을 기억함 (물리 업데이트 딜레이 해결)
             List<Vector2> reservedPositions = new List<Vector2>();
 
             for (int i = 0; i < spawnData.enemyCount; i++)
@@ -119,9 +125,9 @@ public class EnemySpawner : MonoBehaviour
                 }
 
                 // MainGameManager가 없거나 라운드가 종료되었는지 확인
-                if (MainGameManager.Instance != null)
+                if (_mainGameManager != null)
                 {
-                    int currentRound = MainGameManager.Instance.GetCurrentRoundIndex();
+                    int currentRound = _mainGameManager.GetCurrentRoundIndex();
                     if (currentRound < 0) // 라운드가 종료되면 -1로 설정됨
                     {
                         _isSpawningActive = false;
@@ -163,6 +169,12 @@ public class EnemySpawner : MonoBehaviour
             {
                 int index = FindEnemyIndex(enemyData);
                 if (index != -1) controller.SetEnemyIndex(index);
+                
+                // MainGameManager 초기화
+                if (_mainGameManager != null)
+                {
+                    controller.OnInitialize(_mainGameManager);
+                }
             }
         });
 
@@ -280,8 +292,6 @@ public class EnemySpawner : MonoBehaviour
         _activeSpawnCoroutines.Clear();
     }
 
-    // --- Helper Methods ---
-
     private bool IsValidWaveData(WaveData waveData)
     {
         if (waveData == null || waveData.enemySpawnDataList == null || waveData.enemySpawnDataList.Count == 0)
@@ -304,7 +314,6 @@ public class EnemySpawner : MonoBehaviour
         return -1;
     }
 
-#if UNITY_EDITOR
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
@@ -327,5 +336,4 @@ public class EnemySpawner : MonoBehaviour
             }
         }
     }
-#endif
 }

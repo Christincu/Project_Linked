@@ -33,24 +33,25 @@ public class GameDataManager : MonoBehaviour
 
     private GameManager _gameManager;
 
-    /// <summary>
-    /// GameDataManager를 초기화합니다. (GameManager에서 호출)
-    /// </summary>
-    public void OnInitialize(GameManager gameManager)
+    private void Awake()
     {
-        _gameManager = gameManager;
-
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
-        else
+        else if (Instance != this)
         {
             Destroy(gameObject);
             return;
         }
+    }
 
+    /// <summary>
+    /// GameDataManager를 초기화합니다. (GameManager에서 호출)
+    /// </summary>
+    public void OnInitialize(GameManager gameManager)
+    {
         _characterService.InitializeDictionary();
         _enemyService.InitializeDictionary();
         _stageService.InitializeDictionary();

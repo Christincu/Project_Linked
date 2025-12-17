@@ -29,6 +29,7 @@ public class MainCanvas : MonoBehaviour, ICanvas
 
     private GameManager _gameManager;
     private GameDataManager _gameDataManager;
+    private MainGameManager _mainGameManager;
     private PlayerController _localPlayer;
     private PlayerController _otherPlayer;
 
@@ -36,6 +37,11 @@ public class MainCanvas : MonoBehaviour, ICanvas
     private Coroutine _initCoroutine;
 
     private List<Image> _hpImages = new List<Image>();
+
+    public void SetMainGameManager(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
+    }
 
     public void OnInitialize(GameManager gameManager, GameDataManager gameDataManager)
     {
@@ -55,7 +61,7 @@ public class MainCanvas : MonoBehaviour, ICanvas
         if (player == null || !player.Object.IsValid) return;
 
         // InputAuthority 체크 (테스트 모드 예외 처리 포함)
-        bool isTestMode = MainGameManager.Instance != null && MainGameManager.Instance.IsTestMode;
+        bool isTestMode = _mainGameManager != null && _mainGameManager.IsTestMode;
         if (!isTestMode && !player.Object.HasInputAuthority) return;
 
         // 중복 등록 방지
@@ -149,9 +155,9 @@ public class MainCanvas : MonoBehaviour, ICanvas
 
     private void FindAndCacheOtherPlayer()
     {
-        if (MainGameManager.Instance == null) return;
+        if (_mainGameManager == null) return;
         
-        var foundPlayer = MainGameManager.Instance.FindOtherPlayer(_localPlayer);
+        var foundPlayer = _mainGameManager.FindOtherPlayer(_localPlayer);
         if (foundPlayer != null && foundPlayer != _otherPlayer)
         {
             _otherPlayer = foundPlayer;

@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 5820300570035122714}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.5751756, y: 2.0799396, z: -9.104303}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -44,10 +44,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c6d7f62a25c57e49b38ee83599f579c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _mainGameManagerPrefab: {fileID: 1935061100617456413, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
-  _mainCanvasPrefab: {fileID: 6663652681012781032, guid: 0aa7225c22f938946b0fbf2e3daf47fe, type: 3}
   _gameDataManagerPrefab: {fileID: 5831478817120600860, guid: 131a4e56d1ea23844a60896f01748436, type: 3}
   _fusionManagerPrefab: {fileID: 4524050043323689731, guid: 3583fc15177008e4fb29d324e21e2508, type: 3}
   _visualManagerPrefab: {fileID: 824813273749392938, guid: 3dd3b02a05dc6cc4c9838e33d8e32426, type: 3}
+  _mainGameManagerPrefab: {fileID: 1935061100617456413, guid: 2367e2e8059b32e4783a7a344a496194, type: 3}
   _warningPanelPrefab: {fileID: 2621339039182107631, guid: dd9f24397ee2f4748b8ddf3b59ebf48b, type: 3}
   _loadingPanelPrefab: {fileID: 7651666766029640032, guid: afa0feb7d6888db4887cb1a98398ba2a, type: 3}

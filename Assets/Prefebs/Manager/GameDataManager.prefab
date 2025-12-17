@@ -44,7 +44,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79870e3f4049bf84cb59e7ed1f62a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _defaltSpriteMat: {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
   _initialPlayerData:
     moveSpeed: 5
     maxVelocity: 8
@@ -62,15 +61,6 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 23b4395f3bc95a847aa5d014dbb9a059, type: 2}
     - {fileID: 11400000, guid: e868fb177fa132d4bafc5ff2cc5410ab, type: 2}
     - {fileID: 11400000, guid: c9736149a0a881849aaacc6e2f6fbdc2, type: 2}
-  _magicService:
-    _magics:
-    - {fileID: 11400000, guid: 401804c38e5d8034cb966fe5b982e5d8, type: 2}
-    - {fileID: 11400000, guid: 75ffd4758c5142142a4420990307fd7c, type: 2}
-    - {fileID: 11400000, guid: a55261af148396e46afef7a631a15315, type: 2}
-    - {fileID: 11400000, guid: 9b4f6a4c40c65a14a886b886215c95fb, type: 2}
-    _combinations:
-    - {fileID: 11400000, guid: 1d608f9057cc3f441aebc61e7b4f469a, type: 2}
-    - {fileID: 11400000, guid: bdbe6a56794d40c47bde2d2c8ee7820c, type: 2}
   _enemyService:
     _enemies:
     - {fileID: 11400000, guid: 0a80562d4c5f5d04d9140b47a36a46bf, type: 2}

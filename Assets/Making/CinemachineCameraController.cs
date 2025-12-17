@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using Cinemachine;
 
@@ -13,6 +13,7 @@ public class CinemachineCameraController : MonoBehaviour
     private Transform _currentTarget;    
     private bool _initialized = false;
     private Camera _mainCamera;
+    private MainGameManager _mainGameManager;
 
     void Start()
     {
@@ -22,7 +23,7 @@ public class CinemachineCameraController : MonoBehaviour
 
     IEnumerator InitializeCoroutine()
     {
-        while (MainGameManager.Instance == null)
+        while (_mainGameManager == null)
             yield return null;
 
         // VCam 찾기
@@ -40,7 +41,7 @@ public class CinemachineCameraController : MonoBehaviour
         if (!_initialized) return;
 
         // 테스트 모드 키 입력 체크
-        if (MainGameManager.Instance.IsTestMode)
+        if (_mainGameManager != null && _mainGameManager.IsTestMode)
         {
             if (Input.GetKeyDown(KeyCode.Alpha1) ||
                 Input.GetKeyDown(KeyCode.Alpha2))
@@ -81,18 +82,18 @@ public class CinemachineCameraController : MonoBehaviour
 
     void UpdateCameraTarget()
     {
-        if (MainGameManager.Instance == null)
+        if (_mainGameManager == null)
             return;
 
         PlayerController target = null;
 
-        if (MainGameManager.Instance.IsTestMode)
+        if (_mainGameManager.IsTestMode)
         {
-            target = MainGameManager.Instance.GetSelectedPlayer();
+            target = _mainGameManager.GetSelectedPlayer();
         }
         else
         {
-            target = MainGameManager.Instance.GetLocalPlayer();
+            target = _mainGameManager.GetLocalPlayer();
         }
 
         if (target == null || !target.gameObject.activeInHierarchy)
@@ -106,5 +107,13 @@ public class CinemachineCameraController : MonoBehaviour
             _vcam.Follow = _currentTarget;
             _vcam.LookAt = _currentTarget;
         }
+    }
+
+    /// <summary>
+    /// MainGameManager에서 호출하는 초기화 메서드입니다.
+    /// </summary>
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
     }
 }

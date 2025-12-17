@@ -17,6 +17,7 @@ public class MainCameraController : MonoBehaviour
     [SerializeField] private bool _useBoundary = false;
     [SerializeField] private Vector4 _cameraBounds = new Vector4(-50f, -50f, 50f, 50f);
 
+    private MainGameManager _mainGameManager;
     private PlayerController _targetPlayer;
     private Camera _camera;
     private bool _isInitialized = false;
@@ -50,7 +51,7 @@ public class MainCameraController : MonoBehaviour
         if (!_isInitialized)
         {
             // 초기화가 안 되어 있으면 타겟 플레이어 찾기 시도
-            if (MainGameManager.Instance != null)
+            if (_mainGameManager != null)
             {
                 UpdateTargetPlayer();
                 if (_targetPlayer != null)
@@ -73,7 +74,7 @@ public class MainCameraController : MonoBehaviour
         Vector3 targetPosition = GetTargetPosition();
         FollowTarget(targetPosition);
 
-        if (MainGameManager.Instance.IsTestMode)
+        if (_mainGameManager != null && _mainGameManager.IsTestMode)
         {
             HandleTestModeInput();
         }
@@ -100,7 +101,7 @@ public class MainCameraController : MonoBehaviour
 
     private IEnumerator InitializeTarget()
     {
-        while (MainGameManager.Instance == null)
+        while (_mainGameManager == null)
         {
             yield return null;
         }
@@ -118,20 +119,20 @@ public class MainCameraController : MonoBehaviour
     /// </summary>
     private void UpdateTargetPlayer()
     {
-        if (MainGameManager.Instance == null)
+        if (_mainGameManager == null)
         {
             return;
         }
         
         PlayerController newTarget = null;
         
-        if (MainGameManager.Instance.IsTestMode)
+        if (_mainGameManager.IsTestMode)
         {
-            newTarget = MainGameManager.Instance.GetSelectedPlayer();
+            newTarget = _mainGameManager.GetSelectedPlayer();
         }
         else
         {
-            newTarget = MainGameManager.Instance.GetLocalPlayer();
+            newTarget = _mainGameManager.GetLocalPlayer();
         }
         
         if (newTarget != null && newTarget != _targetPlayer)
@@ -160,7 +161,7 @@ public class MainCameraController : MonoBehaviour
     {
         _isInitialized = false;
         
-        while (MainGameManager.Instance == null)
+        while (_mainGameManager == null)
         {
             yield return null;
         }
@@ -212,6 +213,11 @@ public class MainCameraController : MonoBehaviour
         {
             UpdateTargetPlayer();
         }
+    }
+
+    public void OnInitialize(MainGameManager mainGameManager)
+    {
+        _mainGameManager = mainGameManager;
     }
 
     /// <summary>

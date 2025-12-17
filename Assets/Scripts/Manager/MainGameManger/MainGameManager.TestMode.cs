@@ -11,137 +11,168 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public partial class MainGameManager
 {
-    private void StartTestSession()
-    {
-        if (FusionManager.Instance == null) { Debug.LogError("[MainGameManager] FusionManager not found!"); return; }
+    // [설정] 테스트 캐릭터 인덱스 (Inspector에서 설정 가능하도록 필드 확보)
+    [Header("Test Mode Settings")]
+    [SerializeField] private int _firstCharacterIndex = 0;
+    [SerializeField] private int _secondCharacterIndex = 1;
 
-        // [테스트 모드 전용] Runner 생성 또는 가져오기
+    private async void StartTestSession()
+    {
+        Debug.Log("[MainGameManager] Initializing Test Session...");
+
+        // 1. Singleton Validation
+        if (FusionManager.Instance == null) 
+        { 
+            Debug.LogError("[MainGameManager] FusionManager not found! Cannot start session."); 
+            return; 
+        }
+
+        // 2. Runner Instantiation & Persistence
         if (FusionManager.LocalRunner == null)
         {
-            // 테스트 모드: Runner가 없으면 새로 생성
             GameObject go = new GameObject("TestRunner");
             _runner = go.AddComponent<NetworkRunner>();
+            
+            // CRITICAL FIX: Prevent "Runner Suicide".
+            // Moves the Runner to the DontDestroyOnLoad scene so it survives the scene reload.
+            DontDestroyOnLoad(go);
+
             _runner.AddCallbacks(FusionManager.Instance);
+            
+            // [Fix] Optimistically assign LocalRunner so the new MainGameManager (spawned after reload)
+            // sees that a runner is already being setup and skips its own StartTestSession logic.
+            FusionManager.LocalRunner = _runner;
         }
         else
         {
-            // 기존 Runner 재사용 (타이틀에서 넘어온 경우)
             _runner = FusionManager.LocalRunner;
         }
 
-        // Runner 시작 (Host/Single 모드)
+        // 3. Runner Configuration
         if (_runner != null && !_runner.IsRunning)
         {
             _runner.ProvideInput = true;
             
-            // 필수 컴포넌트 확인 및 추가
+            // Component Verification
             if (_runner.GetComponent<NetworkSceneManagerDefault>() == null)
                 _runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
-            
             if (_runner.GetComponent<NetworkObjectProviderDefault>() == null)
                 _runner.gameObject.AddComponent<NetworkObjectProviderDefault>();
 
-            // 물리 시뮬레이터 확인 및 추가
+            // Physics Setup
             var physicsSimulator = _runner.gameObject.GetComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
             if (physicsSimulator == null)
             {
                 physicsSimulator = _runner.gameObject.AddComponent<Fusion.Addons.Physics.RunnerSimulatePhysics2D>();
+                physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
             }
-            // Client Physics Simulation을 SimulateAlways로 설정 (가장 부드러운 움직임)
-            physicsSimulator.ClientPhysicsSimulation = Fusion.Addons.Physics.ClientPhysicsSimulation.SimulateAlways;
 
-            // Scene 정보 구성 (Fusion 2.0)
-            var sceneInfo = new NetworkSceneInfo();
-            sceneInfo.AddSceneRef(SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex), LoadSceneMode.Single);
-
-            var result = _runner.StartGame(new StartGameArgs
+            // 4. Scene Index Validation
+            // CRITICAL FIX: Check if the scene index is valid (-1 means not in Build Settings).
+            int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+            if (currentSceneIndex == -1)
             {
-                GameMode = GameMode.Single, // 테스트는 싱글 모드로 실행 (혼자서 2캐릭 조종)
-                SessionName = "EditorTestSession",
-                Scene = sceneInfo,
-                SceneManager = _runner.GetComponent<NetworkSceneManagerDefault>(),
-                ObjectProvider = _runner.GetComponent<NetworkObjectProviderDefault>()
-            });
+                Debug.LogError("[MainGameManager] Critical Error: The active scene is not added to the Build Settings.");
+                Debug.LogError("Please go to File > Build Settings and add the current open scene.");
+                // Revert optimistic assignment if we fail here
+                if (FusionManager.LocalRunner == _runner) FusionManager.LocalRunner = null;
+                return; 
+            }
 
-            FusionManager.LocalRunner = _runner;
+            var sceneInfo = new NetworkSceneInfo();
+            sceneInfo.AddSceneRef(SceneRef.FromIndex(currentSceneIndex), LoadSceneMode.Single);
+
+            Debug.Log($"[MainGameManager] Runner created. Starting GameMode.Single on Scene Index {currentSceneIndex}...");
+
+            // 5. Asynchronous Execution with Exception Handling
+            try 
+            {
+                // The await here will now work because the runner persists in DDOL.
+                var result = await _runner.StartGame(new StartGameArgs
+                {
+                    GameMode = GameMode.Single,
+                    SessionName = "EditorTestSession",
+                    Scene = sceneInfo,
+                    SceneManager = _runner.GetComponent<NetworkSceneManagerDefault>(),
+                    ObjectProvider = _runner.GetComponent<NetworkObjectProviderDefault>()
+                });
+
+                if (result.Ok)
+                {
+                    // FusionManager.LocalRunner = _runner; // Already set above
+                    Debug.Log("[MainGameManager] Test session started successfully (Task Completed).");
+                }
+                else
+                {
+                    Debug.LogError($"[MainGameManager] Failed to start Test Session: {result.ShutdownReason}");
+                    
+                    // Cleanup failed runner
+                    if (FusionManager.LocalRunner == _runner) FusionManager.LocalRunner = null;
+                    if (_runner != null) Destroy(_runner.gameObject);
+                    return;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[MainGameManager] Exception during StartGame: {ex.Message}\n{ex.StackTrace}");
+                 // Cleanup failed runner
+                if (FusionManager.LocalRunner == _runner) FusionManager.LocalRunner = null;
+                if (_runner != null) Destroy(_runner.gameObject);
+                return;
+            }
         }
-
-        if (_runner.IsServer)
+        else if (_runner.IsRunning)
         {
-            SpawnTestPlayers();
-            StartCoroutine(Co_InitializeGameSession());
+             Debug.LogWarning("[MainGameManager] Runner is already running. Ignoring StartTestSession call.");
         }
 
-        GameManager.Instance.FinishLoadingScreen();
+        // 6. UI Finalization
+        if (_gameManager != null) 
+        {
+            _gameManager.FinishLoadingScreen();
+        }
     }
 
     private void SpawnTestPlayers()
     {
-        if (_runner == null || !_runner.IsServer) return;
+        var runner = FusionManager.LocalRunner;
+        
+        if (runner == null || !runner.IsRunning || !runner.IsServer)
+        {
+            Debug.LogWarning($"[MainGameManager] Cannot spawn test players: Runner={runner != null}, IsRunning={runner?.IsRunning}, IsServer={runner?.IsServer}");
+            return;
+        }
 
-        // 테스트 모드에서는 모든 플레이어가 localPlayer를 InputAuthority로 사용
-        var localPlayer = _runner.LocalPlayer;
-
-        // 가상 PlayerRef 생성 (PlayerData 식별용)
-        PlayerRef player1Ref = PlayerRef.FromIndex(0);
-        PlayerRef player2Ref = PlayerRef.FromIndex(1);
-
+        var localPlayer = runner.LocalPlayer;
         Vector3 spawnPos0 = GetSceneSpawnPosition(0);
         Vector3 spawnPos1 = GetSceneSpawnPosition(1);
 
-        // PlayerData 먼저 생성 (이미 존재하는 경우 재사용)
-        NetworkObject playerData1 = null;
-        NetworkObject playerData2 = null;
+        NetworkObject pdObj1 = null;
+        NetworkObject pdObj2 = null;
 
-        // [수정] 기존 PlayerData 확인 (씬 전환 후에도 유지되는 경우)
-        PlayerData[] existingPlayerData = FindObjectsOfType<PlayerData>();
-        foreach (var pd in existingPlayerData)
+        // [Fix] Check if runner is valid before proceeding
+        if (runner == null || !runner.IsRunning || runner.IsShutdown) return;
+
+        var existingData = FindObjectsOfType<PlayerData>();
+        if (existingData != null)
         {
-            if (pd != null && pd.Object != null && pd.Object.IsValid)
+            foreach (var pd in existingData)
             {
-                // 첫 번째 플레이어 데이터 확인
-                if (playerData1 == null && pd.CharacterIndex == _firstCharacterIndex)
-                {
-                    playerData1 = pd.Object;
-                }
-                // 두 번째 플레이어 데이터 확인
-                else if (playerData2 == null && pd.CharacterIndex == _secondCharacterIndex)
-                {
-                    playerData2 = pd.Object;
-                }
+                if (pd == null) continue;
+                if (pd.CharacterIndex == _firstCharacterIndex) pdObj1 = pd.Object;
+                if (pd.CharacterIndex == _secondCharacterIndex) pdObj2 = pd.Object;
             }
         }
 
-        // [수정] 없을 때만 새로 생성
-        if (FusionManager.Instance != null && FusionManager.Instance.PlayerDataPrefab != null)
-        {
-            if (playerData1 == null)
-            {
-                playerData1 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
-                {
-                    if (obj.TryGetComponent(out PlayerData pd))
-                    {
-                        pd.CharacterIndex = _firstCharacterIndex;
-                        pd.Nick = "TestPlayer 1";
-                    }
-                });
-            }
+        if (pdObj1 == null)
+            pdObj1 = runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer,
+                (r, obj) => SetupPlayerData(obj, _firstCharacterIndex, "TestPlayer 1"));
 
-            if (playerData2 == null)
-            {
-                playerData2 = _runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer, (runner, obj) =>
-                {
-                    if (obj.TryGetComponent(out PlayerData pd))
-                    {
-                        pd.CharacterIndex = _secondCharacterIndex;
-                        pd.Nick = "TestPlayer 2";
-                    }
-                });
-            }
-        }
+        if (pdObj2 == null)
+            pdObj2 = runner.Spawn(FusionManager.Instance.PlayerDataPrefab, Vector3.zero, Quaternion.identity, localPlayer,
+                (r, obj) => SetupPlayerData(obj, _secondCharacterIndex, "TestPlayer 2"));
 
-        // Player 1 스폰 (InputAuthority는 localPlayer)
-        _playerObj1 = _runner.Spawn(_playerPrefab, spawnPos0, Quaternion.identity, localPlayer, (runner, obj) =>
+        _testPlayerObj1 = runner.Spawn(_playerPrefab, spawnPos0, Quaternion.identity, localPlayer, (r, obj) =>
         {
             var controller = obj.GetComponent<PlayerController>();
             if (controller != null)
@@ -151,8 +182,7 @@ public partial class MainGameManager
             }
         });
 
-        // Player 2 스폰 (InputAuthority는 localPlayer)
-        _playerObj2 = _runner.Spawn(_playerPrefab, spawnPos1, Quaternion.identity, localPlayer, (runner, obj) =>
+        _testPlayerObj2 = runner.Spawn(_playerPrefab, spawnPos1, Quaternion.identity, localPlayer, (r, obj) =>
         {
             var controller = obj.GetComponent<PlayerController>();
             if (controller != null)
@@ -161,62 +191,34 @@ public partial class MainGameManager
                 controller.PlayerSlot = 1;
             }
         });
-
-        // PlayerData와 Player 연결
-        if (playerData1 != null && playerData1.TryGetComponent(out PlayerData pd1))
-        {
-            // [수정] Instance 필드에 직접 할당 (StateAuthority에서만 가능)
-            if (pd1.Object != null && pd1.Object.HasStateAuthority)
-            {
-                pd1.Instance = _playerObj1;
-                Debug.Log("[MainGameManager.TestMode] Assigned _playerObj1 to PlayerData.Instance");
-            }
-        }
-
-        if (playerData2 != null && playerData2.TryGetComponent(out PlayerData pd2))
-        {
-            // [수정] Instance 필드에 직접 할당 (StateAuthority에서만 가능)
-            if (pd2.Object != null && pd2.Object.HasStateAuthority)
-            {
-                pd2.Instance = _playerObj2;
-                Debug.Log("[MainGameManager.TestMode] Assigned _playerObj2 to PlayerData.Instance");
-            }
-        }
-
-        if (_playerObj1 != null) _spawnedPlayers[localPlayer] = _playerObj1;
-        if (_playerObj1 != null)
-        {
-            _runner.SetPlayerObject(localPlayer, _playerObj1);
-        }
-
-        // UI에 첫 번째 플레이어 등록
-        if (GameManager.Instance?.Canvas is MainCanvas canvas && _playerObj1 != null)
-        {
-            canvas.RegisterPlayer(_playerObj1.GetComponent<PlayerController>());
-        }
-
-        InitializeMainCamera();
         
-        // 초기 선택 슬롯 설정
+        if (pdObj1 != null && _testPlayerObj1 != null && pdObj1.TryGetComponent(out PlayerData data1)) data1.Instance = _testPlayerObj1;
+        if (pdObj2 != null && _testPlayerObj2 != null && pdObj2.TryGetComponent(out PlayerData data2)) data2.Instance = _testPlayerObj2;
+
+        // [Fix] Must register the local player object so WaitForLocalPlayerObject doesn't hang
+        if (_testPlayerObj1 != null)
+        {
+            _spawnedPlayers[localPlayer] = _testPlayerObj1;
+            runner.SetPlayerObject(localPlayer, _testPlayerObj1);
+        }
+
         SelectedSlot = 0;
         UpdateCanvasForSelectedPlayer();
     }
 
-    private void InitializeMainCamera()
+    // PlayerData 초기화 헬퍼
+    private void SetupPlayerData(NetworkObject obj, int charIndex, string nick)
     {
-        Camera mainCamera = Camera.main;
-        if (mainCamera != null && _playerObj1 != null)
+        if (obj.TryGetComponent(out PlayerData pd))
         {
-            MainCameraController cameraController = mainCamera.GetComponent<MainCameraController>();
-            if (cameraController != null)
-            {
-                cameraController.SetTarget(_playerObj1.GetComponent<PlayerController>());
-            }
+            pd.CharacterIndex = charIndex;
+            pd.Nick = nick;
         }
     }
 
     private void HandleTestModeInput()
     {
+        // F1: 플레이어 1 선택
         if (Input.GetKeyDown(KeyCode.F1))
         {
             if (SelectedSlot != 0)
@@ -225,6 +227,7 @@ public partial class MainGameManager
                 UpdateCanvasForSelectedPlayer();
             }
         }
+        // F2: 플레이어 2 선택
         if (Input.GetKeyDown(KeyCode.F2))
         {
             if (SelectedSlot != 1)
@@ -234,45 +237,61 @@ public partial class MainGameManager
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.T)) ApplyTestHealthChange(-1f, "Damage");
-        if (Input.GetKeyDown(KeyCode.Y)) ApplyTestHealthChange(1f, "Heal");
-        if (Input.GetKeyDown(KeyCode.U)) ApplyTestHealthChange(999f, "Full Heal");
+        // 테스트 치트키
+        if (Input.GetKeyDown(KeyCode.T)) ApplyTestHealthChange(-10f, "Damage");
+        if (Input.GetKeyDown(KeyCode.Y)) ApplyTestHealthChange(10f, "Heal");
+        if (Input.GetKeyDown(KeyCode.U)) ApplyTestHealthChange(9999f, "Full Heal");
     }
 
     private void UpdateCanvasForSelectedPlayer()
     {
         if (!_isTestMode) return;
 
-        NetworkObject targetObj = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
-        if (targetObj == null) return;
+        // 선택된 플레이어 객체 가져오기
+        NetworkObject targetObj = SelectedSlot == 0 ? _testPlayerObj1 : _testPlayerObj2;
+
+        if (targetObj == null || !targetObj.IsValid) return;
 
         var controller = targetObj.GetComponent<PlayerController>();
         if (controller == null) return;
 
+        // UI 연결
         if (GameManager.Instance != null && GameManager.Instance.Canvas is MainCanvas canvas)
         {
             canvas.RegisterPlayer(controller);
         }
 
-        Camera mainCamera = Camera.main;
-        if (mainCamera != null)
+        // 카메라 연결
+        if (Camera.main != null && Camera.main.TryGetComponent<MainCameraController>(out var camController))
         {
-            var camController = mainCamera.GetComponent<MainCameraController>();
-            if (camController != null)
-            {
-                camController.SetTarget(controller);
-            }
+            camController.SetTarget(controller);
         }
     }
 
     private void ApplyTestHealthChange(float amount, string type)
     {
-        var player = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
-        if (player != null && player.TryGetComponent(out PlayerController controller))
+        var targetObj = SelectedSlot == 0 ? _testPlayerObj1 : _testPlayerObj2;
+
+        if (targetObj != null && targetObj.TryGetComponent(out PlayerController controller))
         {
-            if (type == "Damage") controller.TakeDamage(Mathf.Abs(amount));
-            else if (type == "Heal") controller.Heal(amount);
-            else if (type == "Full Heal") controller.SetHealth(controller.MaxHealth);
+            Debug.Log($"[TestMode] {type} : {amount}");
+
+            if (amount < 0)
+                controller.TakeDamage(Mathf.Abs(amount));
+            else if (amount >= 9999f)
+                controller.SetHealth(controller.MaxHealth);
+            else
+                controller.Heal(amount);
         }
+    }
+
+    /// <summary>
+    /// 테스트 모드에서 현재 선택된 플레이어를 반환합니다.
+    /// </summary>
+    public PlayerController GetSelectedPlayer()
+    {
+        if (!_isTestMode) return null;
+        var target = SelectedSlot == 0 ? _testPlayerObj1 : _testPlayerObj2;
+        return (target != null && target.IsValid) ? target.GetComponent<PlayerController>() : null;
     }
 }
