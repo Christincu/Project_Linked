@@ -172,7 +172,7 @@ public class EnemyDetector : MonoBehaviour
         }
 
         // 위협점수 기반으로 플레이어 목록 정렬
-        List<(PlayerController player, float threatScore, float distance)> detectablePlayers = new List<(PlayerController, float, float)>();
+        List<(PlayerController player, float distance)> detectablePlayers = new List<(PlayerController, float)>();
         
         foreach (var player in allPlayers)
         {
@@ -190,10 +190,7 @@ public class EnemyDetector : MonoBehaviour
 
             // 3. 시야 체크 (레이캐스트로 장애물 확인)
             if (!HasLineOfSight(enemyPos, playerPos)) continue;
-
-            // 탐지 가능한 플레이어 목록에 추가 (위협점수와 거리 정보 포함)
-            float threatScore = player.ThreatScore;
-            detectablePlayers.Add((player, threatScore, distance));
+            detectablePlayers.Add((player, distance));
         }
         
         // 탐지 가능한 플레이어가 없으면 false 반환
@@ -201,17 +198,6 @@ public class EnemyDetector : MonoBehaviour
         {
             return false;
         }
-        
-        // 위협점수 높은 순으로 정렬 (같으면 거리 가까운 순)
-        detectablePlayers.Sort((a, b) =>
-        {
-            // 위협점수 비교 (높은 순)
-            int threatComparison = b.threatScore.CompareTo(a.threatScore);
-            if (threatComparison != 0) return threatComparison;
-            
-            // 위협점수가 같으면 거리 가까운 순
-            return a.distance.CompareTo(b.distance);
-        });
         
         // 가장 위협점수가 높은 플레이어 선택
         var selectedPlayer = detectablePlayers[0];

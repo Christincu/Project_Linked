@@ -11,11 +11,7 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public partial class MainGameManager
 {
-    // =========================================================
-    // 테스트 모드 로직
-    // =========================================================
-
-    private async Task StartTestSession()
+    private void StartTestSession()
     {
         if (FusionManager.Instance == null) { Debug.LogError("[MainGameManager] FusionManager not found!"); return; }
 
@@ -58,7 +54,7 @@ public partial class MainGameManager
             var sceneInfo = new NetworkSceneInfo();
             sceneInfo.AddSceneRef(SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex), LoadSceneMode.Single);
 
-            var result = await _runner.StartGame(new StartGameArgs
+            var result = _runner.StartGame(new StartGameArgs
             {
                 GameMode = GameMode.Single, // 테스트는 싱글 모드로 실행 (혼자서 2캐릭 조종)
                 SessionName = "EditorTestSession",
@@ -67,30 +63,16 @@ public partial class MainGameManager
                 ObjectProvider = _runner.GetComponent<NetworkObjectProviderDefault>()
             });
 
-            if (result.Ok)
-            {
-                FusionManager.LocalRunner = _runner;
-            }
-            else
-            {
-                Debug.LogError($"[MainGameManager] Failed to start Test Session: {result.ShutdownReason}");
-                return;
-            }
+            FusionManager.LocalRunner = _runner;
         }
 
-        // 플레이어 스폰 (Runner가 준비된 후)
         if (_runner.IsServer)
         {
-            // 씬 로드 및 초기화 대기
-            // StartGame 직후에는 아직 객체들이 준비되지 않았을 수 있으므로 잠시 대기
-            await Task.Delay(100); 
             SpawnTestPlayers();
-            
-            // 일반 게임 초기화 로직도 실행 (UI, 매니저 등)
             StartCoroutine(Co_InitializeGameSession());
         }
 
-        GameManager.Instance?.FinishLoadingScreen();
+        GameManager.Instance.FinishLoadingScreen();
     }
 
     private void SpawnTestPlayers()
@@ -201,14 +183,7 @@ public partial class MainGameManager
             }
         }
 
-        // 첫 번째 플레이어를 딕셔너리에 추가 (기본값)
         if (_playerObj1 != null) _spawnedPlayers[localPlayer] = _playerObj1;
-
-        // =================================================================
-        // [중요] Runner에 플레이어 객체를 등록해야 WaitForLocalPlayerObject 통과 가능
-        // 테스트 모드이므로 1번 슬롯 캐릭터를 메인으로 등록합니다.
-        // 이 코드가 없으면 Co_InitializeGameSession의 Client_WaitForLocalPlayerObject가 타임아웃됩니다.
-        // =================================================================
         if (_playerObj1 != null)
         {
             _runner.SetPlayerObject(localPlayer, _playerObj1);
@@ -242,7 +217,6 @@ public partial class MainGameManager
 
     private void HandleTestModeInput()
     {
-        // F1/F2 키로 조작 대상 전환
         if (Input.GetKeyDown(KeyCode.F1))
         {
             if (SelectedSlot != 0)
@@ -260,7 +234,6 @@ public partial class MainGameManager
             }
         }
 
-        // T/Y/U 키로 데미지/힐 테스트
         if (Input.GetKeyDown(KeyCode.T)) ApplyTestHealthChange(-1f, "Damage");
         if (Input.GetKeyDown(KeyCode.Y)) ApplyTestHealthChange(1f, "Heal");
         if (Input.GetKeyDown(KeyCode.U)) ApplyTestHealthChange(999f, "Full Heal");
@@ -276,17 +249,11 @@ public partial class MainGameManager
         var controller = targetObj.GetComponent<PlayerController>();
         if (controller == null) return;
 
-        // Canvas 등록 및 전체 UI 업데이트
         if (GameManager.Instance != null && GameManager.Instance.Canvas is MainCanvas canvas)
         {
             canvas.RegisterPlayer(controller);
-            
-            // 플레이어 등록 후 전체 UI 업데이트 (코루틴 완료 대기 없이 즉시 업데이트)
-            // RegisterPlayer는 코루틴으로 실행되므로, 약간의 지연 후 전체 UI 업데이트
-            canvas.StartCoroutine(Co_DelayedFullUIUpdate(canvas));
         }
 
-        // 카메라 타겟 변경
         Camera mainCamera = Camera.main;
         if (mainCamera != null)
         {
@@ -297,42 +264,15 @@ public partial class MainGameManager
             }
         }
     }
-    
-    /// <summary>
-    /// 플레이어 등록 후 전체 UI를 업데이트합니다.
-    /// RegisterPlayer의 코루틴이 완료될 때까지 대기한 후 업데이트합니다.
-    /// </summary>
-    private IEnumerator Co_DelayedFullUIUpdate(MainCanvas canvas)
-    {
-        // 플레이어 등록 코루틴이 완료될 때까지 대기 (최대 1초)
-        float timeout = 1.0f;
-        float timer = 0f;
-        
-        while (timer < timeout)
-        {
-            // MainCanvas의 _localPlayer가 설정되었는지 확인
-            if (canvas != null)
-            {
-                // 리플렉션을 사용하지 않고, RegisterPlayer가 완료되면 자동으로 UpdateAllUI가 호출되도록
-                // RegisterPlayer 내부에서 처리하므로 여기서는 단순 대기만 함
-                yield return new WaitForSeconds(0.1f);
-                timer += 0.1f;
-            }
-            else
-            {
-                yield break;
-            }
-        }
-    }
 
     private void ApplyTestHealthChange(float amount, string type)
     {
         var player = SelectedSlot == 0 ? _playerObj1 : _playerObj2;
-        if (player != null && player.TryGetComponent(out PlayerController controller) && controller.State != null)
+        if (player != null && player.TryGetComponent(out PlayerController controller))
         {
-            if (type == "Damage") controller.State.TakeDamage(Mathf.Abs(amount));
-            else if (type == "Heal") controller.State.Heal(amount);
-            else if (type == "Full Heal") controller.State.SetHealth(controller.State.MaxHealth);
+            if (type == "Damage") controller.TakeDamage(Mathf.Abs(amount));
+            else if (type == "Heal") controller.Heal(amount);
+            else if (type == "Full Heal") controller.SetHealth(controller.MaxHealth);
         }
     }
 }

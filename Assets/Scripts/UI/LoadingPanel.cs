@@ -63,7 +63,6 @@ public class LoadingPanel : MonoBehaviour
         }
     }
 
-    #region Public API
     /// <summary>
     /// 로딩 화면을 표시합니다 (수동 제어용).
     /// </summary>
@@ -108,9 +107,6 @@ public class LoadingPanel : MonoBehaviour
         if (Instance == null) return;
         Instance.StartCoroutine(Instance.ShowDuringAsyncInternal(operationFunc, onComplete));
     }
-    #endregion
-
-    #region Internal Methods
     private void ShowInternal()
     {
         if (_image != null)
@@ -181,10 +177,6 @@ public class LoadingPanel : MonoBehaviour
             _image.raycastTarget = false;
         }
     }
-    #endregion
-
-    #region Legacy Support (for Animation Events)
     public void Open() => Show();
     public void Close() => Hide();
-    #endregion
 }

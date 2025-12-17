@@ -159,33 +159,9 @@ public class EnemyController : NetworkBehaviour
             // 1. 플레이어 탐지 (위협점수 기반 우선순위)
             if (_detector.DetectPlayer(out PlayerController detectedPlayer))
             {
-                // 현재 추적 중인 플레이어와 비교하여 위협점수가 더 높은 플레이어가 있으면 타겟 변경
-                PlayerController currentTarget = _detector.DetectedPlayer;
-                if (currentTarget != null && detectedPlayer != null)
-                {
-                    // 위협점수가 더 높은 플레이어를 우선 선택
-                    if (detectedPlayer.ThreatScore > currentTarget.ThreatScore)
-                    {
-                        // 더 위협적인 플레이어 발견 - 타겟 변경
-                        Vector2 playerPos = (Vector2)detectedPlayer.transform.position;
-                        _movement.MoveTo(playerPos);
-                        IsInvestigating = false;
-                    }
-                    else
-                    {
-                        // 기존 타겟 유지
-                        Vector2 playerPos = (Vector2)currentTarget.transform.position;
-                        _movement.MoveTo(playerPos);
-                        IsInvestigating = false;
-                    }
-                }
-                else
-                {
-                    // 플레이어 탐지됨 - 플레이어 위치로 이동
-                    Vector2 playerPos = (Vector2)detectedPlayer.transform.position;
-                    _movement.MoveTo(playerPos);
-                    IsInvestigating = false;
-                }
+                Vector2 playerPos = (Vector2)detectedPlayer.transform.position;
+                _movement.MoveTo(playerPos);
+                IsInvestigating = false;
             }
             else
             {
@@ -450,10 +426,10 @@ public class EnemyController : NetworkBehaviour
         }
         
         // 플레이어와 충돌 시 데미지 적용
-        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerState.TakeDamage에서 처리)
-        if (player != null && !player.IsDead && player.State != null)
+        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerController.TakeDamage에서 처리)
+        if (player != null && !player.IsDead)
         {
-            player.State.TakeDamage(1f);
+            player.TakeDamage(1f);
             Debug.Log($"[EnemyController] {name} hit {player.name}, dealt 1 damage");
         }
     }
@@ -486,10 +462,10 @@ public class EnemyController : NetworkBehaviour
         }
         
         // 플레이어와 충돌 시 데미지 적용
-        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerState.TakeDamage에서 처리)
-        if (player != null && !player.IsDead && player.State != null)
+        // [최종 강화 무적] Dash Magic 최종 강화 상태에서는 데미지 무시 (PlayerController.TakeDamage에서 처리)
+        if (player != null && !player.IsDead)
         {
-            player.State.TakeDamage(1f);
+            player.TakeDamage(1f);
         }
     }
 

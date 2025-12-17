@@ -8,5 +8,5 @@ public interface ISceneGameManager
     /// <summary>
     /// 씬 매니저 초기화 메서드
     /// </summary>
-    void Initialize(GameManager gameManager, GameDataManager gameDataManager);
+    void OnInitialize(GameManager gameManager, GameDataManager gameDataManager);
 }

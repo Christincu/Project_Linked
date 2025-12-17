@@ -6,10 +6,42 @@ using WaveGoalTypeEnum = WaveGoalType;
 
 public partial class MainGameManager
 {
-    // ============================================================================================
-    // [Door & Wave Logic Merged]
-    // 문 관리와 웨이브 진행 로직 통합 (검색 로직 제거 버전)
-    // ============================================================================================
+    private class WaveProgress
+    {
+        public WaveData waveData;
+        public int currentGoalCount = 0;
+        public float elapsedTime = 0f;
+        public bool isCompleted = false;
+
+        public WaveProgress() { }
+        public WaveProgress(WaveData data)
+        {
+            waveData = data;
+            currentGoalCount = 0;
+            elapsedTime = 0f;
+            isCompleted = false;
+        }
+    }
+
+    [SerializeField] private StageData _currentStageData;
+    [SerializeField] private List<RoundTrigger> _roundTriggers = new List<RoundTrigger>();
+
+    [Networked] public int RoundIndex { get; private set; } = -1;
+    [Networked] public int WaveIndex { get; private set; } = -1;
+    [Networked] public int WaveGoalType { get; private set; } = -1;
+    [Networked] public int WaveCurrentGoal { get; private set; } = 0;
+    [Networked] public int WaveTotalGoal { get; private set; } = 0;
+    [Networked] public float WaveElapsedTime { get; private set; } = 0f;
+
+    private Dictionary<int, WaveProgress> _activeWaves = new Dictionary<int, WaveProgress>();
+
+    private int _currentRoundIndex = -1;
+    private int _currentWaveIndex = -1;
+
+    private List<EnemySpawner> _currentRoundEnemySpawners = new List<EnemySpawner>();
+    private List<GoalSpawner> _currentRoundGoalSpawners = new List<GoalSpawner>();
+    private List<RoundDoorNetworkController> _currentRoundDoorObjects = new List<RoundDoorNetworkController>();
+    private List<GameObject> _currentRoundEndActiveObject = new List<GameObject>();
 
     /// <summary>
     /// 스테이지 데이터를 기반으로 적 스폰을 초기화합니다.

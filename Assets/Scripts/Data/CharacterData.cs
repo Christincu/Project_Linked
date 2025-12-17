@@ -25,9 +25,6 @@ public class CharacterData : ScriptableObject
     [Tooltip("Character description")]
     public string description;
 
-    public MagicData magicData1;
-    public MagicData magicData2;
-
 #if UNITY_EDITOR
     private void OnValidate()
     {

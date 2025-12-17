@@ -7,17 +7,28 @@ using UnityEngine.SceneManagement;
 
 public partial class MainGameManager
 {
-    // ==================================================================================
-    // Constants (매직 넘버 관리)
-    // ==================================================================================
+    [Header("References")]
+    [SerializeField] private NetworkPrefabRef _playerPrefab;
+
+    [Header("Spawn Settings")]
+    [SerializeField] private Vector2[] _spawnPositions = new Vector2[]
+    {
+        new Vector2(0, 2), new Vector2(0, -2)
+    };
+
+    public static int SelectedSlot = 0;
+    private NetworkObject _playerObj1;
+    private NetworkObject _playerObj2;
+
+    [SerializeField] private int _firstCharacterIndex = 0;
+    [SerializeField] private int _secondCharacterIndex = 1;
+
+    private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
+
     private const float TIMEOUT_RUNNER_SEARCH = 10f;
     private const float TIMEOUT_PLAYER_SPAWN = 20f;
     private const float TIMEOUT_COMPONENT_INIT = 10f;
     private const float RETRY_INTERVAL = 0.1f;
-
-    // ==================================================================================
-    // 1. 초기화 흐름 (Direct & Legacy 통합)
-    // ==================================================================================
 
     /// <summary>
     /// [최적화된 초기화] Spawned()에서 호출. Runner 대기 없이 바로 실행.
@@ -63,10 +74,6 @@ public partial class MainGameManager
             Debug.LogError("[MainGameManager] GameManager 인스턴스가 없어 로딩 패널을 끌 수 없습니다.");
         }
     }
-
-    // ==================================================================================
-    // 2. 단계별 코루틴 (상세 구현)
-    // ==================================================================================
 
     /// <summary>
     /// NetworkRunner가 준비될 때까지 대기합니다.
@@ -186,10 +193,6 @@ public partial class MainGameManager
         }
     }
 
-    // ==================================================================================
-    // 3. 서버 스폰 로직
-    // ==================================================================================
-
     private IEnumerator Server_SpawnPlayerIfNeeded(PlayerRef playerRef)
     {
         if (!_runner.IsServer) yield break;
@@ -260,10 +263,6 @@ public partial class MainGameManager
             _spawnedPlayers[playerRef] = playerObj;
         }
     }
-
-    // ==================================================================================
-    // 4. 조회 및 유틸리티 (핵심 리팩토링 구간)
-    // ==================================================================================
 
     private void OnPlayerJoinedDuringGame(PlayerRef player, NetworkRunner runner)
     {
@@ -411,9 +410,6 @@ public partial class MainGameManager
         {
             var selected = GetSelectedPlayer();
             var otherObj = (selected == _playerObj1) ? _playerObj2 : _playerObj1; // 반대편 선택
-            
-            // 만약 현재 조작중인게 localPlayer가 아니라면(관전 등), 그냥 조작중인거 반환? 
-            // 원본 로직 유지: localPlayer가 선택된 애라면 반대편, 아니면 선택된 애 리턴
             if (localPlayer == selected)
             {
                 return (otherObj != null && otherObj.IsValid) ? otherObj.GetComponent<PlayerController>() : null;

@@ -20,7 +20,7 @@ public class TitleGameManager : MonoBehaviour, ISceneGameManager
     /// <summary>
     /// ISceneManager 인터페이스 구현: GameManager에서 호출되는 초기화 메서드
     /// </summary>
-    public void Initialize(GameManager gameManager, GameDataManager gameDataManager)
+    public void OnInitialize(GameManager gameManager, GameDataManager gameDataManager)
     {
         // 상태 초기화 (씬 재진입 시 대비)
         _isConnecting = false;

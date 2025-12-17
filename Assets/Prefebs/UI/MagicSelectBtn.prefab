@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 6643352525497016330}
   - component: {fileID: 5944706441607086164}
   - component: {fileID: 7836146295838646485}
-  - component: {fileID: 1705190511291961168}
   m_Layer: 5
   m_Name: MagicSelectBtn
   m_TagString: Untagged
@@ -123,20 +122,6 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &1705190511291961168
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3488338395725521328}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3531afd4d7106b641ad53b183635759e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _magicImage: {fileID: 8642932196734185352}
-  _magicNameText: {fileID: 4429487276053567700}
 --- !u!1 &6618627236290022726
 GameObject:
   m_ObjectHideFlags: 0

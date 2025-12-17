@@ -6,31 +6,22 @@ using Fusion;
 /// </summary>
 public class PlayerAnimationController : MonoBehaviour
 {
-    #region Constants
-    private const float MIN_MOVEMENT_SPEED = 0.1f; // Wall collision detection threshold
-    #endregion
-
-    #region Private Fields
+    private const float MIN_MOVEMENT_SPEED = 0.1f;
     private PlayerController _controller;
     private Animator _animator;
     private GameObject _viewObj;
     private Vector2 _previousPosition;
     private string _lastAnimationState = "";
-    #endregion
 
-    #region Properties
     public Animator Animator => _animator;
-    #endregion
 
-    #region Initialization
     /// <summary>
     /// 초기화합니다.
     /// </summary>
     public void Initialize(PlayerController controller)
     {
         _controller = controller;
-        _viewObj = controller.ViewObj;
-        
+
         if (_viewObj != null)
         {
             _animator = _viewObj.GetComponent<Animator>();
@@ -38,9 +29,7 @@ public class PlayerAnimationController : MonoBehaviour
         
         _previousPosition = controller.transform.position;
     }
-    #endregion
 
-    #region Animation Update
     /// <summary>
     /// 실제 이동 거리를 기반으로 애니메이션 상태를 업데이트합니다. (서버 전용)
     /// </summary>
@@ -113,6 +102,5 @@ public class PlayerAnimationController : MonoBehaviour
             _animator = null;
         }
     }
-    #endregion
 }
 
